@@ -21,7 +21,7 @@ repository               : "galraz/galraz.github.io"
 #               Additional customization can be done by editing /_includes/author-profile.html
 author:
   # Biographic information
-  avatar           : "profile.png"
+  avatar           : "me_yosemite.png"
   name             : "Gal Raz"
   pronouns         : # example: "she/her"  
   bio              : "PhD Student @ MIT Brain & Cognitive Sciences"
