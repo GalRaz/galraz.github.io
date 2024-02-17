@@ -7,7 +7,5 @@ redirect_from:
   - /about.html
 ---
 
-#Hi
-
-This is Gal, I'm a 5th year PhD student at MIT working with Rebecca Saxe in the Department of Brain and Cognitive Sciences.
+Hi! This is Gal, I'm a 5th year PhD student at MIT working with Rebecca Saxe in the Department of Brain and Cognitive Sciences.
 
