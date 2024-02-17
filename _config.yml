@@ -26,7 +26,7 @@ author:
   pronouns         : # example: "she/her"  
   bio              : "PhD Student @ MIT Brain & Cognitive Sciences"
   location         : "Cambridge, MA"
-  employer         : "MIT"
+  employer         : #"MIT"
   uri              : # URL
   email            : "galraz@mit.edu" 
 
