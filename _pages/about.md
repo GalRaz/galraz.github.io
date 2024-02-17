@@ -7,7 +7,7 @@ redirect_from:
   - /about.html
 ---
 
-Hi! This is Gal, I'm a 5th year PhD student at MIT working with [Prof. Rebecca Saxe](https://saxelab.mit.edu/) in the [Department of Brain and Cognitive Sciences](https://bcs.mit.edu/). I work on better understanding the computational mechanisms underlying visual attention, particularly in preverbal infants. To do this research, I use tools from developmental psychology, computational cognitive science and optimal decision theory. I also work on [automated tools for infant behavioral testing](https://osf.io/preprints/psyarxiv/k65yx) to make the study of the developing mind faster and more robust.
+Hi! This is Gal, I'm a 5th year PhD student at MIT working with [Prof. Rebecca Saxe](https://saxelab.mit.edu/) in the [Department of Brain and Cognitive Sciences](https://bcs.mit.edu/). I work on better understanding the computational mechanisms underlying visual attention, particularly in preverbal infants. To do this research, I use tools from developmental psychology, computational cognitive science and optimal decision theory. I also work on [automated tools for infant behavioral testing](https://osf.io/preprints/psyarxiv/k65yx) to accelerate the study of the developing mind and make it more robust.
 
 Before my PhD, I did my MSc in [Experimental Psychology at the University of Oxford](https://www.psy.ox.ac.uk/) and my BSc in Cognitive Neuroscience at [University College Utrecht](https://www.uu.nl/en/organisation/university-college-utrecht/about-ucu). 
 
