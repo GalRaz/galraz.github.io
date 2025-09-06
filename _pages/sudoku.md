@@ -97,28 +97,39 @@ author_profile: true
   border: 3px solid #333;
   background: #333;
   margin: 20px 0;
+  padding: 0;
 }
 
 .sudoku-row {
-  display: flex;
+  display: block;
+  margin: 0;
+  padding: 0;
+  line-height: 0;
 }
 
 .sudoku-cell {
-  width: 50px;
-  height: 50px;
+  display: inline-block;
+  width: 40px;
+  height: 40px;
   border: 1px solid #666;
   background: white;
   text-align: center;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: bold;
-  line-height: 50px;
+  line-height: 40px;
+  margin: 0;
+  padding: 0;
   cursor: text;
   transition: background-color 0.2s;
+  vertical-align: top;
+  box-sizing: border-box;
 }
 
 .sudoku-cell:focus {
   outline: 2px solid #4CAF50;
   background-color: #e8f5e8;
+  z-index: 10;
+  position: relative;
 }
 
 .sudoku-cell.given {
@@ -137,13 +148,15 @@ author_profile: true
   background-color: #fff3e0;
 }
 
-/* 3x3 block borders */
-.sudoku-cell:nth-child(3), .sudoku-cell:nth-child(6) {
-  border-right: 3px solid #333;
+/* 3x3 block borders - using nth-child correctly */
+.sudoku-row:nth-child(3) .sudoku-cell,
+.sudoku-row:nth-child(6) .sudoku-cell {
+  border-bottom: 3px solid #333;
 }
 
-.sudoku-row:nth-child(3), .sudoku-row:nth-child(6) {
-  border-bottom: 3px solid #333;
+.sudoku-cell:nth-child(3),
+.sudoku-cell:nth-child(6) {
+  border-right: 3px solid #333;
 }
 
 #game-status {
@@ -165,9 +178,9 @@ author_profile: true
 <script>
 class Sudoku {
   constructor() {
-    this.board = Array(9).fill().map(() => Array(9).fill(0));
-    this.solution = Array(9).fill().map(() => Array(9).fill(0));
-    this.given = Array(9).fill().map(() => Array(9).fill(false));
+    this.board = this.createEmptyBoard();
+    this.solution = this.createEmptyBoard();
+    this.given = this.createEmptyBoard();
     this.difficulty = 'easy';
     this.difficulties = {
       easy: 40,   // cells to remove
@@ -186,6 +199,10 @@ class Sudoku {
     this.newGame();
   }
   
+  createEmptyBoard() {
+    return Array(9).fill().map(() => Array(9).fill(0));
+  }
+  
   setDifficulty(diff) {
     this.difficulty = diff;
     document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
@@ -195,6 +212,7 @@ class Sudoku {
   
   createBoard() {
     this.boardElement.innerHTML = '';
+    
     for (let row = 0; row < 9; row++) {
       const rowDiv = document.createElement('div');
       rowDiv.className = 'sudoku-row';
@@ -334,60 +352,51 @@ class Sudoku {
     }
   }
   
+  // Simple puzzle generation with a pre-made solution
   generateSolution() {
-    // Reset board
-    this.solution = Array(9).fill().map(() => Array(9).fill(0));
+    // Start with a valid completed Sudoku board
+    const baseSolution = [
+      [5,3,4,6,7,8,9,1,2],
+      [6,7,2,1,9,5,3,4,8],
+      [1,9,8,3,4,2,5,6,7],
+      [8,5,9,7,6,1,4,2,3],
+      [4,2,6,8,5,3,7,9,1],
+      [7,1,3,9,2,4,8,5,6],
+      [9,6,1,5,3,7,2,8,4],
+      [2,8,7,4,1,9,6,3,5],
+      [3,4,5,2,8,6,1,7,9]
+    ];
     
-    // Fill the board using backtracking
-    this.solveSudoku(this.solution);
+    // Create a shuffled version for variety
+    this.solution = this.shuffleBoard(baseSolution);
   }
   
-  solveSudoku(board) {
-    for (let row = 0; row < 9; row++) {
-      for (let col = 0; col < 9; col++) {
-        if (board[row][col] === 0) {
-          // Try numbers 1-9 in random order
-          const numbers = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
-          
-          for (let num of numbers) {
-            if (this.isValidSolutionMove(board, row, col, num)) {
-              board[row][col] = num;
-              
-              if (this.solveSudoku(board)) {
-                return true;
-              }
-              
-              board[row][col] = 0;
-            }
-          }
-          return false;
+  shuffleBoard(board) {
+    // Create a copy
+    let newBoard = board.map(row => [...row]);
+    
+    // Swap some rows within the same 3-row block
+    for (let blockStart = 0; blockStart < 9; blockStart += 3) {
+      if (Math.random() < 0.5) {
+        // Swap two rows within this block
+        const row1 = blockStart + Math.floor(Math.random() * 3);
+        const row2 = blockStart + Math.floor(Math.random() * 3);
+        [newBoard[row1], newBoard[row2]] = [newBoard[row2], newBoard[row1]];
+      }
+    }
+    
+    // Swap some columns within the same 3-column block
+    for (let blockStart = 0; blockStart < 9; blockStart += 3) {
+      if (Math.random() < 0.5) {
+        const col1 = blockStart + Math.floor(Math.random() * 3);
+        const col2 = blockStart + Math.floor(Math.random() * 3);
+        for (let row = 0; row < 9; row++) {
+          [newBoard[row][col1], newBoard[row][col2]] = [newBoard[row][col2], newBoard[row][col1]];
         }
       }
     }
-    return true;
-  }
-  
-  isValidSolutionMove(board, row, col, num) {
-    // Check row
-    for (let c = 0; c < 9; c++) {
-      if (board[row][c] === num) return false;
-    }
     
-    // Check column
-    for (let r = 0; r < 9; r++) {
-      if (board[r][col] === num) return false;
-    }
-    
-    // Check 3x3 box
-    const boxRow = Math.floor(row / 3) * 3;
-    const boxCol = Math.floor(col / 3) * 3;
-    for (let r = boxRow; r < boxRow + 3; r++) {
-      for (let c = boxCol; c < boxCol + 3; c++) {
-        if (board[r][c] === num) return false;
-      }
-    }
-    
-    return true;
+    return newBoard;
   }
   
   newGame() {
@@ -416,7 +425,7 @@ class Sudoku {
     }
     
     // Mark given cells
-    this.given = Array(9).fill().map(() => Array(9).fill(false));
+    this.given = this.createEmptyBoard();
     for (let row = 0; row < 9; row++) {
       for (let col = 0; col < 9; col++) {
         this.given[row][col] = this.board[row][col] !== 0;
