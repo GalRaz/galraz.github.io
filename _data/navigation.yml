@@ -2,9 +2,6 @@
 main:
   - title: "Blog"
     url: /blog/
-    
-  - title: "Sudoku"
-    url: /sudoku/
 
 #  - title: "Publications"
 #    url: /publications/
