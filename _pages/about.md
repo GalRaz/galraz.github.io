@@ -15,4 +15,4 @@ I did my MSc in [Experimental Psychology at the University of Oxford](https://ww
 
 After each degree program, I make a point of taking a gap year. So far, I spent this time as a visiting researcher at [Hitachi R&D in Japan](https://www.hitachi.com/rd/about/location/cer/index.html), volunteering at a [school in the north of India](https://lamdonjamyangschool.org/) and studying Vipassana meditation (as taught by [S.N. Goenka](https://www.dhamma.org/en-US/index)). Before that, I grew up in Münster and Göttingen, two beautiful unversity towns in Germany.
 
-You can find my official CV [here](https://galraz.github.io/files/GalRaz_CV.pdf).
+You can find my official CV [here](https://galraz.github.io/files/GalRaz_CV.pdf) and a resume with work experience [here](https://galraz.github.io/files/GalRaz_resume.pdf).
