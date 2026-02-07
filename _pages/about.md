@@ -11,7 +11,7 @@ Hi! This is Gal. I'm a Researcher at the [Henkaku Center at Chiba Institute of T
 
 Before this, I was a PhD student in the [Department of Brain and Cognitive Sciences at MIT](https://bcs.mit.edu/) working with [Rebecca Saxe](https://saxelab.mit.edu/) and [Mike Frank](https://web.stanford.edu/~mcfrank/), where I studied [computational mechanisms of visual attention](https://elifesciences.org/reviewed-preprints/102713) and built [automated tools for behavioral testing](https://psycnet.apa.org/fulltext/2024-97072-001.html).
 
-I did my MSc in [Experimental Psychology at the University of Oxford](https://www.psy.ox.ac.uk/), where I worked on non-invasive brain stimulation protocols for cognitive enhancement. Before that, I studied Cognitive Neuroscience at [University College Utrecht](https://www.uu.nl/en/organisation/university-college-utrecht/about-ucu). 
+I did my MSc in [Experimental Psychology at the University of Oxford](https://www.psy.ox.ac.uk/), where I worked on non-invasive brain stimulation protocols for cognitive enhancement. Before that, I studied cognitive neuroscience and statistics at [University College Utrecht](https://www.uu.nl/en/organisation/university-college-utrecht/about-ucu). 
 
 After each degree program, I make a point of taking a gap year. So far, I spent this time as a visiting researcher at [Hitachi R&D in Japan](https://www.hitachi.com/rd/about/location/cer/index.html), volunteering at a [school in the north of India](https://lamdonjamyangschool.org/) and studying Vipassana meditation (as taught by [S.N. Goenka](https://www.dhamma.org/en-US/index)). Before that, I grew up in Münster and Göttingen, two beautiful unversity towns in Germany.
 
