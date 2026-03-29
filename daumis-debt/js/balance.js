@@ -160,9 +160,9 @@ async function loadFullHistory() {
     } else if (item.type === 'payment') {
       const isCredit = item.paidBy === user.uid;
       li.innerHTML = `
-        <span class="entry-type payment">Payment</span>
+        <span class="entry-type payment">Settle up</span>
         <div class="entry-info">
-          <div class="entry-desc">Settlement</div>
+          <div class="entry-desc">Settle up</div>
           <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
         </div>
         <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">

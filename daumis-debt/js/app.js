@@ -83,7 +83,7 @@ function updateFormForType(type) {
     descField.style.display = 'none';
     descField.removeAttribute('required');
     splitGroup.style.display = 'none';
-    title.textContent = 'Record Payment';
+    title.textContent = 'Settle Up';
     paidByLabel.textContent = 'Who paid';
   } else {
     descField.style.display = '';
