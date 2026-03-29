@@ -70,11 +70,17 @@ export async function play(container, { year, week, seed }) {
     const sliceAngle = (2 * Math.PI) / SLICES.length;
     const targetSliceCenter = resultIndex * sliceAngle + sliceAngle / 2;
     const spins = 5 + Math.random() * 3;
-    const totalAngle = spins * 2 * Math.PI + (2 * Math.PI - targetSliceCenter);
 
     const duration = 3000;
     const start = performance.now();
     const startAngle = currentAngle;
+
+    // Pointer is at canvas top (-PI/2). For slice center to align with pointer:
+    // -currentAngle + targetSliceCenter = -PI/2 (mod 2PI)
+    // currentAngle = PI/2 + targetSliceCenter
+    const targetFinal = Math.PI / 2 + targetSliceCenter;
+    const remainder = ((targetFinal - startAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const totalAngle = spins * 2 * Math.PI + remainder;
 
     function animate(now) {
       const elapsed = now - start;
