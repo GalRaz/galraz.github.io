@@ -1,5 +1,6 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, showScreen } from './app.js';
+import { notifyPartner } from './notifications.js';
 
 const GAMES = ['coin-flip', 'wheel', 'rps', 'lucky-number', 'scratch-card'];
 const GAME_NAMES = {
@@ -126,6 +127,10 @@ export async function recordDuelResult({ game, result, balanceAdjust, favoredUse
     playedAt: firebase.firestore.FieldValue.serverTimestamp(),
     seed,
     submissions: null
+  });
+  notifyPartner({
+    type: 'duel',
+    details: { game: GAME_NAMES[game] || game, balanceAdjust: Math.abs(balanceAdjust), favoredUser }
   });
 }
 
