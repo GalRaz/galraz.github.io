@@ -11,6 +11,7 @@ const ASSETS = [
   '/daumis-debt/js/payments.js',
   '/daumis-debt/js/history.js',
   '/daumis-debt/js/duel.js',
+  '/daumis-debt/js/recurring.js',
   '/daumis-debt/js/games/coin-flip.js',
   '/daumis-debt/js/games/wheel.js',
   '/daumis-debt/js/games/rps.js',

@@ -44,6 +44,10 @@ document.getElementById('fab-add').addEventListener('click', () => {
   // Reset toggles
   resetToggles();
   updateFormForType('expense');
+  // Reset recurring toggle
+  document.querySelectorAll('#entry-recurring .toggle-btn').forEach((b, i) =>
+    b.classList.toggle('active', i === 0)
+  );
   // Reset edit UI
   const deleteBtn = document.getElementById('btn-delete-entry');
   if (deleteBtn) deleteBtn.style.display = 'none';
@@ -101,6 +105,9 @@ window.addEventListener('edit-entry', (e) => {
   const dateObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
   document.getElementById('entry-date').value = dateObj.toISOString().split('T')[0];
 
+  // Hide recurring group when editing (editing doesn't change recurrence)
+  document.getElementById('recurring-group').style.display = 'none';
+
   // Update UI for edit mode
   const submitBtn = document.querySelector('#form-entry button[type="submit"]');
   submitBtn.textContent = 'Save Changes';
@@ -155,15 +162,18 @@ function updateFormForType(type) {
   const title = document.getElementById('add-title');
   const paidByLabel = document.querySelector('#entry-paid-by').closest('.toggle-group').querySelector('label');
 
+  const recurringGroup = document.getElementById('recurring-group');
   if (type === 'payment') {
     descField.style.display = 'none';
     descField.removeAttribute('required');
     splitGroup.style.display = 'none';
+    recurringGroup.style.display = 'none';
     title.textContent = 'Settle Up';
     paidByLabel.textContent = 'Who paid';
   } else {
     descField.style.display = '';
     splitGroup.style.display = '';
+    recurringGroup.style.display = '';
     title.textContent = 'Add Expense';
     paidByLabel.textContent = 'Paid by';
   }
@@ -275,6 +285,28 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
       }
     }
 
+    // Create recurring if selected (only for new expenses, not edits)
+    if (!editingEntry && entryType === 'expense') {
+      const recurringValue = document.querySelector('#entry-recurring .toggle-btn.active').dataset.value;
+      if (recurringValue !== 'none') {
+        const description = document.getElementById('entry-desc').value.trim();
+        const splitType = document.querySelector('#entry-split .toggle-btn.active').dataset.value;
+        const otherUid = paidByValue === 'self' ? getPartnerUid() : currentUser.uid;
+        const paidBy = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
+        const { createRecurring } = await import('./recurring.js');
+        await createRecurring({
+          description,
+          amount,
+          currency,
+          paidBy,
+          splitType,
+          owedBy: otherUid,
+          frequency: recurringValue,
+          addedBy: currentUser.uid
+        });
+      }
+    }
+
     // Go back to dashboard
     editingEntry = null;
     showScreen('dashboard');
@@ -293,7 +325,10 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 async function showApp() {
   showScreen('dashboard');
   const { loadDashboard } = await import('./balance.js');
-  loadDashboard();
+  await loadDashboard();
+  const { processRecurring } = await import('./recurring.js');
+  const count = await processRecurring(currentUser);
+  if (count > 0) await loadDashboard();
 }
 
 // Expose for other modules

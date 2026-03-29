@@ -28,5 +28,11 @@ service cloud.firestore {
       allow update: if isAllowedUser();
       allow delete: if false;
     }
+
+    match /recurring/{doc} {
+      allow read: if isAllowedUser();
+      allow create: if isAllowedUser() && isOwnEntry();
+      allow update, delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
+    }
   }
 }
