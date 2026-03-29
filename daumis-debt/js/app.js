@@ -372,11 +372,63 @@ async function showApp() {
       }
     });
   } catch (e) { console.warn('Could not load user profiles:', e); }
+  // Backfill any docs with null paidBy/owedBy/paidTo now that partner UID is known
+  await backfillPartnerUids();
   const { loadDashboard } = await import('./balance.js');
   await loadDashboard();
   const { processRecurring } = await import('./recurring.js');
   const count = await processRecurring(currentUser);
   if (count > 0) await loadDashboard();
+}
+
+/**
+ * Backfill docs where paidBy, owedBy, or paidTo is null.
+ * This happens when expenses were created before the partner logged in.
+ * Replaces null with the partner's UID now that both users are known.
+ */
+async function backfillPartnerUids() {
+  const partnerUid = getPartnerUid();
+  if (!partnerUid) return; // partner still unknown
+
+  let patched = 0;
+
+  // Fix expenses with null paidBy or owedBy
+  const expenses = await db.collection('expenses').get();
+  for (const doc of expenses.docs) {
+    const d = doc.data();
+    const updates = {};
+    if (d.paidBy === null || d.paidBy === undefined) updates.paidBy = partnerUid;
+    if (d.owedBy === null || d.owedBy === undefined) updates.owedBy = partnerUid;
+    if (Object.keys(updates).length > 0) {
+      try { await doc.ref.update(updates); patched++; } catch (e) { console.warn('Backfill failed for expense', doc.id, e); }
+    }
+  }
+
+  // Fix payments with null paidBy or paidTo
+  const payments = await db.collection('payments').get();
+  for (const doc of payments.docs) {
+    const d = doc.data();
+    const updates = {};
+    if (d.paidBy === null || d.paidBy === undefined) updates.paidBy = partnerUid;
+    if (d.paidTo === null || d.paidTo === undefined) updates.paidTo = partnerUid;
+    if (Object.keys(updates).length > 0) {
+      try { await doc.ref.update(updates); patched++; } catch (e) { console.warn('Backfill failed for payment', doc.id, e); }
+    }
+  }
+
+  // Fix duels with null favoredUser (check result.netAdjust for direction)
+  const duels = await db.collection('duels').get();
+  for (const doc of duels.docs) {
+    const d = doc.data();
+    if (d.favoredUser === null && d.balanceAdjust > 0) {
+      // netAdjust > 0 means debtor was favored. The recorder was the debtor (only user at the time).
+      // So favoredUser should be the recorder (addedBy or the only known user).
+      const favoredUser = d.result?.netAdjust > 0 ? (d.addedBy || currentUser.uid) : partnerUid;
+      try { await doc.ref.update({ favoredUser }); patched++; } catch (e) { console.warn('Backfill failed for duel', doc.id, e); }
+    }
+  }
+
+  if (patched > 0) console.log(`Backfilled ${patched} docs with partner UID`);
 }
 
 // Expose for other modules
