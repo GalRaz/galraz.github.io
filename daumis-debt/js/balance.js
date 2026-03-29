@@ -149,7 +149,7 @@ async function loadFullHistory() {
       const isCredit = item.paidBy === user.uid;
       const effectiveAmount = item.splitType === 'even' ? item.usdAmount / 2 : item.usdAmount;
       li.innerHTML = `
-        <span class="entry-type expense">Expense</span>
+        <div class="entry-icon expense">$</div>
         <div class="entry-info">
           <div class="entry-desc">${item.description}</div>
           <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>
@@ -160,7 +160,7 @@ async function loadFullHistory() {
     } else if (item.type === 'payment') {
       const isCredit = item.paidBy === user.uid;
       li.innerHTML = `
-        <span class="entry-type payment">Settle up</span>
+        <div class="entry-icon payment">↗</div>
         <div class="entry-info">
           <div class="entry-desc">Settle up</div>
           <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
@@ -171,7 +171,7 @@ async function loadFullHistory() {
     } else if (item.type === 'duel') {
       const won = item.favoredUser === user.uid;
       li.innerHTML = `
-        <span class="entry-type duel">Duel</span>
+        <div class="entry-icon duel">⚔</div>
         <div class="entry-info">
           <div class="entry-desc">${item.game}</div>
           <div class="entry-meta">${dateStr} · Week ${item.week}</div>
