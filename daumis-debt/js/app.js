@@ -1,6 +1,7 @@
 import { auth, googleProvider } from './firebase-config.js';
 import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
+import { initNotifications, saveUserProfile, notifyPartner } from './notifications.js';
 
 // --- State ---
 let currentUser = null;
@@ -19,6 +20,7 @@ auth.onAuthStateChanged((user) => {
   if (user) {
     currentUser = user;
     userNames[user.uid] = user.displayName || user.email;
+    saveUserProfile(user);
     showApp();
   } else {
     currentUser = null;
@@ -258,6 +260,10 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
           addedBy: currentUser.uid,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        notifyPartner({
+          type: 'expense',
+          details: { description, amount, currency, splitType, usdAmount }
+        });
       }
     } else {
       if (editingEntry && editingEntry.type === 'payment') {
@@ -281,6 +287,10 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
           date: new Date(date + 'T12:00:00'),
           addedBy: currentUser.uid,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        notifyPartner({
+          type: 'payment',
+          details: { amount, currency, usdAmount }
         });
       }
     }
@@ -324,6 +334,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 // --- App entry ---
 async function showApp() {
   showScreen('dashboard');
+  await initNotifications();
   const { loadDashboard } = await import('./balance.js');
   await loadDashboard();
   const { processRecurring } = await import('./recurring.js');
