@@ -18,16 +18,28 @@ export async function getExchangeRate(currency) {
   // BTN (Bhutanese Ngultrum) is pegged 1:1 to INR
   const queryCurrency = currency === 'BTN' ? 'INR' : currency;
 
-  const response = await fetch(
-    `https://api.frankfurter.app/latest?from=${queryCurrency}&to=USD`
-  );
-
-  if (!response.ok) {
-    throw new Error(`Exchange rate fetch failed for ${currency}`);
+  // Try frankfurter.app first (ECB data, supports most major currencies)
+  try {
+    const response = await fetch(
+      `https://api.frankfurter.app/latest?from=${queryCurrency}&to=USD`
+    );
+    if (response.ok) {
+      const data = await response.json();
+      const rate = data.rates.USD;
+      rateCache[cacheKey] = rate;
+      return rate;
+    }
+  } catch (e) {
+    // Fall through to backup API
   }
 
-  const data = await response.json();
-  const rate = data.rates.USD;
+  // Fallback: open.er-api.com (supports TWD and other currencies frankfurter doesn't)
+  const fallback = await fetch(`https://open.er-api.com/v6/latest/${queryCurrency}`);
+  if (!fallback.ok) {
+    throw new Error(`Exchange rate fetch failed for ${currency}`);
+  }
+  const fbData = await fallback.json();
+  const rate = fbData.rates.USD;
   rateCache[cacheKey] = rate;
   return rate;
 }
