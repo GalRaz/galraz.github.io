@@ -70,6 +70,22 @@ body {
 .balance-amount.positive { color: var(--green); }
 .balance-amount.negative { color: var(--red); }
 
+.balance-breakdown {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--surface-3);
+  display: flex; flex-wrap: wrap; gap: 6px 16px;
+  justify-content: center;
+}
+.balance-breakdown .currency-line {
+  font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+}
+.balance-breakdown .currency-line.positive { color: var(--green); }
+.balance-breakdown .currency-line.negative { color: var(--red); }
+.balance-hint {
+  margin-top: 10px; font-size: 0.7rem; color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
 /* Duel banner */
 .duel-banner {
   background: linear-gradient(135deg, #1a1040 0%, #2d1654 50%, var(--accent) 100%);

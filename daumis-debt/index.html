@@ -24,9 +24,11 @@
     <!-- Home screen -->
     <div id="screen-dashboard" class="screen">
       <div class="dashboard-content">
-        <div id="balance-display" class="balance-card">
+        <div id="balance-display" class="balance-card" style="cursor:pointer">
           <p class="balance-label">Loading...</p>
           <p class="balance-amount"></p>
+          <div id="balance-breakdown" class="balance-breakdown hidden"></div>
+          <p class="balance-hint hidden" id="balance-hint">tap to toggle currencies</p>
         </div>
         <div id="duel-banner" class="duel-banner hidden">
           <p>Weekly Duel available!</p>

@@ -87,6 +87,7 @@ export async function loadDashboard() {
         parsed.type = 'expense';
         parsed.id = doc.id;
         parsed.date = toJSDate(d.date);
+        parsed.sortDate = toJSDate(d.createdAt || d.date);
         items.push(parsed);
       } catch (e) { console.error('Bad expense doc:', doc.id, e); }
     });
@@ -100,6 +101,7 @@ export async function loadDashboard() {
         parsed.type = 'payment';
         parsed.id = doc.id;
         parsed.date = toJSDate(d.date);
+        parsed.sortDate = toJSDate(d.createdAt || d.date);
         items.push(parsed);
       } catch (e) { console.error('Bad payment doc:', doc.id, e); }
     });
@@ -111,28 +113,36 @@ export async function loadDashboard() {
         parsed.type = 'duel';
         parsed.id = doc.id;
         parsed.date = toJSDate(d.playedAt);
+        parsed.sortDate = toJSDate(d.playedAt);
         items.push(parsed);
       } catch (e) { console.error('Bad duel doc:', doc.id, e); }
     });
 
-    // Compute balance using itemImpact (single source of truth)
+    // Compute USD balance and per-currency balances
     let balance = 0;
+    const currencyBalances = {}; // { 'THB': 500, 'USD': -20, ... }
     for (const item of items) {
-      balance += itemImpact(item, user.uid);
+      const impact = itemImpact(item, user.uid);
+      balance += impact;
+      // Track per-currency: use the original amount with the correct sign
+      if (item.currency && item.type !== 'duel') {
+        const sign = impact >= 0 ? 1 : -1;
+        const originalAmount = (item.splitType === 'even' ? item.amount / 2 : item.amount) * sign;
+        currencyBalances[item.currency] = (currencyBalances[item.currency] || 0) + originalAmount;
+      }
     }
     balance = Math.round(balance * 100) / 100;
 
     // Render balance
     const label = balanceEl.querySelector('.balance-label');
     const amount = balanceEl.querySelector('.balance-amount');
+    const partnerName = getUserName(getPartnerUid());
 
     if (balance > 0.005) {
-      const partnerName = getUserName(getPartnerUid());
       label.textContent = `${partnerName} owes you`;
       amount.textContent = `$${balance.toFixed(2)}`;
       amount.className = 'balance-amount positive';
     } else if (balance < -0.005) {
-      const partnerName = getUserName(getPartnerUid());
       label.textContent = `You owe ${partnerName}`;
       amount.textContent = `$${Math.abs(balance).toFixed(2)}`;
       amount.className = 'balance-amount negative';
@@ -141,6 +151,32 @@ export async function loadDashboard() {
       amount.textContent = '$0.00';
       amount.className = 'balance-amount';
     }
+
+    // Render currency breakdown (hidden by default)
+    const breakdown = document.getElementById('balance-breakdown');
+    const hint = document.getElementById('balance-hint');
+    breakdown.innerHTML = '';
+    const nonZeroCurrencies = Object.entries(currencyBalances)
+      .filter(([, v]) => Math.abs(v) > 0.005)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+    if (nonZeroCurrencies.length > 0) {
+      hint.classList.remove('hidden');
+      for (const [cur, val] of nonZeroCurrencies) {
+        const rounded = Math.round(Math.abs(val) * 100) / 100;
+        const sign = val >= 0 ? '+' : '-';
+        const cls = val >= 0 ? 'positive' : 'negative';
+        const span = document.createElement('span');
+        span.className = `currency-line ${cls}`;
+        span.textContent = `${sign}${rounded.toLocaleString()} ${cur}`;
+        breakdown.appendChild(span);
+      }
+    }
+
+    // Toggle breakdown on tap
+    balanceEl.onclick = () => {
+      breakdown.classList.toggle('hidden');
+    };
 
     // Check for weekly duel availability
     const { isDuelAvailable, startDuel } = await import('./duel.js');
@@ -162,7 +198,8 @@ export async function loadDashboard() {
 
 function renderHistory(items, myUid, totalBalance) {
   const list = document.getElementById('history-list');
-  items.sort((a, b) => b.date - a.date);
+  // Sort by creation time (most recent first), falling back to entry date
+  items.sort((a, b) => (b.sortDate || b.date) - (a.sortDate || a.date));
   list.innerHTML = '';
 
   if (items.length === 0) {
