@@ -144,19 +144,19 @@ async function loadFullHistory() {
   expSnap.forEach((doc) => {
     try {
       const d = doc.data();
-      items.push({ type: 'expense', id: doc.id, date: parseDate(d.date), ...d });
+      items.push({ ...d, type: 'expense', id: doc.id, date: parseDate(d.date) });
     } catch (e) { console.error('Bad expense doc:', doc.id, e); }
   });
   paySnap.forEach((doc) => {
     try {
       const d = doc.data();
-      items.push({ type: 'payment', id: doc.id, date: parseDate(d.date), ...d });
+      items.push({ ...d, type: 'payment', id: doc.id, date: parseDate(d.date) });
     } catch (e) { console.error('Bad payment doc:', doc.id, e); }
   });
   duelSnap.forEach((doc) => {
     try {
       const d = doc.data();
-      items.push({ type: 'duel', date: parseDate(d.playedAt), ...d });
+      items.push({ ...d, type: 'duel', id: doc.id, date: parseDate(d.playedAt) });
     } catch (e) { console.error('Bad duel doc:', doc.id, e); }
   });
 
