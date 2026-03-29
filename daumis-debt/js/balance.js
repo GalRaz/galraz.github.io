@@ -56,9 +56,17 @@ export async function computeBalance() {
     if (!d.balanceAdjust) return; // no adjustment (tie or $0)
     if (d.favoredUser === user.uid) {
       balance += d.balanceAdjust;
-    } else {
-      // favoredUser is partner (or null due to missing partner UID) — count against us
+    } else if (d.favoredUser) {
       balance -= d.balanceAdjust;
+    } else {
+      // favoredUser is null (missing partner UID bug) — use result.netAdjust to determine direction
+      // Positive netAdjust = debtor was favored. If user is debtor (balance < 0 at time), it's in their favor.
+      // Since we can't know the exact balance at duel time, use the result sign as a heuristic.
+      if (d.result?.netAdjust > 0) {
+        balance += d.balanceAdjust;
+      } else if (d.result?.netAdjust < 0) {
+        balance -= d.balanceAdjust;
+      }
     }
   });
 
@@ -133,32 +141,52 @@ async function loadFullHistory() {
 
   const items = [];
 
-  function parseDate(d) {
+  function toJSDate(d) {
     try {
-      if (d?.toDate) return d.toDate();
-      if (d?.seconds) return new Date(d.seconds * 1000);
+      if (typeof d?.toDate === 'function') return d.toDate();
+      if (typeof d?.seconds === 'number') return new Date(d.seconds * 1000);
       if (d instanceof Date) return d;
-      if (typeof d === 'string' || typeof d === 'number') return new Date(d);
+      const parsed = new Date(d);
+      if (!isNaN(parsed)) return parsed;
     } catch (e) {}
     return new Date();
+  }
+
+  function formatDate(d) {
+    try {
+      const jsDate = d instanceof Date ? d : toJSDate(d);
+      return jsDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch (e) { return ''; }
   }
 
   expSnap.forEach((doc) => {
     try {
       const d = doc.data();
-      items.push({ ...d, type: 'expense', id: doc.id, date: parseDate(d.date) });
+      const parsed = { ...d };
+      parsed.type = 'expense';
+      parsed.id = doc.id;
+      parsed.date = toJSDate(d.date);
+      items.push(parsed);
     } catch (e) { console.error('Bad expense doc:', doc.id, e); }
   });
   paySnap.forEach((doc) => {
     try {
       const d = doc.data();
-      items.push({ ...d, type: 'payment', id: doc.id, date: parseDate(d.date) });
+      const parsed = { ...d };
+      parsed.type = 'payment';
+      parsed.id = doc.id;
+      parsed.date = toJSDate(d.date);
+      items.push(parsed);
     } catch (e) { console.error('Bad payment doc:', doc.id, e); }
   });
   duelSnap.forEach((doc) => {
     try {
       const d = doc.data();
-      items.push({ ...d, type: 'duel', id: doc.id, date: parseDate(d.playedAt) });
+      const parsed = { ...d };
+      parsed.type = 'duel';
+      parsed.id = doc.id;
+      parsed.date = toJSDate(d.playedAt);
+      items.push(parsed);
     } catch (e) { console.error('Bad duel doc:', doc.id, e); }
   });
 
@@ -173,7 +201,7 @@ async function loadFullHistory() {
   items.forEach((item) => {
     try {
       const li = document.createElement('li');
-      const dateStr = item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const dateStr = formatDate(item.date);
 
       if (item.type === 'expense') {
         const isCredit = item.paidBy === user.uid;
@@ -203,7 +231,7 @@ async function loadFullHistory() {
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
       } else if (item.type === 'duel') {
-        const won = item.favoredUser === user.uid;
+        const won = item.favoredUser === user.uid || (!item.favoredUser && item.result?.netAdjust > 0);
         li.innerHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
