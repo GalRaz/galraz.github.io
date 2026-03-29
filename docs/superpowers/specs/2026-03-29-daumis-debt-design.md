@@ -13,7 +13,7 @@ A private couples expense tracker PWA hosted on GitHub Pages, backed by Firebase
 
 ## Users
 
-Exactly two users: Gal and partner. Both can add expenses, record payments, and play the weekly duel. Access is restricted via Firestore security rules to their two Google email addresses.
+Exactly two users: Gal and Daum. Both can add expenses, record payments, and play the weekly duel. Access is restricted via Firestore security rules to their two Google email addresses.
 
 ## Currencies
 
