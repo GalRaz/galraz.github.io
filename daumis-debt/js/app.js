@@ -362,6 +362,16 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 async function showApp() {
   showScreen('dashboard');
   await initNotifications();
+  // Load partner name from users collection
+  try {
+    const usersSnap = await db.collection('users').get();
+    usersSnap.forEach((doc) => {
+      const data = doc.data();
+      if (doc.id !== currentUser.uid) {
+        userNames[doc.id] = data.displayName || data.email || 'Partner';
+      }
+    });
+  } catch (e) { console.warn('Could not load user profiles:', e); }
   const { loadDashboard } = await import('./balance.js');
   await loadDashboard();
   const { processRecurring } = await import('./recurring.js');
