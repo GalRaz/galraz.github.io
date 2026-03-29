@@ -7,6 +7,7 @@ const ASSETS = [
   '/daumis-debt/js/firebase-config.js',
   '/daumis-debt/js/exchange.js',
   '/daumis-debt/js/balance.js',
+  '/daumis-debt/js/notifications.js',
   '/daumis-debt/js/duel.js',
   '/daumis-debt/js/recurring.js',
   '/daumis-debt/js/games/coin-flip.js',
@@ -32,24 +33,14 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Let Firebase and API calls go straight to network
   if (e.request.url.includes('firestore.googleapis.com') ||
       e.request.url.includes('frankfurter.app') ||
-      e.request.url.includes('open.er-api.com') ||
       e.request.url.includes('googleapis.com/identitytoolkit') ||
-      e.request.url.includes('gstatic.com/firebasejs')) {
+      e.request.url.includes('cdn.jsdelivr.net') ||
+      e.request.url.includes('api.emailjs.com')) {
     return;
   }
-
-  // Network-first for app files: try network, fall back to cache
   e.respondWith(
-    fetch(e.request)
-      .then((response) => {
-        // Update cache with fresh version
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-        return response;
-      })
-      .catch(() => caches.match(e.request))
+    caches.match(e.request).then((cached) => cached || fetch(e.request))
   );
 });
