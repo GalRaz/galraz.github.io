@@ -5,6 +5,7 @@ import { convertToUSD } from './exchange.js';
 // --- State ---
 let currentUser = null;
 const userNames = {};
+let editingEntry = null; // { id, type } when editing, null when creating
 
 // --- Auth ---
 document.getElementById('btn-google-login').addEventListener('click', () => {
@@ -34,6 +35,7 @@ function showScreen(name) {
 
 // --- FAB ---
 document.getElementById('fab-add').addEventListener('click', () => {
+  editingEntry = null;
   showScreen('add');
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('entry-date').value = today;
@@ -42,10 +44,16 @@ document.getElementById('fab-add').addEventListener('click', () => {
   // Reset toggles
   resetToggles();
   updateFormForType('expense');
+  // Reset edit UI
+  const deleteBtn = document.getElementById('btn-delete-entry');
+  if (deleteBtn) deleteBtn.style.display = 'none';
+  const submitBtn = document.querySelector('#form-entry button[type="submit"]');
+  submitBtn.textContent = 'Save';
 });
 
 // --- Back buttons ---
 document.getElementById('btn-back').addEventListener('click', async () => {
+  editingEntry = null;
   showScreen('dashboard');
   const { loadDashboard } = await import('./balance.js');
   loadDashboard();
@@ -54,6 +62,74 @@ document.getElementById('btn-back-duel').addEventListener('click', async () => {
   showScreen('dashboard');
   const { loadDashboard } = await import('./balance.js');
   loadDashboard();
+});
+
+// --- Edit entry ---
+window.addEventListener('edit-entry', (e) => {
+  const { type, data } = e.detail;
+  editingEntry = { id: data.id, type };
+
+  showScreen('add');
+
+  // Set entry type toggle
+  document.querySelectorAll('#entry-type .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.value === type);
+  });
+  updateFormForType(type);
+
+  // Pre-fill fields
+  if (type === 'expense') {
+    document.getElementById('entry-desc').value = data.description || '';
+  }
+  document.getElementById('entry-amount').value = data.amount || '';
+  document.getElementById('entry-currency').value = data.currency || 'USD';
+
+  // Set paid-by toggle
+  const paidBySelf = data.paidBy === currentUser.uid;
+  document.querySelectorAll('#entry-paid-by .toggle-btn').forEach(b => {
+    b.classList.toggle('active', (b.dataset.value === 'self') === paidBySelf);
+  });
+
+  // Set split toggle for expenses
+  if (type === 'expense' && data.splitType) {
+    document.querySelectorAll('#entry-split .toggle-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.value === data.splitType);
+    });
+  }
+
+  // Set date
+  const dateObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+  document.getElementById('entry-date').value = dateObj.toISOString().split('T')[0];
+
+  // Update UI for edit mode
+  const submitBtn = document.querySelector('#form-entry button[type="submit"]');
+  submitBtn.textContent = 'Save Changes';
+
+  // Show delete button
+  let deleteBtn = document.getElementById('btn-delete-entry');
+  if (!deleteBtn) {
+    deleteBtn = document.createElement('button');
+    deleteBtn.id = 'btn-delete-entry';
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-delete';
+    deleteBtn.textContent = 'Delete';
+    submitBtn.parentNode.insertBefore(deleteBtn, submitBtn.nextSibling);
+  }
+  deleteBtn.style.display = '';
+  deleteBtn.onclick = async () => {
+    if (!confirm('Delete this entry?')) return;
+    try {
+      const collection = editingEntry.type === 'expense' ? 'expenses' : 'payments';
+      await db.collection(collection).doc(editingEntry.id).delete();
+      editingEntry = null;
+      showScreen('dashboard');
+      const { loadDashboard } = await import('./balance.js');
+      loadDashboard();
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Failed to delete.');
+    }
+  };
 });
 
 // --- Toggle buttons ---
@@ -131,38 +207,65 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
       if (!description) {
         alert('Please add a description.');
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Save';
+        submitBtn.textContent = editingEntry ? 'Save Changes' : 'Save';
         return;
       }
 
-      await db.collection('expenses').add({
-        description,
-        amount,
-        currency,
-        usdAmount,
-        exchangeRate,
-        paidBy,
-        splitType,
-        owedBy: otherUid,
-        date: new Date(date + 'T12:00:00'),
-        addedBy: currentUser.uid,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      if (editingEntry && editingEntry.type === 'expense') {
+        await db.collection('expenses').doc(editingEntry.id).update({
+          description,
+          amount,
+          currency,
+          usdAmount,
+          exchangeRate,
+          paidBy,
+          splitType,
+          owedBy: otherUid,
+          date: new Date(date + 'T12:00:00'),
+        });
+      } else {
+        await db.collection('expenses').add({
+          description,
+          amount,
+          currency,
+          usdAmount,
+          exchangeRate,
+          paidBy,
+          splitType,
+          owedBy: otherUid,
+          date: new Date(date + 'T12:00:00'),
+          addedBy: currentUser.uid,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
     } else {
-      await db.collection('payments').add({
-        amount,
-        currency,
-        usdAmount,
-        exchangeRate,
-        paidBy,
-        paidTo: otherUid,
-        date: new Date(date + 'T12:00:00'),
-        addedBy: currentUser.uid,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      if (editingEntry && editingEntry.type === 'payment') {
+        await db.collection('payments').doc(editingEntry.id).update({
+          amount,
+          currency,
+          usdAmount,
+          exchangeRate,
+          paidBy,
+          paidTo: otherUid,
+          date: new Date(date + 'T12:00:00'),
+        });
+      } else {
+        await db.collection('payments').add({
+          amount,
+          currency,
+          usdAmount,
+          exchangeRate,
+          paidBy,
+          paidTo: otherUid,
+          date: new Date(date + 'T12:00:00'),
+          addedBy: currentUser.uid,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
     }
 
     // Go back to dashboard
+    editingEntry = null;
     showScreen('dashboard');
     const { loadDashboard } = await import('./balance.js');
     loadDashboard();
@@ -171,7 +274,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     alert('Failed to save. Check your connection.');
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Save';
+    submitBtn.textContent = editingEntry ? 'Save Changes' : 'Save';
   }
 });
 

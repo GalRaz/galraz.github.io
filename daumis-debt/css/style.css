@@ -48,6 +48,13 @@ body {
 .btn:active { opacity: 0.8; transform: scale(0.98); }
 .btn-primary { background: var(--accent); color: white; }
 .btn-accent { background: white; color: var(--bg); font-weight: 700; border-radius: 20px; }
+.btn-delete {
+  background: transparent;
+  color: var(--red);
+  border: 1px solid var(--red);
+  margin-top: 8px;
+}
+.btn-delete:active { background: var(--red-soft); }
 
 /* Balance card */
 .balance-card {

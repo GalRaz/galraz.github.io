@@ -122,11 +122,11 @@ async function loadFullHistory() {
   const items = [];
   expSnap.forEach((doc) => {
     const d = doc.data();
-    items.push({ type: 'expense', date: d.date?.toDate?.() || new Date(d.date), ...d });
+    items.push({ type: 'expense', id: doc.id, date: d.date?.toDate?.() || new Date(d.date), ...d });
   });
   paySnap.forEach((doc) => {
     const d = doc.data();
-    items.push({ type: 'payment', date: d.date?.toDate?.() || new Date(d.date), ...d });
+    items.push({ type: 'payment', id: doc.id, date: d.date?.toDate?.() || new Date(d.date), ...d });
   });
   duelSnap.forEach((doc) => {
     const d = doc.data();
@@ -157,6 +157,10 @@ async function loadFullHistory() {
         <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
           ${isCredit ? '+' : '-'}$${effectiveAmount.toFixed(2)}
         </div>`;
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        editEntry(item.type, item);
+      });
     } else if (item.type === 'payment') {
       const isCredit = item.paidBy === user.uid;
       li.innerHTML = `
@@ -168,6 +172,10 @@ async function loadFullHistory() {
         <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
           ${isCredit ? '+' : '-'}$${item.usdAmount.toFixed(2)}
         </div>`;
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => {
+        editEntry(item.type, item);
+      });
     } else if (item.type === 'duel') {
       const won = item.favoredUser === user.uid;
       li.innerHTML = `
@@ -182,4 +190,9 @@ async function loadFullHistory() {
     }
     list.appendChild(li);
   });
+}
+
+export function editEntry(type, data) {
+  // Dispatch custom event that app.js listens for
+  window.dispatchEvent(new CustomEvent('edit-entry', { detail: { type, data } }));
 }
