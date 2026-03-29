@@ -61,8 +61,14 @@ export function getWeeklyGame(seed) {
   return picked;
 }
 
-/** Check if a duel is available this week (not yet played to completion). */
+/** Check if today is Wednesday or later in the week. */
+function isDuelDay() {
+  return new Date().getDay() >= 3; // 0=Sun, 3=Wed
+}
+
+/** Check if a duel is available this week (not yet played, and it's Wednesday or later). */
 export async function isDuelAvailable() {
+  if (!isDuelDay()) return false;
   const { year, week } = getCurrentWeekInfo();
   const snapshot = await db.collection('duels')
     .where('year', '==', year)
