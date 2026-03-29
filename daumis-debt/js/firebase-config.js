@@ -11,6 +11,16 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
+// Enable offline persistence — queues writes when offline, syncs when back online
+firebase.firestore().enablePersistence({ synchronizeTabs: true })
+  .catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Offline persistence unavailable: multiple tabs open');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Offline persistence not supported in this browser');
+    }
+  });
+
 export const auth = firebase.auth();
 export const db = firebase.firestore();
 export const googleProvider = new firebase.auth.GoogleAuthProvider();

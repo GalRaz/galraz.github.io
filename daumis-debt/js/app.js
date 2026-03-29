@@ -186,8 +186,26 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
   const paidByValue = document.querySelector('#entry-paid-by .toggle-btn.active').dataset.value;
   const date = document.getElementById('entry-date').value;
 
-  if (!amount || amount <= 0) {
-    alert('Please enter a valid amount.');
+  // Validation
+  if (entryType === 'expense') {
+    const desc = document.getElementById('entry-desc').value.trim();
+    if (!desc) {
+      alert('Please add a description.');
+      return;
+    }
+    if (desc.length > 200) {
+      alert('Description is too long (max 200 characters).');
+      return;
+    }
+  }
+
+  if (!amount || isNaN(amount) || amount <= 0) {
+    alert('Please enter a valid positive amount.');
+    return;
+  }
+
+  if (amount > 1000000) {
+    alert('Amount seems too large. Please check and try again.');
     return;
   }
 
@@ -203,13 +221,6 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     if (entryType === 'expense') {
       const description = document.getElementById('entry-desc').value.trim();
       const splitType = document.querySelector('#entry-split .toggle-btn.active').dataset.value;
-
-      if (!description) {
-        alert('Please add a description.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = editingEntry ? 'Save Changes' : 'Save';
-        return;
-      }
 
       if (editingEntry && editingEntry.type === 'expense') {
         await db.collection('expenses').doc(editingEntry.id).update({
