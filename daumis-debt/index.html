@@ -87,18 +87,20 @@
             <option value="IDR">Rp IDR</option>
           </select>
         </div>
-        <div class="toggle-group">
-          <label>Who paid</label>
-          <div class="toggle" id="entry-paid-by">
-            <button type="button" class="toggle-btn active" data-value="self">Me</button>
-            <button type="button" class="toggle-btn" data-value="partner">Partner</button>
+        <div id="expense-options" class="toggle-group">
+          <label>How to split</label>
+          <div class="split-options" id="entry-split-options">
+            <button type="button" class="split-option active" data-paid="self" data-split="even">You paid, split equally</button>
+            <button type="button" class="split-option" data-paid="self" data-split="full">You are owed the full amount</button>
+            <button type="button" class="split-option" data-paid="partner" data-split="even"><span class="partner-name">Partner</span> paid, split equally</button>
+            <button type="button" class="split-option" data-paid="partner" data-split="full"><span class="partner-name">Partner</span> is owed the full amount</button>
           </div>
         </div>
-        <div id="split-group" class="toggle-group">
-          <label>Split</label>
-          <div class="toggle" id="entry-split">
-            <button type="button" class="toggle-btn active" data-value="even">Split evenly</button>
-            <button type="button" class="toggle-btn" data-value="full">Owed fully</button>
+        <div id="payment-direction" class="toggle-group" style="display:none">
+          <label>Who paid</label>
+          <div class="toggle" id="entry-paid-by">
+            <button type="button" class="toggle-btn active" data-value="self">I paid</button>
+            <button type="button" class="toggle-btn" data-value="partner"><span class="partner-name">Partner</span> paid</button>
           </div>
         </div>
         <input type="date" id="entry-date">

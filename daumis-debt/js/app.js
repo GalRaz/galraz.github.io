@@ -90,16 +90,18 @@ window.addEventListener('edit-entry', (e) => {
   document.getElementById('entry-amount').value = data.amount || '';
   document.getElementById('entry-currency').value = data.currency || 'USD';
 
-  // Set paid-by toggle
+  // Set the correct option
   const paidBySelf = data.paidBy === currentUser.uid;
-  document.querySelectorAll('#entry-paid-by .toggle-btn').forEach(b => {
-    b.classList.toggle('active', (b.dataset.value === 'self') === paidBySelf);
-  });
+  const paidValue = paidBySelf ? 'self' : 'partner';
 
-  // Set split toggle for expenses
-  if (type === 'expense' && data.splitType) {
-    document.querySelectorAll('#entry-split .toggle-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.value === data.splitType);
+  if (type === 'expense') {
+    const splitValue = data.splitType || 'even';
+    document.querySelectorAll('.split-option').forEach(b => {
+      b.classList.toggle('active', b.dataset.paid === paidValue && b.dataset.split === splitValue);
+    });
+  } else {
+    document.querySelectorAll('#entry-paid-by .toggle-btn').forEach(b => {
+      b.classList.toggle('active', (b.dataset.value === 'self') === paidBySelf);
     });
   }
 
@@ -160,31 +162,48 @@ document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
 
 function updateFormForType(type) {
   const descField = document.getElementById('entry-desc');
-  const splitGroup = document.getElementById('split-group');
+  const expenseOptions = document.getElementById('expense-options');
+  const paymentDirection = document.getElementById('payment-direction');
   const title = document.getElementById('add-title');
-  const paidByLabel = document.querySelector('#entry-paid-by').closest('.toggle-group').querySelector('label');
-
   const recurringGroup = document.getElementById('recurring-group');
+
   if (type === 'payment') {
     descField.style.display = 'none';
     descField.removeAttribute('required');
-    splitGroup.style.display = 'none';
+    expenseOptions.style.display = 'none';
+    paymentDirection.style.display = '';
     recurringGroup.style.display = 'none';
     title.textContent = 'Settle Up';
-    paidByLabel.textContent = 'Who paid';
   } else {
     descField.style.display = '';
-    splitGroup.style.display = '';
+    expenseOptions.style.display = '';
+    paymentDirection.style.display = 'none';
     recurringGroup.style.display = '';
     title.textContent = 'Add Expense';
-    paidByLabel.textContent = 'Paid by';
   }
+  updatePartnerNames();
 }
+
+function updatePartnerNames() {
+  const partnerName = getUserName(getPartnerUid());
+  document.querySelectorAll('.partner-name').forEach(el => {
+    el.textContent = partnerName;
+  });
+}
+
+// --- Split option buttons ---
+document.querySelectorAll('.split-option').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.split-option').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
 
 function resetToggles() {
   document.querySelectorAll('#screen-add .toggle').forEach((toggle) => {
     toggle.querySelectorAll('.toggle-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
   });
+  document.querySelectorAll('.split-option').forEach((b, i) => b.classList.toggle('active', i === 0));
 }
 
 // --- Combined form submission ---
@@ -195,8 +214,17 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
   const entryType = document.querySelector('#entry-type .toggle-btn.active').dataset.value;
   const amount = parseFloat(document.getElementById('entry-amount').value);
   const currency = document.getElementById('entry-currency').value;
-  const paidByValue = document.querySelector('#entry-paid-by .toggle-btn.active').dataset.value;
   const date = document.getElementById('entry-date').value;
+
+  // Get paid-by and split from the appropriate UI
+  let paidByValue, splitType;
+  if (entryType === 'expense') {
+    const activeOption = document.querySelector('.split-option.active');
+    paidByValue = activeOption?.dataset.paid || 'self';
+    splitType = activeOption?.dataset.split || 'even';
+  } else {
+    paidByValue = document.querySelector('#entry-paid-by .toggle-btn.active').dataset.value;
+  }
 
   // Validation
   if (entryType === 'expense') {
@@ -232,7 +260,6 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 
     if (entryType === 'expense') {
       const description = document.getElementById('entry-desc').value.trim();
-      const splitType = document.querySelector('#entry-split .toggle-btn.active').dataset.value;
 
       if (editingEntry && editingEntry.type === 'expense') {
         await db.collection('expenses').doc(editingEntry.id).update({

@@ -127,6 +127,22 @@ body {
 /* Entry type toggle gets accent color */
 #entry-type .toggle-btn.active { background: var(--accent); color: white; }
 
+/* Split options (4-button grid) */
+.split-options {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.split-option {
+  padding: 12px 10px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--surface-3);
+  color: var(--text-muted); font-size: 0.82rem; cursor: pointer;
+  transition: all 0.2s; text-align: center; line-height: 1.3;
+}
+.split-option.active {
+  border-color: var(--accent); color: var(--text);
+  background: var(--accent-soft);
+}
+.split-option:active { transform: scale(0.97); }
+
 /* History list */
 .history-list { list-style: none; padding-bottom: 80px; }
 .history-list li {
