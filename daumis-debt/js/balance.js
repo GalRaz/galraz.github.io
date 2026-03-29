@@ -92,31 +92,31 @@ export async function loadDashboard() {
     }
 
     // Check for weekly duel availability
-    const { isDuelAvailable } = await import('./duel.js');
+    const { isDuelAvailable, startDuel } = await import('./duel.js');
     const duelBanner = document.getElementById('duel-banner');
     if (await isDuelAvailable()) {
       duelBanner.classList.remove('hidden');
+      document.getElementById('btn-play-duel').onclick = startDuel;
     } else {
       duelBanner.classList.add('hidden');
     }
 
-    // Load recent activity
-    await loadRecentActivity();
+    // Load full history
+    await loadFullHistory();
   } catch (err) {
     console.error('Error loading dashboard:', err);
   }
 }
 
-async function loadRecentActivity() {
+async function loadFullHistory() {
   const user = getCurrentUser();
-  const list = document.getElementById('activity-list');
-  list.innerHTML = '';
+  const list = document.getElementById('history-list');
+  list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">Loading...</li>';
 
-  // Fetch recent expenses and payments, merge and sort
   const [expSnap, paySnap, duelSnap] = await Promise.all([
-    db.collection('expenses').orderBy('createdAt', 'desc').limit(10).get(),
-    db.collection('payments').orderBy('createdAt', 'desc').limit(5).get(),
-    db.collection('duels').orderBy('playedAt', 'desc').limit(3).get()
+    db.collection('expenses').orderBy('date', 'desc').get(),
+    db.collection('payments').orderBy('date', 'desc').get(),
+    db.collection('duels').orderBy('playedAt', 'desc').get()
   ]);
 
   const items = [];
@@ -134,18 +134,28 @@ async function loadRecentActivity() {
   });
 
   items.sort((a, b) => b.date - a.date);
-  items.slice(0, 10).forEach((item) => {
+  list.innerHTML = '';
+
+  if (items.length === 0) {
+    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No history yet. Tap + to add an expense.</li>';
+    return;
+  }
+
+  items.forEach((item) => {
     const li = document.createElement('li');
+    const dateStr = item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
     if (item.type === 'expense') {
       const isCredit = item.paidBy === user.uid;
+      const effectiveAmount = item.splitType === 'even' ? item.usdAmount / 2 : item.usdAmount;
       li.innerHTML = `
         <span class="entry-type expense">Expense</span>
         <div class="entry-info">
           <div class="entry-desc">${item.description}</div>
-          <div class="entry-meta">${item.amount} ${item.currency} · ${item.splitType}</div>
+          <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>
         </div>
         <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-          ${isCredit ? '+' : '-'}$${(item.splitType === 'even' ? item.usdAmount / 2 : item.usdAmount).toFixed(2)}
+          ${isCredit ? '+' : '-'}$${effectiveAmount.toFixed(2)}
         </div>`;
     } else if (item.type === 'payment') {
       const isCredit = item.paidBy === user.uid;
@@ -153,7 +163,7 @@ async function loadRecentActivity() {
         <span class="entry-type payment">Payment</span>
         <div class="entry-info">
           <div class="entry-desc">Settlement</div>
-          <div class="entry-meta">${item.amount} ${item.currency}</div>
+          <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
         </div>
         <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
           ${isCredit ? '+' : '-'}$${item.usdAmount.toFixed(2)}
@@ -164,7 +174,7 @@ async function loadRecentActivity() {
         <span class="entry-type duel">Duel</span>
         <div class="entry-info">
           <div class="entry-desc">${item.game}</div>
-          <div class="entry-meta">Week ${item.week}</div>
+          <div class="entry-meta">${dateStr} · Week ${item.week}</div>
         </div>
         <div class="entry-amount ${won ? 'credit' : 'debit'}">
           ${won ? '+' : '-'}$${item.balanceAdjust.toFixed(2)}
@@ -172,8 +182,4 @@ async function loadRecentActivity() {
     }
     list.appendChild(li);
   });
-
-  if (items.length === 0) {
-    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No activity yet</li>';
-  }
 }

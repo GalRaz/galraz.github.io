@@ -18,7 +18,6 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100dvh;
-  padding-bottom: var(--nav-height);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -99,18 +98,27 @@ body {
 .entry-type.payment { background: var(--green); color: var(--bg); }
 .entry-type.duel { background: #f0a500; color: var(--bg); }
 
-.bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--surface); border-top: 1px solid var(--surface-2);
-  display: flex; height: var(--nav-height);
+.fab {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: var(--accent); color: white;
+  border: none; font-size: 2rem; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 10;
   padding-bottom: env(safe-area-inset-bottom);
 }
-.nav-btn {
-  flex: 1; border: none; background: none; color: var(--text-muted);
-  font-size: 0.75rem; cursor: pointer; padding: 8px 0;
-  transition: color 0.2s;
+.fab:active { transform: scale(0.9); box-shadow: 0 2px 8px rgba(233, 69, 96, 0.3); }
+
+.screen-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
 }
-.nav-btn.active { color: var(--accent); }
+.screen-header h2 { margin-bottom: 0; }
+.btn-icon {
+  background: none; border: none; color: var(--text);
+  font-size: 1.5rem; cursor: pointer; padding: 4px 8px;
+}
 
 .hidden { display: none !important; }
 h2 { margin-bottom: 16px; }

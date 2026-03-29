@@ -1,12 +1,9 @@
 import { auth, googleProvider } from './firebase-config.js';
-import './expenses.js';
-import './payments.js';
-import './duel.js';
+import { db } from './firebase-config.js';
+import { convertToUSD } from './exchange.js';
 
 // --- State ---
 let currentUser = null;
-
-// User name mapping — populated after auth. Keys are UIDs, values are display names.
 const userNames = {};
 
 // --- Auth ---
@@ -25,31 +22,38 @@ auth.onAuthStateChanged((user) => {
   } else {
     currentUser = null;
     showScreen('auth');
-    document.getElementById('bottom-nav').classList.add('hidden');
   }
 });
 
 // --- Routing ---
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
-  document.getElementById(`screen-${name}`).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach((b) => {
-    b.classList.toggle('active', b.dataset.screen === name);
-  });
+  const screenId = name === 'add' ? 'screen-add' : `screen-${name}`;
+  document.getElementById(screenId).classList.add('active');
 }
 
-document.querySelectorAll('.nav-btn').forEach((btn) => {
-  btn.addEventListener('click', async () => {
-    showScreen(btn.dataset.screen);
-    if (btn.dataset.screen === 'dashboard') {
-      const { loadDashboard } = await import('./balance.js');
-      loadDashboard();
-    }
-    if (btn.dataset.screen === 'history') {
-      const { loadHistory } = await import('./history.js');
-      loadHistory();
-    }
-  });
+// --- FAB ---
+document.getElementById('fab-add').addEventListener('click', () => {
+  showScreen('add');
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('entry-date').value = today;
+  document.getElementById('form-entry').reset();
+  document.getElementById('entry-date').value = today;
+  // Reset toggles
+  resetToggles();
+  updateFormForType('expense');
+});
+
+// --- Back buttons ---
+document.getElementById('btn-back').addEventListener('click', async () => {
+  showScreen('dashboard');
+  const { loadDashboard } = await import('./balance.js');
+  loadDashboard();
+});
+document.getElementById('btn-back-duel').addEventListener('click', async () => {
+  showScreen('dashboard');
+  const { loadDashboard } = await import('./balance.js');
+  loadDashboard();
 });
 
 // --- Toggle buttons ---
@@ -62,12 +66,117 @@ document.querySelectorAll('.toggle').forEach((toggle) => {
   });
 });
 
+// --- Entry type toggle (expense vs payment) ---
+document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    updateFormForType(btn.dataset.value);
+  });
+});
+
+function updateFormForType(type) {
+  const descField = document.getElementById('entry-desc');
+  const splitGroup = document.getElementById('split-group');
+  const title = document.getElementById('add-title');
+  const paidByLabel = document.querySelector('#entry-paid-by').closest('.toggle-group').querySelector('label');
+
+  if (type === 'payment') {
+    descField.style.display = 'none';
+    descField.removeAttribute('required');
+    splitGroup.style.display = 'none';
+    title.textContent = 'Record Payment';
+    paidByLabel.textContent = 'Who paid';
+  } else {
+    descField.style.display = '';
+    splitGroup.style.display = '';
+    title.textContent = 'Add Expense';
+    paidByLabel.textContent = 'Paid by';
+  }
+}
+
+function resetToggles() {
+  document.querySelectorAll('#screen-add .toggle').forEach((toggle) => {
+    toggle.querySelectorAll('.toggle-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
+  });
+}
+
+// --- Combined form submission ---
+document.getElementById('form-entry').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentUser) return;
+
+  const entryType = document.querySelector('#entry-type .toggle-btn.active').dataset.value;
+  const amount = parseFloat(document.getElementById('entry-amount').value);
+  const currency = document.getElementById('entry-currency').value;
+  const paidByValue = document.querySelector('#entry-paid-by .toggle-btn.active').dataset.value;
+  const date = document.getElementById('entry-date').value;
+
+  if (!amount || amount <= 0) {
+    alert('Please enter a valid amount.');
+    return;
+  }
+
+  const submitBtn = document.querySelector('#form-entry button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving...';
+
+  try {
+    const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
+    const paidBy = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
+    const otherUid = paidByValue === 'self' ? getPartnerUid() : currentUser.uid;
+
+    if (entryType === 'expense') {
+      const description = document.getElementById('entry-desc').value.trim();
+      const splitType = document.querySelector('#entry-split .toggle-btn.active').dataset.value;
+
+      if (!description) {
+        alert('Please add a description.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save';
+        return;
+      }
+
+      await db.collection('expenses').add({
+        description,
+        amount,
+        currency,
+        usdAmount,
+        exchangeRate,
+        paidBy,
+        splitType,
+        owedBy: otherUid,
+        date: new Date(date + 'T12:00:00'),
+        addedBy: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await db.collection('payments').add({
+        amount,
+        currency,
+        usdAmount,
+        exchangeRate,
+        paidBy,
+        paidTo: otherUid,
+        date: new Date(date + 'T12:00:00'),
+        addedBy: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    // Go back to dashboard
+    showScreen('dashboard');
+    const { loadDashboard } = await import('./balance.js');
+    loadDashboard();
+  } catch (err) {
+    console.error('Error saving entry:', err);
+    alert('Failed to save. Check your connection.');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save';
+  }
+});
+
 // --- App entry ---
 async function showApp() {
-  document.getElementById('bottom-nav').classList.remove('hidden');
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('expense-date').value = today;
-  document.getElementById('payment-date').value = today;
   showScreen('dashboard');
   const { loadDashboard } = await import('./balance.js');
   loadDashboard();

@@ -113,7 +113,4 @@ export async function recordDuelResult({ game, result, balanceAdjust, favoredUse
   });
 }
 
-// Wire up the duel banner button
-document.getElementById('btn-play-duel').addEventListener('click', startDuel);
-
 export { GAME_NAMES, getCurrentWeekInfo, seededRandom };
