@@ -1,76 +1,62 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, getPartnerUid, getUserName, setPartnerInfo } from './app.js';
 
+/** Check if a UID is valid (not null, undefined, or their string equivalents) */
+function isValidUid(uid) {
+  return uid && uid !== 'null' && uid !== 'undefined';
+}
+
 /**
- * Compute net balance from all expenses, payments, and duels.
- * Returns a number: positive means the current user is owed money,
- * negative means the current user owes money.
+ * Compute the signed USD impact of a single item from the current user's perspective.
+ * Positive = money owed TO me, negative = money I owe.
+ * Returns 0 if the item can't be attributed (bad UIDs).
  */
-export async function computeBalance() {
-  const user = getCurrentUser();
-  let balance = 0; // positive = current user is owed
-
-  // Process expenses
-  const expenses = await db.collection('expenses').get();
-  expenses.forEach((doc) => {
-    const e = doc.data();
-    // Track partner info for display
-    if (e.paidBy !== user.uid) setPartnerInfo(e.paidBy, e.paidByName || 'Partner');
-    if (e.owedBy && e.owedBy !== user.uid) setPartnerInfo(e.owedBy, '');
-
-    if (e.splitType === 'even') {
-      // paidBy is owed half by the other person
-      if (e.paidBy === user.uid) {
-        balance += e.usdAmount / 2; // partner owes me half
-      } else {
-        balance -= e.usdAmount / 2; // I owe partner half
+function itemImpact(item, myUid) {
+  if (item.type === 'expense') {
+    const paidByMe = item.paidBy === myUid;
+    const owedByMe = item.owedBy === myUid;
+    // Validate: at least one UID should be ours
+    if (!paidByMe && !owedByMe) {
+      // Neither UID is ours — check if either is a valid partner UID
+      if (isValidUid(item.paidBy) && !isValidUid(item.owedBy)) {
+        // Someone else paid, owedBy is broken — skip
+        return 0;
       }
-    } else {
-      // "full" — owedBy owes the full amount to paidBy
-      if (e.paidBy === user.uid && e.owedBy !== user.uid) {
-        balance += e.usdAmount; // partner owes me full
-      } else if (e.owedBy === user.uid && e.paidBy !== user.uid) {
-        balance -= e.usdAmount; // I owe partner full
+      if (!isValidUid(item.paidBy) && isValidUid(item.owedBy)) {
+        return 0;
       }
+      return 0;
     }
-  });
-
-  // Process payments
-  const payments = await db.collection('payments').get();
-  payments.forEach((doc) => {
-    const p = doc.data();
-    if (p.paidBy !== user.uid) setPartnerInfo(p.paidBy, '');
-    if (p.paidTo !== user.uid) setPartnerInfo(p.paidTo, '');
-
-    if (p.paidBy === user.uid) {
-      balance += p.usdAmount; // I paid partner, so they owe me more (or I owe less)
+    if (item.splitType === 'even') {
+      return paidByMe ? item.usdAmount / 2 : -item.usdAmount / 2;
     } else {
-      balance -= p.usdAmount; // Partner paid me
+      // "full" split
+      if (paidByMe && !owedByMe) return item.usdAmount;
+      if (owedByMe && !paidByMe) return -item.usdAmount;
+      return 0; // paidBy === owedBy === me (shouldn't happen)
     }
-  });
+  }
 
-  // Process duels
-  const duels = await db.collection('duels').get();
-  duels.forEach((doc) => {
-    const d = doc.data();
-    if (!d.balanceAdjust) return; // no adjustment (tie or $0)
-    if (d.favoredUser === user.uid) {
-      balance += d.balanceAdjust;
-    } else if (d.favoredUser) {
-      balance -= d.balanceAdjust;
-    } else {
-      // favoredUser is null (missing partner UID bug) — use result.netAdjust to determine direction
-      // Positive netAdjust = debtor was favored. If user is debtor (balance < 0 at time), it's in their favor.
-      // Since we can't know the exact balance at duel time, use the result sign as a heuristic.
-      if (d.result?.netAdjust > 0) {
-        balance += d.balanceAdjust;
-      } else if (d.result?.netAdjust < 0) {
-        balance -= d.balanceAdjust;
-      }
-    }
-  });
+  if (item.type === 'payment') {
+    if (item.paidBy === myUid) return item.usdAmount;
+    if (item.paidTo === myUid) return -item.usdAmount;
+    // Neither matches — check for bad UIDs
+    if (!isValidUid(item.paidBy) && isValidUid(item.paidTo) && item.paidTo !== myUid) return item.usdAmount;
+    if (isValidUid(item.paidBy) && item.paidBy !== myUid && !isValidUid(item.paidTo)) return -item.usdAmount;
+    return 0;
+  }
 
-  return Math.round(balance * 100) / 100;
+  if (item.type === 'duel') {
+    if (!item.balanceAdjust) return 0;
+    if (item.favoredUser === myUid) return item.balanceAdjust;
+    if (isValidUid(item.favoredUser)) return -item.balanceAdjust;
+    // favoredUser is null — use result.netAdjust as heuristic
+    if (item.result?.netAdjust > 0) return item.balanceAdjust;
+    if (item.result?.netAdjust < 0) return -item.balanceAdjust;
+    return 0;
+  }
+
+  return 0;
 }
 
 /**
@@ -81,7 +67,62 @@ export async function loadDashboard() {
   const balanceEl = document.getElementById('balance-display');
 
   try {
-    const balance = await computeBalance();
+    // Fetch all data once
+    const [expSnap, paySnap, duelSnap] = await Promise.all([
+      db.collection('expenses').get(),
+      db.collection('payments').get(),
+      db.collection('duels').get()
+    ]);
+
+    // Build items list
+    const items = [];
+
+    expSnap.forEach((doc) => {
+      try {
+        const d = doc.data();
+        // Track partner info
+        if (d.paidBy !== user.uid && isValidUid(d.paidBy)) setPartnerInfo(d.paidBy, '');
+        if (d.owedBy !== user.uid && isValidUid(d.owedBy)) setPartnerInfo(d.owedBy, '');
+        const parsed = { ...d };
+        parsed.type = 'expense';
+        parsed.id = doc.id;
+        parsed.date = toJSDate(d.date);
+        items.push(parsed);
+      } catch (e) { console.error('Bad expense doc:', doc.id, e); }
+    });
+
+    paySnap.forEach((doc) => {
+      try {
+        const d = doc.data();
+        if (d.paidBy !== user.uid && isValidUid(d.paidBy)) setPartnerInfo(d.paidBy, '');
+        if (d.paidTo !== user.uid && isValidUid(d.paidTo)) setPartnerInfo(d.paidTo, '');
+        const parsed = { ...d };
+        parsed.type = 'payment';
+        parsed.id = doc.id;
+        parsed.date = toJSDate(d.date);
+        items.push(parsed);
+      } catch (e) { console.error('Bad payment doc:', doc.id, e); }
+    });
+
+    duelSnap.forEach((doc) => {
+      try {
+        const d = doc.data();
+        const parsed = { ...d };
+        parsed.type = 'duel';
+        parsed.id = doc.id;
+        parsed.date = toJSDate(d.playedAt);
+        items.push(parsed);
+      } catch (e) { console.error('Bad duel doc:', doc.id, e); }
+    });
+
+    // Compute balance using itemImpact (single source of truth)
+    let balance = 0;
+    for (const item of items) {
+      balance += itemImpact(item, user.uid);
+    }
+    balance = Math.round(balance * 100) / 100;
+
+    // Render balance
     const label = balanceEl.querySelector('.balance-label');
     const amount = balanceEl.querySelector('.balance-amount');
 
@@ -111,85 +152,16 @@ export async function loadDashboard() {
       duelBanner.classList.add('hidden');
     }
 
-    // Load full history
-    await loadFullHistory();
+    // Render history using same itemImpact for consistency
+    renderHistory(items, user.uid, balance);
+
   } catch (err) {
     console.error('Error loading dashboard:', err);
-    // Still try to show history even if balance computation failed
-    try { await loadFullHistory(); } catch (e) { console.error('History also failed:', e); }
   }
 }
 
-async function loadFullHistory() {
-  const user = getCurrentUser();
+function renderHistory(items, myUid, totalBalance) {
   const list = document.getElementById('history-list');
-  list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">Loading...</li>';
-
-  // Fetch all collections — use try/catch per collection so one failure doesn't block all
-  let expSnap, paySnap, duelSnap;
-  try {
-    [expSnap, paySnap, duelSnap] = await Promise.all([
-      db.collection('expenses').get(),
-      db.collection('payments').get(),
-      db.collection('duels').get()
-    ]);
-  } catch (err) {
-    console.error('Error fetching history:', err);
-    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">Error loading history. Pull down to retry.</li>';
-    return;
-  }
-
-  const items = [];
-
-  function toJSDate(d) {
-    try {
-      if (typeof d?.toDate === 'function') return d.toDate();
-      if (typeof d?.seconds === 'number') return new Date(d.seconds * 1000);
-      if (d instanceof Date) return d;
-      const parsed = new Date(d);
-      if (!isNaN(parsed)) return parsed;
-    } catch (e) {}
-    return new Date();
-  }
-
-  function formatDate(d) {
-    try {
-      const jsDate = d instanceof Date ? d : toJSDate(d);
-      return jsDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    } catch (e) { return ''; }
-  }
-
-  expSnap.forEach((doc) => {
-    try {
-      const d = doc.data();
-      const parsed = { ...d };
-      parsed.type = 'expense';
-      parsed.id = doc.id;
-      parsed.date = toJSDate(d.date);
-      items.push(parsed);
-    } catch (e) { console.error('Bad expense doc:', doc.id, e); }
-  });
-  paySnap.forEach((doc) => {
-    try {
-      const d = doc.data();
-      const parsed = { ...d };
-      parsed.type = 'payment';
-      parsed.id = doc.id;
-      parsed.date = toJSDate(d.date);
-      items.push(parsed);
-    } catch (e) { console.error('Bad payment doc:', doc.id, e); }
-  });
-  duelSnap.forEach((doc) => {
-    try {
-      const d = doc.data();
-      const parsed = { ...d };
-      parsed.type = 'duel';
-      parsed.id = doc.id;
-      parsed.date = toJSDate(d.playedAt);
-      items.push(parsed);
-    } catch (e) { console.error('Bad duel doc:', doc.id, e); }
-  });
-
   items.sort((a, b) => b.date - a.date);
   list.innerHTML = '';
 
@@ -198,14 +170,19 @@ async function loadFullHistory() {
     return;
   }
 
+  // Verify consistency: sum of displayed items should equal the balance
+  let historySum = 0;
+
   items.forEach((item) => {
     try {
       const li = document.createElement('li');
       const dateStr = formatDate(item.date);
+      const impact = itemImpact(item, myUid);
+      historySum += impact;
+      const isCredit = impact >= 0;
+      const absAmount = Math.abs(impact);
 
       if (item.type === 'expense') {
-        const isCredit = item.paidBy === user.uid;
-        const effectiveAmount = item.splitType === 'even' ? item.usdAmount / 2 : item.usdAmount;
         li.innerHTML = `
           <div class="entry-icon expense">$</div>
           <div class="entry-info">
@@ -213,12 +190,11 @@ async function loadFullHistory() {
             <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-            ${isCredit ? '+' : '-'}$${effectiveAmount.toFixed(2)}
+            ${isCredit ? '+' : '-'}$${absAmount.toFixed(2)}
           </div>`;
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
       } else if (item.type === 'payment') {
-        const isCredit = item.paidBy === user.uid;
         li.innerHTML = `
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
@@ -226,20 +202,19 @@ async function loadFullHistory() {
             <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-            ${isCredit ? '+' : '-'}$${item.usdAmount.toFixed(2)}
+            ${isCredit ? '+' : '-'}$${absAmount.toFixed(2)}
           </div>`;
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
       } else if (item.type === 'duel') {
-        const won = item.favoredUser === user.uid || (!item.favoredUser && item.result?.netAdjust > 0);
         li.innerHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
             <div class="entry-desc">${item.game || 'Duel'}</div>
             <div class="entry-meta">${dateStr} · Week ${item.week}</div>
           </div>
-          <div class="entry-amount ${won ? 'credit' : 'debit'}">
-            ${won ? '+' : '-'}$${(item.balanceAdjust || 0).toFixed(2)}
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
+            ${isCredit ? '+' : '-'}$${absAmount.toFixed(2)}
           </div>`;
       }
       list.appendChild(li);
@@ -247,9 +222,57 @@ async function loadFullHistory() {
       console.error('Error rendering item:', item, e);
     }
   });
+
+  // Consistency check
+  historySum = Math.round(historySum * 100) / 100;
+  if (Math.abs(historySum - totalBalance) > 0.01) {
+    console.error(`CONSISTENCY ERROR: balance=$${totalBalance}, history sum=$${historySum}, diff=$${(totalBalance - historySum).toFixed(2)}`);
+  }
+}
+
+function toJSDate(d) {
+  try {
+    if (typeof d?.toDate === 'function') return d.toDate();
+    if (typeof d?.seconds === 'number') return new Date(d.seconds * 1000);
+    if (d instanceof Date) return d;
+    const parsed = new Date(d);
+    if (!isNaN(parsed)) return parsed;
+  } catch (e) {}
+  return new Date();
+}
+
+function formatDate(d) {
+  try {
+    const jsDate = d instanceof Date ? d : toJSDate(d);
+    return jsDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch (e) { return ''; }
 }
 
 export function editEntry(type, data) {
-  // Dispatch custom event that app.js listens for
   window.dispatchEvent(new CustomEvent('edit-entry', { detail: { type, data } }));
+}
+
+// Export for games that need balance to determine debtor
+export async function computeBalance() {
+  const user = getCurrentUser();
+  const [expSnap, paySnap, duelSnap] = await Promise.all([
+    db.collection('expenses').get(),
+    db.collection('payments').get(),
+    db.collection('duels').get()
+  ]);
+
+  let balance = 0;
+  const processSnap = (snap, type, dateField) => {
+    snap.forEach((doc) => {
+      const d = doc.data();
+      d.type = type;
+      balance += itemImpact(d, user.uid);
+    });
+  };
+
+  processSnap(expSnap, 'expense');
+  processSnap(paySnap, 'payment');
+  processSnap(duelSnap, 'duel');
+
+  return Math.round(balance * 100) / 100;
 }
