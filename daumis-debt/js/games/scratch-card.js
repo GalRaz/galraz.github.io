@@ -85,8 +85,9 @@ export async function play(container, { year, week, seed }) {
     document.getElementById('scratch-hint').textContent = '';
 
     const resultEl = document.getElementById('scratch-result');
-    const debtorUid = userIsDebtor ? user.uid : getPartnerUid();
-    const creditorUid = userIsDebtor ? getPartnerUid() : user.uid;
+    const partnerUid = getPartnerUid() || 'partner';
+    const debtorUid = userIsDebtor ? user.uid : partnerUid;
+    const creditorUid = userIsDebtor ? partnerUid : user.uid;
 
     let favoredUser = null;
     if (netAdjust > 0) {

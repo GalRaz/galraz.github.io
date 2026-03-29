@@ -29,8 +29,9 @@ export async function play(container, { year, week, seed }) {
       coinEl.textContent = isHeads ? 'H' : 'T';
 
       const resultEl = document.getElementById('flip-result');
-      const debtorUid = userIsDebtor ? user.uid : getPartnerUid();
-      const creditorUid = userIsDebtor ? getPartnerUid() : user.uid;
+      const partnerUid = getPartnerUid() || 'partner';
+      const debtorUid = userIsDebtor ? user.uid : partnerUid;
+      const creditorUid = userIsDebtor ? partnerUid : user.uid;
       const favoredUser = isHeads ? debtorUid : creditorUid;
 
       if (isHeads) {

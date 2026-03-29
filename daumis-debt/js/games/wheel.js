@@ -93,8 +93,9 @@ export async function play(container, { year, week, seed }) {
         requestAnimationFrame(animate);
       } else {
         const resultEl = document.getElementById('spin-result');
-        const debtorUid = userIsDebtor ? user.uid : getPartnerUid();
-        const creditorUid = userIsDebtor ? getPartnerUid() : user.uid;
+        const partnerUid = getPartnerUid() || 'partner';
+        const debtorUid = userIsDebtor ? user.uid : partnerUid;
+        const creditorUid = userIsDebtor ? partnerUid : user.uid;
 
         let favoredUser = null;
         if (resultSlice.value > 0) {

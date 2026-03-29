@@ -53,9 +53,11 @@ export async function computeBalance() {
   const duels = await db.collection('duels').get();
   duels.forEach((doc) => {
     const d = doc.data();
+    if (!d.balanceAdjust) return; // no adjustment (tie or $0)
     if (d.favoredUser === user.uid) {
       balance += d.balanceAdjust;
-    } else if (d.favoredUser) {
+    } else {
+      // favoredUser is partner (or null due to missing partner UID) — count against us
       balance -= d.balanceAdjust;
     }
   });
