@@ -441,6 +441,8 @@ export function getUserName(uid) {
   return userNames[uid] || 'Partner';
 }
 export function setPartnerInfo(uid, name) {
+  // Don't overwrite an existing name with an empty one
+  if (!name && userNames[uid]) return;
   userNames[uid] = name;
 }
 
