@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Daumi's Debt</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Auth screen -->
+    <div id="screen-auth" class="screen active">
+      <div class="auth-container">
+        <h1>Daumi's Debt</h1>
+        <p class="subtitle">Expense tracker for two</p>
+        <button id="btn-google-login" class="btn btn-primary">Sign in with Google</button>
+      </div>
+    </div>
+
+    <!-- Dashboard screen -->
+    <div id="screen-dashboard" class="screen">
+      <div class="dashboard-content">
+        <div id="balance-display" class="balance-card">
+          <p class="balance-label">Loading...</p>
+          <p class="balance-amount"></p>
+        </div>
+        <div id="duel-banner" class="duel-banner hidden">
+          <p>Weekly Duel available!</p>
+          <button id="btn-play-duel" class="btn btn-accent">Play</button>
+        </div>
+        <div id="recent-activity">
+          <h3>Recent Activity</h3>
+          <ul id="activity-list" class="activity-list"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Expense screen -->
+    <div id="screen-add-expense" class="screen">
+      <h2>Add Expense</h2>
+      <form id="form-expense" class="form">
+        <input type="text" id="expense-desc" placeholder="What was it for?" required>
+        <div class="row">
+          <input type="number" id="expense-amount" placeholder="Amount" step="0.01" required>
+          <select id="expense-currency">
+            <option value="USD">USD</option>
+            <option value="THB">THB</option>
+            <option value="BTN">BTN</option>
+            <option value="JPY">JPY</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <div class="toggle-group">
+          <label>Paid by</label>
+          <div class="toggle" id="expense-paid-by">
+            <button type="button" class="toggle-btn active" data-value="self">Me</button>
+            <button type="button" class="toggle-btn" data-value="partner">Partner</button>
+          </div>
+        </div>
+        <div class="toggle-group">
+          <label>Split</label>
+          <div class="toggle" id="expense-split">
+            <button type="button" class="toggle-btn active" data-value="even">Split evenly</button>
+            <button type="button" class="toggle-btn" data-value="full">Owed fully</button>
+          </div>
+        </div>
+        <input type="date" id="expense-date">
+        <button type="submit" class="btn btn-primary">Save Expense</button>
+      </form>
+    </div>
+
+    <!-- Add Payment screen -->
+    <div id="screen-add-payment" class="screen">
+      <h2>Record Payment</h2>
+      <form id="form-payment" class="form">
+        <div class="row">
+          <input type="number" id="payment-amount" placeholder="Amount" step="0.01" required>
+          <select id="payment-currency">
+            <option value="USD">USD</option>
+            <option value="THB">THB</option>
+            <option value="BTN">BTN</option>
+            <option value="JPY">JPY</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <div class="toggle-group">
+          <label>Who paid</label>
+          <div class="toggle" id="payment-direction">
+            <button type="button" class="toggle-btn active" data-value="self">I paid</button>
+            <button type="button" class="toggle-btn" data-value="partner">Partner paid</button>
+          </div>
+        </div>
+        <input type="date" id="payment-date">
+        <button type="submit" class="btn btn-primary">Save Payment</button>
+      </form>
+    </div>
+
+    <!-- History screen -->
+    <div id="screen-history" class="screen">
+      <h2>History</h2>
+      <ul id="history-list" class="history-list"></ul>
+    </div>
+
+    <!-- Duel screen -->
+    <div id="screen-duel" class="screen">
+      <div id="duel-content"></div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav id="bottom-nav" class="bottom-nav hidden">
+    <button data-screen="dashboard" class="nav-btn active">Home</button>
+    <button data-screen="add-expense" class="nav-btn">Expense</button>
+    <button data-screen="add-payment" class="nav-btn">Payment</button>
+    <button data-screen="history" class="nav-btn">History</button>
+  </nav>
+
+  <!-- Firebase SDK (compat for no-build-step usage) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
