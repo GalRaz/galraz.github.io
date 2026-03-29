@@ -1,12 +1,12 @@
 // Firebase configuration — these values are public by design.
 // Security is enforced by Firestore rules, not by hiding this config.
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCLdsk7GWR9C6juy_6IqBqaMymAhujm9pc",
+  authDomain: "daumis-debt.firebaseapp.com",
+  projectId: "daumis-debt",
+  storageBucket: "daumis-debt.firebasestorage.app",
+  messagingSenderId: "632130093638",
+  appId: "1:632130093638:web:31be5718f150d0eb0c8047"
 };
 
 firebase.initializeApp(firebaseConfig);
