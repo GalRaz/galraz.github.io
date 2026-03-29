@@ -26,7 +26,7 @@ service cloud.firestore {
       allow read: if isAllowedUser();
       allow create: if isAllowedUser();
       allow update: if isAllowedUser();
-      allow delete: if false;
+      allow delete: if isAllowedUser();
     }
 
     match /users/{userId} {
