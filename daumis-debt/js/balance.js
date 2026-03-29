@@ -105,6 +105,8 @@ export async function loadDashboard() {
     await loadFullHistory();
   } catch (err) {
     console.error('Error loading dashboard:', err);
+    // Still try to show history even if balance computation failed
+    try { await loadFullHistory(); } catch (e) { console.error('History also failed:', e); }
   }
 }
 
@@ -113,11 +115,19 @@ async function loadFullHistory() {
   const list = document.getElementById('history-list');
   list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">Loading...</li>';
 
-  const [expSnap, paySnap, duelSnap] = await Promise.all([
-    db.collection('expenses').orderBy('date', 'desc').get(),
-    db.collection('payments').orderBy('date', 'desc').get(),
-    db.collection('duels').orderBy('playedAt', 'desc').get()
-  ]);
+  // Fetch all collections — use try/catch per collection so one failure doesn't block all
+  let expSnap, paySnap, duelSnap;
+  try {
+    [expSnap, paySnap, duelSnap] = await Promise.all([
+      db.collection('expenses').get(),
+      db.collection('payments').get(),
+      db.collection('duels').get()
+    ]);
+  } catch (err) {
+    console.error('Error fetching history:', err);
+    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">Error loading history. Pull down to retry.</li>';
+    return;
+  }
 
   const items = [];
   expSnap.forEach((doc) => {
