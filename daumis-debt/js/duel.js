@@ -60,26 +60,43 @@ export function getWeeklyGame(seed) {
   return picked;
 }
 
-/** Check if a duel has been played this week. */
+/** Check if a duel is available this week (not yet played to completion). */
 export async function isDuelAvailable() {
   const { year, week } = getCurrentWeekInfo();
   const snapshot = await db.collection('duels')
     .where('year', '==', year)
     .where('week', '==', week)
     .get();
-  return snapshot.empty;
+  // Available if no duel doc exists, or if one exists but has no final result yet
+  if (snapshot.empty) return true;
+  const data = snapshot.docs[0].data();
+  return !data.result;
 }
 
 /** Start the weekly duel. */
 export async function startDuel() {
-  const available = await isDuelAvailable();
-  if (!available) {
+  const { year, week, seed } = getCurrentWeekInfo();
+
+  // Check if there's already a pending duel (partner may have started it)
+  const existing = await db.collection('duels')
+    .where('year', '==', year)
+    .where('week', '==', week)
+    .get();
+
+  if (!existing.empty && existing.docs[0].data().result) {
     alert('Duel already played this week!');
     return;
   }
 
-  const { year, week, seed } = getCurrentWeekInfo();
-  const game = getWeeklyGame(seed);
+  // Use the game from existing doc if partner already started,
+  // otherwise pick deterministically from the seed
+  let game;
+  if (!existing.empty && existing.docs[0].data().game) {
+    const gameName = existing.docs[0].data().game;
+    game = Object.entries(GAME_NAMES).find(([k, v]) => v === gameName)?.[0] || getWeeklyGame(seed);
+  } else {
+    game = getWeeklyGame(seed);
+  }
 
   showScreen('duel');
   const content = document.getElementById('duel-content');
@@ -90,7 +107,6 @@ export async function startDuel() {
       <div id="game-area"></div>
     </div>`;
 
-  // Dynamically load the game module
   const gameModule = await import(`./games/${game}.js`);
   gameModule.play(document.getElementById('game-area'), { year, week, seed });
 }
