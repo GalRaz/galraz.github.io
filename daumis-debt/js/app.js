@@ -392,25 +392,26 @@ async function backfillPartnerUids() {
 
   let patched = 0;
 
-  // Fix expenses with null paidBy or owedBy
+  // Fix expenses with null/missing/string-"null" paidBy or owedBy
+  const isBad = (v) => !v || v === 'null' || v === 'undefined';
   const expenses = await db.collection('expenses').get();
   for (const doc of expenses.docs) {
     const d = doc.data();
     const updates = {};
-    if (d.paidBy === null || d.paidBy === undefined) updates.paidBy = partnerUid;
-    if (d.owedBy === null || d.owedBy === undefined) updates.owedBy = partnerUid;
+    if (isBad(d.paidBy)) updates.paidBy = partnerUid;
+    if (isBad(d.owedBy)) updates.owedBy = partnerUid;
     if (Object.keys(updates).length > 0) {
       try { await doc.ref.update(updates); patched++; } catch (e) { console.warn('Backfill failed for expense', doc.id, e); }
     }
   }
 
-  // Fix payments with null paidBy or paidTo
+  // Fix payments with null/missing/string-"null" paidBy or paidTo
   const payments = await db.collection('payments').get();
   for (const doc of payments.docs) {
     const d = doc.data();
     const updates = {};
-    if (d.paidBy === null || d.paidBy === undefined) updates.paidBy = partnerUid;
-    if (d.paidTo === null || d.paidTo === undefined) updates.paidTo = partnerUid;
+    if (isBad(d.paidBy)) updates.paidBy = partnerUid;
+    if (isBad(d.paidTo)) updates.paidTo = partnerUid;
     if (Object.keys(updates).length > 0) {
       try { await doc.ref.update(updates); patched++; } catch (e) { console.warn('Backfill failed for payment', doc.id, e); }
     }
