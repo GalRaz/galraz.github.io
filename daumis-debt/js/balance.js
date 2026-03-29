@@ -130,17 +130,34 @@ async function loadFullHistory() {
   }
 
   const items = [];
+
+  function parseDate(d) {
+    try {
+      if (d?.toDate) return d.toDate();
+      if (d?.seconds) return new Date(d.seconds * 1000);
+      if (d instanceof Date) return d;
+      if (typeof d === 'string' || typeof d === 'number') return new Date(d);
+    } catch (e) {}
+    return new Date();
+  }
+
   expSnap.forEach((doc) => {
-    const d = doc.data();
-    items.push({ type: 'expense', id: doc.id, date: d.date?.toDate?.() || new Date(d.date), ...d });
+    try {
+      const d = doc.data();
+      items.push({ type: 'expense', id: doc.id, date: parseDate(d.date), ...d });
+    } catch (e) { console.error('Bad expense doc:', doc.id, e); }
   });
   paySnap.forEach((doc) => {
-    const d = doc.data();
-    items.push({ type: 'payment', id: doc.id, date: d.date?.toDate?.() || new Date(d.date), ...d });
+    try {
+      const d = doc.data();
+      items.push({ type: 'payment', id: doc.id, date: parseDate(d.date), ...d });
+    } catch (e) { console.error('Bad payment doc:', doc.id, e); }
   });
   duelSnap.forEach((doc) => {
-    const d = doc.data();
-    items.push({ type: 'duel', date: d.playedAt?.toDate?.() || new Date(), ...d });
+    try {
+      const d = doc.data();
+      items.push({ type: 'duel', date: parseDate(d.playedAt), ...d });
+    } catch (e) { console.error('Bad duel doc:', doc.id, e); }
   });
 
   items.sort((a, b) => b.date - a.date);
@@ -152,53 +169,53 @@ async function loadFullHistory() {
   }
 
   items.forEach((item) => {
-    const li = document.createElement('li');
-    const dateStr = item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    try {
+      const li = document.createElement('li');
+      const dateStr = item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-    if (item.type === 'expense') {
-      const isCredit = item.paidBy === user.uid;
-      const effectiveAmount = item.splitType === 'even' ? item.usdAmount / 2 : item.usdAmount;
-      li.innerHTML = `
-        <div class="entry-icon expense">$</div>
-        <div class="entry-info">
-          <div class="entry-desc">${item.description}</div>
-          <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>
-        </div>
-        <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-          ${isCredit ? '+' : '-'}$${effectiveAmount.toFixed(2)}
-        </div>`;
-      li.style.cursor = 'pointer';
-      li.addEventListener('click', () => {
-        editEntry(item.type, item);
-      });
-    } else if (item.type === 'payment') {
-      const isCredit = item.paidBy === user.uid;
-      li.innerHTML = `
-        <div class="entry-icon payment">↗</div>
-        <div class="entry-info">
-          <div class="entry-desc">Settle up</div>
-          <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
-        </div>
-        <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-          ${isCredit ? '+' : '-'}$${item.usdAmount.toFixed(2)}
-        </div>`;
-      li.style.cursor = 'pointer';
-      li.addEventListener('click', () => {
-        editEntry(item.type, item);
-      });
-    } else if (item.type === 'duel') {
-      const won = item.favoredUser === user.uid;
-      li.innerHTML = `
-        <div class="entry-icon duel">⚔</div>
-        <div class="entry-info">
-          <div class="entry-desc">${item.game}</div>
-          <div class="entry-meta">${dateStr} · Week ${item.week}</div>
-        </div>
-        <div class="entry-amount ${won ? 'credit' : 'debit'}">
-          ${won ? '+' : '-'}$${item.balanceAdjust.toFixed(2)}
-        </div>`;
+      if (item.type === 'expense') {
+        const isCredit = item.paidBy === user.uid;
+        const effectiveAmount = item.splitType === 'even' ? item.usdAmount / 2 : item.usdAmount;
+        li.innerHTML = `
+          <div class="entry-icon expense">$</div>
+          <div class="entry-info">
+            <div class="entry-desc">${item.description || 'Expense'}</div>
+            <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>
+          </div>
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
+            ${isCredit ? '+' : '-'}$${effectiveAmount.toFixed(2)}
+          </div>`;
+        li.style.cursor = 'pointer';
+        li.addEventListener('click', () => editEntry(item.type, item));
+      } else if (item.type === 'payment') {
+        const isCredit = item.paidBy === user.uid;
+        li.innerHTML = `
+          <div class="entry-icon payment">↗</div>
+          <div class="entry-info">
+            <div class="entry-desc">Settle up</div>
+            <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
+          </div>
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
+            ${isCredit ? '+' : '-'}$${item.usdAmount.toFixed(2)}
+          </div>`;
+        li.style.cursor = 'pointer';
+        li.addEventListener('click', () => editEntry(item.type, item));
+      } else if (item.type === 'duel') {
+        const won = item.favoredUser === user.uid;
+        li.innerHTML = `
+          <div class="entry-icon duel">⚔</div>
+          <div class="entry-info">
+            <div class="entry-desc">${item.game || 'Duel'}</div>
+            <div class="entry-meta">${dateStr} · Week ${item.week}</div>
+          </div>
+          <div class="entry-amount ${won ? 'credit' : 'debit'}">
+            ${won ? '+' : '-'}$${(item.balanceAdjust || 0).toFixed(2)}
+          </div>`;
+      }
+      list.appendChild(li);
+    } catch (e) {
+      console.error('Error rendering item:', item, e);
     }
-    list.appendChild(li);
   });
 }
 
