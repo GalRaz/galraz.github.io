@@ -1,6 +1,32 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, getPartnerUid, getUserName, setPartnerInfo } from './app.js';
 
+function getBalanceQuote(balance) {
+  const abs = Math.abs(balance);
+  if (abs < 1) return "Perfectly balanced, as all things should be.";
+
+  const owesQuotes = [
+    // < $50
+    ["Don't worry, it's just a coffee... or ten.", "Pocket change! ...right?", "That's like half a fancy dinner."],
+    // $50-200
+    ["That's a nice dinner you owe.", "Time to cook at home for a bit.", "Someone's been swiping the card a lot."],
+    // $200-500
+    ["Getting into 'we need to talk' territory.", "That's a round-trip flight somewhere cheap.", "Maybe suggest a picnic instead of a restaurant?"],
+    // $500-1000
+    ["Okay, this is getting real.", "That's rent money in some countries.", "Have you considered a payment plan?"],
+    // $1000-5000
+    ["This is a small vacation's worth.", "Time for a serious settle-up conversation.", "At this point, just buy them a really nice gift."],
+    // $5000+
+    ["This is getting legendary.", "You might need a second job.", "At this rate, just propose and merge finances."]
+  ];
+
+  const idx = abs < 50 ? 0 : abs < 200 ? 1 : abs < 500 ? 2 : abs < 1000 ? 3 : abs < 5000 ? 4 : 5;
+  const pool = owesQuotes[idx];
+  // Pick deterministically based on date so it changes daily
+  const day = Math.floor(Date.now() / 86400000);
+  return pool[day % pool.length];
+}
+
 /** Check if a UID is valid (not null, undefined, or their string equivalents) */
 function isValidUid(uid) {
   return uid && uid !== 'null' && uid !== 'undefined';
@@ -151,6 +177,15 @@ export async function loadDashboard() {
       amount.textContent = '$0.00';
       amount.className = 'balance-amount';
     }
+
+    // Add fun quote
+    let quoteEl = balanceEl.querySelector('.balance-quote');
+    if (!quoteEl) {
+      quoteEl = document.createElement('p');
+      quoteEl.className = 'balance-quote';
+      amount.insertAdjacentElement('afterend', quoteEl);
+    }
+    quoteEl.textContent = getBalanceQuote(balance);
 
     // Render currency breakdown (hidden by default)
     const breakdown = document.getElementById('balance-breakdown');
