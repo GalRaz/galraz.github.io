@@ -1046,30 +1046,27 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 
     if (entryType === 'expense') {
       const description = document.getElementById('entry-desc').value.trim();
+      const expenseDate = new Date(date + 'T12:00:00');
+      const isFuture = expenseDate > new Date();
+      const recurringValue = !editingEntry ? (document.querySelector('#entry-recurring .toggle-btn.active')?.dataset.value || 'none') : 'none';
 
-      if (editingEntry && editingEntry.type === 'expense') {
+      if (isFuture && recurringValue !== 'none') {
+        // Future recurring: don't create expense now, just schedule it
+        const { createRecurring } = await import('./recurring.js');
+        await createRecurring({
+          description, amount, currency, paidBy, splitType,
+          owedBy: otherUid, frequency: recurringValue,
+          addedBy: currentUser.uid, startDate: expenseDate
+        });
+      } else if (editingEntry && editingEntry.type === 'expense') {
         await db.collection('expenses').doc(editingEntry.id).update({
-          description,
-          amount,
-          currency,
-          usdAmount,
-          exchangeRate,
-          paidBy,
-          splitType,
-          owedBy: otherUid,
-          date: new Date(date + 'T12:00:00'),
+          description, amount, currency, usdAmount, exchangeRate,
+          paidBy, splitType, owedBy: otherUid, date: expenseDate,
         });
       } else {
         await db.collection('expenses').add({
-          description,
-          amount,
-          currency,
-          usdAmount,
-          exchangeRate,
-          paidBy,
-          splitType,
-          owedBy: otherUid,
-          date: new Date(date + 'T12:00:00'),
+          description, amount, currency, usdAmount, exchangeRate,
+          paidBy, splitType, owedBy: otherUid, date: expenseDate,
           addedBy: currentUser.uid,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -1108,20 +1105,18 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
       }
     }
 
-    // Create recurring if selected (only for new expenses, not edits)
+    // Create recurring if selected (only for new, non-future expenses — future ones handled above)
     if (!editingEntry && entryType === 'expense') {
-      const recurringValue = document.querySelector('#entry-recurring .toggle-btn.active').dataset.value;
-      if (recurringValue !== 'none') {
+      const expenseDate = new Date(date + 'T12:00:00');
+      const isFuture = expenseDate > new Date();
+      const recurringValue = document.querySelector('#entry-recurring .toggle-btn.active')?.dataset.value || 'none';
+      if (recurringValue !== 'none' && !isFuture) {
         const { createRecurring } = await import('./recurring.js');
         await createRecurring({
           description: document.getElementById('entry-desc').value.trim(),
-          amount,
-          currency,
-          paidBy,
-          splitType,
-          owedBy: otherUid,
-          frequency: recurringValue,
-          addedBy: currentUser.uid
+          amount, currency, paidBy, splitType,
+          owedBy: otherUid, frequency: recurringValue,
+          addedBy: currentUser.uid, startDate: expenseDate
         });
       }
     }

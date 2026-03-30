@@ -56,13 +56,22 @@ export async function processRecurring(currentUser) {
 /**
  * Create a new recurring expense.
  */
-export async function createRecurring({ description, amount, currency, paidBy, splitType, owedBy, frequency, addedBy }) {
-  // Calculate first due date
-  const nextDue = new Date();
-  if (frequency === 'weekly') {
-    nextDue.setDate(nextDue.getDate() + 7);
+export async function createRecurring({ description, amount, currency, paidBy, splitType, owedBy, frequency, addedBy, startDate }) {
+  const base = startDate ? new Date(startDate) : new Date();
+  const now = new Date();
+  let nextDue;
+
+  if (base > now) {
+    // Future start: first occurrence is the start date itself
+    nextDue = base;
   } else {
-    nextDue.setMonth(nextDue.getMonth() + 1);
+    // Started today/past: next occurrence is one interval from the base date
+    nextDue = new Date(base);
+    if (frequency === 'weekly') {
+      nextDue.setDate(nextDue.getDate() + 7);
+    } else {
+      nextDue.setMonth(nextDue.getMonth() + 1);
+    }
   }
 
   await db.collection('recurring').add({
