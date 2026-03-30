@@ -57,6 +57,7 @@ body {
 /* Screens */
 .screen {
   display: none; padding: 24px 20px; max-width: 480px; margin: 0 auto;
+  background: var(--bg); min-height: 100dvh;
 }
 .screen.active { display: block; }
 .screen.slide-in-right { animation: slideInRight 0.3s ease-out; }
