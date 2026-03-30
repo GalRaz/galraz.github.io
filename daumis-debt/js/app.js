@@ -17,13 +17,12 @@ const SPLASH_MESSAGES = [
 
 let splashInterval = null;
 function startSplashCycle() {
-  const emojiEl = document.getElementById('splash-emoji');
   const subEl = document.getElementById('splash-sub');
-  if (!emojiEl || !subEl) return;
+  if (!subEl) return;
   let idx = Math.floor(Math.random() * SPLASH_MESSAGES.length);
+  subEl.textContent = SPLASH_MESSAGES[idx].text;
   splashInterval = setInterval(() => {
     idx = (idx + 1) % SPLASH_MESSAGES.length;
-    emojiEl.textContent = SPLASH_MESSAGES[idx].emoji;
     subEl.textContent = SPLASH_MESSAGES[idx].text;
   }, 800);
 }
