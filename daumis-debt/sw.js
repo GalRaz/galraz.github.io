@@ -44,11 +44,14 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   // Network-first: try network, update cache, fall back to cache if offline
+  // Only cache GET requests (POST/PUT etc. can't be cached)
   e.respondWith(
     fetch(e.request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        if (e.request.method === 'GET') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        }
         return response;
       })
       .catch(() => caches.match(e.request))

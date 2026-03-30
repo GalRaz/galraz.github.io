@@ -281,13 +281,11 @@ export async function loadDashboard() {
       : `${symbol}${Math.abs(consolidatedBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const consolidatedClass = consolidatedBalance > 0.005 ? 'positive' : consolidatedBalance < -0.005 ? 'negative' : '';
 
-    // Build breakdown view
-    const nonZeroCurrencies = Object.entries(currencyBalances)
-      .filter(([, v]) => Math.abs(v) > 0.005)
-      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    // Build breakdown view (reuse nonZeroCurrencies, sort by abs value for display)
+    const sortedCurrencies = [...nonZeroCurrencies].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
     let breakdownHTML = '';
-    for (const [cur, val] of nonZeroCurrencies) {
+    for (const [cur, val] of sortedCurrencies) {
       const rounded = Math.round(Math.abs(val) * 100) / 100;
       const s = CURRENCY_SYMBOLS[cur] || cur;
       const sign = val >= 0 ? '+' : '-';
