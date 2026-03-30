@@ -208,6 +208,40 @@ body {
   font-weight: 600; margin-bottom: 12px;
 }
 
+/* Dashboard header */
+.dashboard-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px;
+}
+.app-title {
+  font-size: 1.4rem; font-weight: 700; letter-spacing: -0.3px;
+}
+
+/* Settings */
+.settings-group { display: flex; flex-direction: column; gap: 6px; }
+.settings-label { font-size: 0.95rem; font-weight: 600; }
+.settings-hint { font-size: 0.8rem; color: var(--text-muted); }
+.settings-input {
+  padding: 14px 16px; border-radius: var(--radius-sm);
+  border: none; background: var(--surface); color: var(--text);
+  font-size: 1rem; outline: none; margin-top: 4px;
+}
+.settings-input:focus { box-shadow: 0 0 0 2px var(--accent); }
+.btn-small {
+  padding: 10px 20px; margin-top: 6px; width: auto;
+  align-self: flex-start; border-radius: 10px;
+  background: var(--accent); color: white; font-weight: 600;
+  font-size: 0.85rem; border: none; cursor: pointer;
+}
+.btn-secondary {
+  background: var(--surface-2); color: var(--text);
+}
+.btn-logout {
+  background: transparent; color: var(--red);
+  border: 1px solid var(--red); border-radius: var(--radius);
+}
+.btn-logout:active { background: var(--red-soft); }
+
 /* Utilities */
 .hidden { display: none !important; }
 h2 { margin-bottom: 16px; }

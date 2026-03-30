@@ -50,6 +50,9 @@ document.getElementById('fab-add').addEventListener('click', () => {
   document.querySelectorAll('#entry-recurring .toggle-btn').forEach((b, i) =>
     b.classList.toggle('active', i === 0)
   );
+  // Apply default currency
+  const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
+  document.getElementById('entry-currency').value = defaultCurrency;
   // Reset edit UI
   const deleteBtn = document.getElementById('btn-delete-entry');
   if (deleteBtn) deleteBtn.style.display = 'none';
@@ -68,6 +71,123 @@ document.getElementById('btn-back-duel').addEventListener('click', async () => {
   showScreen('dashboard');
   const { loadDashboard } = await import('./balance.js');
   loadDashboard();
+});
+
+// --- Settings ---
+document.getElementById('btn-settings').addEventListener('click', () => {
+  showScreen('settings');
+  loadSettings();
+});
+
+document.getElementById('btn-back-settings').addEventListener('click', async () => {
+  showScreen('dashboard');
+  const { loadDashboard } = await import('./balance.js');
+  loadDashboard();
+});
+
+function loadSettings() {
+  // Load nickname from current user's display name
+  const user = getCurrentUser();
+  document.getElementById('settings-nickname').value = user.displayName || '';
+
+  // Load default currency from localStorage
+  const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
+  document.getElementById('settings-default-currency').value = defaultCurrency;
+}
+
+document.getElementById('btn-save-nickname').addEventListener('click', async () => {
+  const nickname = document.getElementById('settings-nickname').value.trim();
+  if (!nickname) { alert('Please enter a nickname.'); return; }
+
+  const btn = document.getElementById('btn-save-nickname');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const user = getCurrentUser();
+    await db.collection('users').doc(user.uid).set({
+      displayName: nickname,
+      email: user.email,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // Update local state
+    userNames[user.uid] = nickname;
+    btn.textContent = 'Saved!';
+    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1500);
+  } catch (err) {
+    console.error('Failed to save nickname:', err);
+    alert('Failed to save. Try again.');
+    btn.textContent = 'Save';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('settings-default-currency').addEventListener('change', (e) => {
+  localStorage.setItem('daumis-debt-default-currency', e.target.value);
+});
+
+document.getElementById('btn-export-csv').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-export-csv');
+  btn.disabled = true;
+  btn.textContent = 'Exporting...';
+
+  try {
+    const [expSnap, paySnap, duelSnap] = await Promise.all([
+      db.collection('expenses').get(),
+      db.collection('payments').get(),
+      db.collection('duels').get()
+    ]);
+
+    let csv = 'Date,Type,Description,Amount,Currency,USD Amount,Split,Who Paid\n';
+
+    expSnap.forEach((doc) => {
+      const d = doc.data();
+      const date = d.date?.toDate ? d.date.toDate().toISOString().split('T')[0] : '';
+      const whoPaid = d.paidBy === getCurrentUser().uid ? 'Me' : 'Partner';
+      csv += `${date},Expense,"${(d.description || '').replace(/"/g, '""')}",${d.amount},${d.currency},${d.usdAmount},${d.splitType},${whoPaid}\n`;
+    });
+
+    paySnap.forEach((doc) => {
+      const d = doc.data();
+      const date = d.date?.toDate ? d.date.toDate().toISOString().split('T')[0] : '';
+      const whoPaid = d.paidBy === getCurrentUser().uid ? 'Me' : 'Partner';
+      csv += `${date},Payment,,${d.amount},${d.currency},${d.usdAmount},,${whoPaid}\n`;
+    });
+
+    duelSnap.forEach((doc) => {
+      const d = doc.data();
+      const date = d.playedAt?.toDate ? d.playedAt.toDate().toISOString().split('T')[0] : '';
+      csv += `${date},Duel,${d.game || ''},${d.balanceAdjust},USD,${d.balanceAdjust},,\n`;
+    });
+
+    // Download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `daumis-debt-export-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    btn.textContent = 'Export CSV';
+    btn.disabled = false;
+  } catch (err) {
+    console.error('Export failed:', err);
+    alert('Export failed.');
+    btn.textContent = 'Export CSV';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btn-logout').addEventListener('click', async () => {
+  if (!confirm('Log out?')) return;
+  try {
+    await auth.signOut();
+    showScreen('auth');
+  } catch (err) {
+    console.error('Logout failed:', err);
+  }
 });
 
 // --- Edit entry ---

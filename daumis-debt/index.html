@@ -24,6 +24,10 @@
     <!-- Home screen -->
     <div id="screen-dashboard" class="screen">
       <div class="dashboard-content">
+        <div class="dashboard-header">
+          <h1 class="app-title">Daumi's Debt</h1>
+          <button id="btn-settings" class="btn-icon">⚙</button>
+        </div>
         <div id="balance-display" class="balance-card" style="cursor:pointer">
           <p class="balance-label">Loading...</p>
           <p class="balance-amount"></p>
@@ -116,6 +120,66 @@
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
+    </div>
+
+    <!-- Settings screen -->
+    <div id="screen-settings" class="screen">
+      <div class="screen-header">
+        <button id="btn-back-settings" class="btn-icon">&larr;</button>
+        <h2>Settings</h2>
+      </div>
+      <div class="form" style="gap:20px">
+        <div class="settings-group">
+          <label class="settings-label">Nickname</label>
+          <p class="settings-hint">How your partner sees you</p>
+          <input type="text" id="settings-nickname" class="settings-input" placeholder="Your name">
+          <button id="btn-save-nickname" class="btn btn-small">Save</button>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Default Currency</label>
+          <p class="settings-hint">Pre-selected when adding expenses</p>
+          <select id="settings-default-currency" class="settings-input">
+            <option value="USD">$ USD</option>
+            <option value="EUR">€ EUR</option>
+            <option value="GBP">£ GBP</option>
+            <option value="JPY">¥ JPY</option>
+            <option value="THB">฿ THB</option>
+            <option value="BTN">Nu BTN</option>
+            <option value="TWD">NT$ TWD</option>
+            <option value="KRW">₩ KRW</option>
+            <option value="CNY">¥ CNY</option>
+            <option value="INR">₹ INR</option>
+            <option value="AUD">A$ AUD</option>
+            <option value="CAD">C$ CAD</option>
+            <option value="CHF">Fr CHF</option>
+            <option value="SGD">S$ SGD</option>
+            <option value="HKD">HK$ HKD</option>
+            <option value="NZD">NZ$ NZD</option>
+            <option value="SEK">kr SEK</option>
+            <option value="NOK">kr NOK</option>
+            <option value="DKK">kr DKK</option>
+            <option value="MXN">$ MXN</option>
+            <option value="BRL">R$ BRL</option>
+            <option value="PLN">zł PLN</option>
+            <option value="CZK">Kč CZK</option>
+            <option value="HUF">Ft HUF</option>
+            <option value="ILS">₪ ILS</option>
+            <option value="TRY">₺ TRY</option>
+            <option value="ZAR">R ZAR</option>
+            <option value="PHP">₱ PHP</option>
+            <option value="MYR">RM MYR</option>
+            <option value="IDR">Rp IDR</option>
+          </select>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Export</label>
+          <p class="settings-hint">Download your history as CSV</p>
+          <button id="btn-export-csv" class="btn btn-secondary">Export CSV</button>
+        </div>
+        <div class="settings-group" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--surface-2)">
+          <button id="btn-logout" class="btn btn-logout">Log Out</button>
+        </div>
+      </div>
     </div>
 
     <!-- Duel screen -->
