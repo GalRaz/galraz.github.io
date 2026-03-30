@@ -660,15 +660,16 @@ function updateFormForType(type) {
   const paymentDirection = document.getElementById('payment-direction');
   const title = document.getElementById('add-title');
   const recurringGroup = document.getElementById('recurring-group');
+  const form = document.getElementById('form-entry');
+  const settleContainer = document.getElementById('settle-container');
 
   if (type === 'payment') {
-    descField.style.display = 'none';
-    descField.removeAttribute('required');
-    expenseOptions.style.display = 'none';
-    paymentDirection.style.display = '';
-    recurringGroup.style.display = 'none';
+    form.style.display = 'none';
     title.textContent = 'Settle Up';
+    renderSettleUp();
   } else {
+    if (settleContainer) settleContainer.style.display = 'none';
+    form.style.display = '';
     descField.style.display = '';
     expenseOptions.style.display = '';
     paymentDirection.style.display = 'none';
@@ -676,6 +677,198 @@ function updateFormForType(type) {
     title.textContent = 'Add Expense';
   }
   updatePartnerNames();
+}
+
+function getCurrencySymbol(code) {
+  const symbols = {
+    USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu ', TWD:'NT$', KRW:'₩',
+    CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
+    SEK:'kr', NOK:'kr', DKK:'kr', MXN:'$', BRL:'R$', PLN:'zł', CZK:'Kč', HUF:'Ft',
+    ILS:'₪', TRY:'₺', ZAR:'R', PHP:'₱', MYR:'RM', IDR:'Rp'
+  };
+  return symbols[code] || code + ' ';
+}
+
+async function renderSettleUp() {
+  // Get or create the settle container
+  let container = document.getElementById('settle-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'settle-container';
+    const form = document.getElementById('form-entry');
+    form.parentNode.insertBefore(container, form);
+  }
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center">Loading balances...</p>';
+  container.style.display = '';
+
+  // Hide the regular form
+  document.getElementById('form-entry').style.display = 'none';
+
+  try {
+    // Compute per-currency balances
+    const { computeCurrencyBalances } = await import('./balance.js');
+    const { currencyBalances, balance: totalUsdBalance } = await computeCurrencyBalances();
+
+    // Get exchange rates for "settle all"
+    const { getExchangeRate } = await import('./exchange.js');
+
+    // Filter to non-zero currencies
+    const debts = Object.entries(currencyBalances)
+      .filter(([, v]) => Math.abs(v) > 0.005)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+    if (debts.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px 0">All settled up! Nothing to pay.</p>';
+      return;
+    }
+
+    // Determine who owes whom overall
+    const partnerName = getUserName(getPartnerUid());
+    const iOwe = totalUsdBalance < 0;
+    const directionLabel = iOwe ? `You owe ${partnerName}` : `${partnerName} owes you`;
+
+    let html = `<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px">${directionLabel}</p>`;
+    html += '<div class="settle-list">';
+
+    debts.forEach(([currency, amount]) => {
+      const abs = Math.round(Math.abs(amount) * 100) / 100;
+      const sym = getCurrencySymbol(currency);
+      const isOwed = amount > 0; // positive = they owe me
+      const label = isOwed ? 'Collect' : 'Pay';
+      html += `
+        <div class="settle-row">
+          <div class="settle-currency">
+            <span class="settle-amount-text">${sym}${abs.toLocaleString(undefined, { minimumFractionDigits: abs % 1 ? 2 : 0, maximumFractionDigits: 2 })}</span>
+            <span class="settle-cur-code">${currency}</span>
+          </div>
+          <button class="btn btn-small settle-btn" data-currency="${currency}" data-amount="${abs}">${label}</button>
+        </div>`;
+    });
+
+    html += '</div>';
+
+    // Settle All section
+    const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+    const consolSym = getCurrencySymbol(consolCurrency);
+
+    // Convert total USD balance to consolCurrency
+    let totalConsol = Math.abs(totalUsdBalance);
+    if (consolCurrency !== 'USD') {
+      try {
+        const rate = await getExchangeRate(consolCurrency);
+        totalConsol = totalConsol / rate;
+      } catch (e) {}
+    }
+    totalConsol = Math.round(totalConsol * 100) / 100;
+
+    html += `
+      <div class="settle-divider"></div>
+      <div class="settle-all-section">
+        <p class="settle-all-label">Settle everything at once</p>
+        <p class="settle-all-total">${consolSym}${totalConsol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${consolCurrency}</p>
+        <p class="settle-all-hint">Creates one settlement per currency at exact amounts</p>
+        <button class="btn btn-primary settle-all-btn" id="btn-settle-all">Settle All</button>
+      </div>`;
+
+    container.innerHTML = html;
+
+    // Wire up individual settle buttons
+    container.querySelectorAll('.settle-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const currency = btn.dataset.currency;
+        const amount = parseFloat(btn.dataset.amount);
+        btn.disabled = true;
+        btn.textContent = 'Settling...';
+
+        try {
+          const { convertToUSD } = await import('./exchange.js');
+          const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
+
+          // Determine paidBy: if I owe (negative balance in this currency), I'm paying
+          const curBalance = currencyBalances[currency];
+          const paidBy = curBalance < 0 ? currentUser.uid : getPartnerUid();
+          const paidTo = curBalance < 0 ? getPartnerUid() : currentUser.uid;
+
+          await db.collection('payments').add({
+            amount,
+            currency,
+            usdAmount,
+            exchangeRate,
+            paidBy,
+            paidTo,
+            date: new Date(),
+            addedBy: currentUser.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          // Track used currency
+          localStorage.setItem('daumis-debt-last-currency', currency);
+          const usedCurrencies = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+          if (!usedCurrencies.includes(currency)) {
+            usedCurrencies.push(currency);
+            localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(usedCurrencies));
+          }
+
+          btn.textContent = 'Done!';
+          btn.style.background = 'var(--green)';
+
+          // Refresh the settle screen after a moment
+          setTimeout(() => renderSettleUp(), 800);
+        } catch (err) {
+          console.error('Settle failed:', err);
+          btn.textContent = 'Failed';
+          btn.disabled = false;
+        }
+      });
+    });
+
+    // Wire up Settle All button
+    document.getElementById('btn-settle-all')?.addEventListener('click', async () => {
+      const btn = document.getElementById('btn-settle-all');
+      if (!confirm('Settle all outstanding debts?')) return;
+      btn.disabled = true;
+      btn.textContent = 'Settling...';
+
+      try {
+        const { convertToUSD } = await import('./exchange.js');
+
+        for (const [currency, amount] of debts) {
+          const abs = Math.round(Math.abs(amount) * 100) / 100;
+          const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
+          const paidBy = amount < 0 ? currentUser.uid : getPartnerUid();
+          const paidTo = amount < 0 ? getPartnerUid() : currentUser.uid;
+
+          await db.collection('payments').add({
+            amount: abs,
+            currency,
+            usdAmount,
+            exchangeRate,
+            paidBy,
+            paidTo,
+            date: new Date(),
+            addedBy: currentUser.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+
+        btn.textContent = 'All settled!';
+        btn.style.background = 'var(--green)';
+        setTimeout(async () => {
+          showScreen('dashboard');
+          const { loadDashboard } = await import('./balance.js');
+          loadDashboard();
+        }, 1000);
+      } catch (err) {
+        console.error('Settle all failed:', err);
+        btn.textContent = 'Failed';
+        btn.disabled = false;
+      }
+    });
+
+  } catch (err) {
+    console.error('Failed to load settle-up:', err);
+    container.innerHTML = '<p style="color:var(--red);text-align:center">Failed to load balances.</p>';
+  }
 }
 
 function updatePartnerNames() {

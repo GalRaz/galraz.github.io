@@ -524,6 +524,53 @@ export function editEntry(type, data) {
   window.dispatchEvent(new CustomEvent('edit-entry', { detail: { type, data } }));
 }
 
+export async function computeCurrencyBalances() {
+  const user = getCurrentUser();
+  const [expSnap, paySnap, duelSnap] = await Promise.all([
+    db.collection('expenses').get(),
+    db.collection('payments').get(),
+    db.collection('duels').get()
+  ]);
+
+  let balance = 0;
+  const currencyBalances = {};
+
+  expSnap.forEach((doc) => {
+    const d = doc.data();
+    if (d.balanceExcluded) return;
+    d.type = 'expense';
+    const impact = itemImpact(d, user.uid);
+    balance += impact;
+    if (d.currency) {
+      const sign = impact >= 0 ? 1 : -1;
+      const originalAmount = (d.splitType === 'even' ? d.amount / 2 : d.amount) * sign;
+      currencyBalances[d.currency] = (currencyBalances[d.currency] || 0) + originalAmount;
+    }
+  });
+
+  paySnap.forEach((doc) => {
+    const d = doc.data();
+    if (d.balanceExcluded) return;
+    d.type = 'payment';
+    const impact = itemImpact(d, user.uid);
+    balance += impact;
+    if (d.currency) {
+      const sign = impact >= 0 ? 1 : -1;
+      const originalAmount = d.amount * sign;
+      currencyBalances[d.currency] = (currencyBalances[d.currency] || 0) + originalAmount;
+    }
+  });
+
+  duelSnap.forEach((doc) => {
+    const d = doc.data();
+    if (d.balanceExcluded) return;
+    d.type = 'duel';
+    balance += itemImpact(d, user.uid);
+  });
+
+  return { balance: Math.round(balance * 100) / 100, currencyBalances };
+}
+
 // Export for games that need balance to determine debtor
 export async function computeBalance() {
   const user = getCurrentUser();

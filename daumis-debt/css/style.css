@@ -407,6 +407,37 @@ body {
   padding: 12px 0;
 }
 
+/* Settle up */
+.settle-list { display: flex; flex-direction: column; gap: 10px; }
+.settle-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--surface); border-radius: var(--radius-sm);
+  padding: 14px 16px;
+}
+.settle-currency { display: flex; flex-direction: column; }
+.settle-amount-text { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.settle-cur-code { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.settle-btn { width: auto; padding: 8px 20px; font-size: 0.85rem; }
+.settle-divider {
+  height: 1px; background: var(--surface-2);
+  margin: 20px 0;
+}
+.settle-all-section { text-align: center; }
+.settle-all-label {
+  font-size: 0.8rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  font-weight: 600; margin-bottom: 8px;
+}
+.settle-all-total {
+  font-size: 1.8rem; font-weight: 700; color: var(--text);
+  margin-bottom: 4px;
+}
+.settle-all-hint {
+  font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.settle-all-btn { width: 100%; }
+
 /* Utilities */
 .hidden { display: none !important; }
 h2 { margin-bottom: 16px; }
