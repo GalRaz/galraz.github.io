@@ -264,69 +264,53 @@ const ALL_CURRENCIES = [
   { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' }
 ];
 
-let showingAllCurrencies = false;
-
 function buildCurrencySelect(extraCurrency) {
   const select = document.getElementById('entry-currency');
-  const usedSet = new Set();
-  if (extraCurrency) usedSet.add(extraCurrency);
+  const prioritySet = new Set();
+  if (extraCurrency) prioritySet.add(extraCurrency);
 
   // Get currencies with balances
   try {
     const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
-    used.forEach(c => usedSet.add(c));
+    used.forEach(c => prioritySet.add(c));
   } catch (e) {}
 
   // Always include last used
   const lastUsed = localStorage.getItem('daumis-debt-last-currency');
-  if (lastUsed) usedSet.add(lastUsed);
+  if (lastUsed) prioritySet.add(lastUsed);
 
   // Always include consolidation currency
   const consolCur = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
-  usedSet.add(consolCur);
-
-  // If no used currencies, show common defaults
-  if (usedSet.size <= 1) {
-    usedSet.add('USD');
-    usedSet.add('EUR');
-    usedSet.add('GBP');
-  }
+  prioritySet.add(consolCur);
 
   select.innerHTML = '';
 
-  if (showingAllCurrencies) {
-    // Show all currencies
-    ALL_CURRENCIES.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.code;
-      opt.textContent = c.label;
-      select.appendChild(opt);
-    });
-  } else {
-    // Show only used currencies + "More..."
-    const usedCurrencies = ALL_CURRENCIES.filter(c => usedSet.has(c.code));
-    usedCurrencies.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.code;
-      opt.textContent = c.label;
-      select.appendChild(opt);
-    });
+  // Priority currencies first (ones with balances / recently used)
+  const priorityCurrencies = ALL_CURRENCIES.filter(c => prioritySet.has(c.code));
+  const otherCurrencies = ALL_CURRENCIES.filter(c => !prioritySet.has(c.code));
 
-    const more = document.createElement('option');
-    more.value = '__more__';
-    more.textContent = 'More currencies…';
-    select.appendChild(more);
+  priorityCurrencies.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.code;
+    opt.textContent = c.label;
+    select.appendChild(opt);
+  });
+
+  // Separator
+  if (priorityCurrencies.length > 0 && otherCurrencies.length > 0) {
+    const sep = document.createElement('option');
+    sep.disabled = true;
+    sep.textContent = '───────────';
+    select.appendChild(sep);
   }
 
-  // Handle "More currencies…" selection
-  select.onchange = () => {
-    if (select.value === '__more__') {
-      showingAllCurrencies = true;
-      const prevValue = lastUsed || consolCur;
-      buildCurrencySelect();
-      select.value = prevValue;
-    }
-  };
+  // All other currencies
+  otherCurrencies.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.code;
+    opt.textContent = c.label;
+    select.appendChild(opt);
+  });
 }
 
 // --- FAB ---
@@ -347,7 +331,6 @@ document.getElementById('fab-add').addEventListener('click', () => {
     b.classList.toggle('active', i === 0)
   );
   // Build smart currency dropdown and select last-used
-  showingAllCurrencies = false;
   buildCurrencySelect();
   const defaultCurrency = localStorage.getItem('daumis-debt-last-currency') || 'USD';
   document.getElementById('entry-currency').value = defaultCurrency;
@@ -630,7 +613,6 @@ window.addEventListener('edit-entry', (e) => {
   // Pre-fill fields
   document.getElementById('entry-desc').value = data.description || '';
   document.getElementById('entry-amount').value = data.amount || '';
-  showingAllCurrencies = false;
   buildCurrencySelect(data.currency);
   document.getElementById('entry-currency').value = data.currency || 'USD';
 
