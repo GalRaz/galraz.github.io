@@ -258,12 +258,22 @@ export async function loadDashboard() {
     }
     consolidatedBalance = Math.round(consolidatedBalance * 100) / 100;
 
-    // Remove dust balances (< $0.01 in consolidation currency) from display
-    for (const [cur, amount] of Object.entries(currencyBalances)) {
-      const rate = rateCache[cur] || 1;
-      if (Math.abs(amount * rate) < 0.10) {
-        delete currencyBalances[cur];
+    // Remove dust balances (< $0.10 USD equivalent) from display
+    const dustCurrencies = [];
+    for (const [cur, amt] of Object.entries(currencyBalances)) {
+      let usdValue;
+      try {
+        const curToUsd = await getExchangeRate(cur);
+        usdValue = Math.abs(amt * curToUsd);
+      } catch (e) {
+        usdValue = Math.abs(amt); // assume 1:1 if rate unavailable
       }
+      if (usdValue < 0.10) {
+        dustCurrencies.push(cur);
+      }
+    }
+    for (const cur of dustCurrencies) {
+      delete currencyBalances[cur];
     }
 
     // Save filtered currency balances and sync used-currencies list
