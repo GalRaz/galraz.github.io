@@ -308,6 +308,26 @@ body {
 }
 .btn-logout:active { background: var(--red-soft); }
 
+/* Pull to refresh */
+.pull-indicator {
+  text-align: center;
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s, padding 0.2s;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.pull-indicator.pulling {
+  max-height: 50px;
+  padding: 12px 0;
+}
+.pull-indicator.refreshing {
+  max-height: 50px;
+  padding: 12px 0;
+}
+
 /* Utilities */
 .hidden { display: none !important; }
 h2 { margin-bottom: 16px; }

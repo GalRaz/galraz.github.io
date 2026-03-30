@@ -66,26 +66,145 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-// --- Swipe to go back ---
-let touchStartX = 0;
-let touchStartY = 0;
+// --- Interactive swipe to go back ---
+let swipeStartX = 0;
+let swipeStartY = 0;
+let isSwiping = false;
+let swipeTarget = null;
+
 document.addEventListener('touchstart', (e) => {
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
+  // Only start if touch begins within 30px of left edge
+  if (e.touches[0].clientX > 30) {
+    swipeStartX = e.touches[0].clientX;
+    swipeStartY = e.touches[0].clientY;
+    return;
+  }
+  const active = document.querySelector('.screen.active');
+  if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
+    swipeStartX = e.touches[0].clientX;
+    swipeStartY = e.touches[0].clientY;
+    swipeTarget = active;
+    isSwiping = false;
+  }
 }, { passive: true });
 
-document.addEventListener('touchend', (e) => {
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  // Right swipe: horizontal > 80px, more horizontal than vertical
-  if (dx > 80 && Math.abs(dy) < Math.abs(dx) * 0.5) {
-    // Only if not on dashboard or auth
-    const active = document.querySelector('.screen.active');
-    if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
-      goBack();
-    }
+document.addEventListener('touchmove', (e) => {
+  if (!swipeTarget) return;
+  const dx = e.touches[0].clientX - swipeStartX;
+  const dy = e.touches[0].clientY - swipeStartY;
+
+  // Must be moving mostly horizontally to the right
+  if (!isSwiping && dx > 10 && Math.abs(dy) < Math.abs(dx) * 0.5) {
+    isSwiping = true;
+    swipeTarget.style.transition = 'none';
+    // Show dashboard underneath
+    document.getElementById('screen-dashboard').classList.add('active');
   }
+
+  if (isSwiping && dx > 0) {
+    swipeTarget.style.transform = `translateX(${dx}px)`;
+    // Slight dim on the revealed dashboard
+    swipeTarget.style.opacity = Math.max(0.3, 1 - dx / window.innerWidth);
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', async (e) => {
+  if (!swipeTarget || !isSwiping) {
+    // Check for non-edge swipes (original threshold)
+    const dx = e.changedTouches[0].clientX - swipeStartX;
+    const dy = e.changedTouches[0].clientY - swipeStartY;
+    if (dx > 80 && Math.abs(dy) < Math.abs(dx) * 0.5) {
+      const active = document.querySelector('.screen.active');
+      if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
+        goBack();
+      }
+    }
+    swipeTarget = null;
+    isSwiping = false;
+    return;
+  }
+
+  const dx = e.changedTouches[0].clientX - swipeStartX;
+  swipeTarget.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+
+  if (dx > window.innerWidth * 0.35) {
+    // Complete the swipe — slide fully off screen
+    swipeTarget.style.transform = `translateX(${window.innerWidth}px)`;
+    swipeTarget.style.opacity = '0';
+    setTimeout(() => {
+      swipeTarget.classList.remove('active');
+      swipeTarget.style.transform = '';
+      swipeTarget.style.opacity = '';
+      swipeTarget.style.transition = '';
+      swipeTarget = null;
+    }, 250);
+    // Load dashboard
+    editingEntry = null;
+    currentScreen = 'screen-dashboard';
+    const { loadDashboard } = await import('./balance.js');
+    loadDashboard();
+  } else {
+    // Snap back
+    swipeTarget.style.transform = 'translateX(0)';
+    swipeTarget.style.opacity = '1';
+    setTimeout(() => {
+      swipeTarget.style.transition = '';
+      document.getElementById('screen-dashboard').classList.remove('active');
+      swipeTarget = null;
+    }, 250);
+  }
+
+  isSwiping = false;
 });
+
+// --- Pull to refresh ---
+let pullStartY = 0;
+let isPulling = false;
+
+const dashboardContent = document.querySelector('#screen-dashboard .dashboard-content');
+if (dashboardContent) {
+  dashboardContent.addEventListener('touchstart', (e) => {
+    // Only activate if scrolled to top
+    if (dashboardContent.scrollTop <= 0) {
+      pullStartY = e.touches[0].clientY;
+      isPulling = true;
+    }
+  }, { passive: true });
+
+  dashboardContent.addEventListener('touchmove', (e) => {
+    if (!isPulling) return;
+    const dy = e.touches[0].clientY - pullStartY;
+    const indicator = document.getElementById('pull-indicator');
+    if (dy > 30 && dashboardContent.scrollTop <= 0) {
+      indicator.classList.add('pulling');
+      document.getElementById('pull-text').textContent = dy > 80 ? '↑ Release to refresh' : '↓ Pull to refresh';
+    } else {
+      indicator.classList.remove('pulling');
+    }
+  }, { passive: true });
+
+  dashboardContent.addEventListener('touchend', async (e) => {
+    if (!isPulling) return;
+    isPulling = false;
+    const dy = e.changedTouches[0].clientY - pullStartY;
+    const indicator = document.getElementById('pull-indicator');
+
+    if (dy > 80 && dashboardContent.scrollTop <= 0) {
+      indicator.classList.remove('pulling');
+      indicator.classList.add('refreshing');
+      document.getElementById('pull-text').textContent = 'Refreshing...';
+
+      try {
+        const { loadDashboard } = await import('./balance.js');
+        await loadDashboard();
+      } catch (e) { console.error('Refresh failed:', e); }
+
+      indicator.classList.remove('refreshing');
+    } else {
+      indicator.classList.remove('pulling');
+    }
+  });
+}
 
 async function goBack() {
   editingEntry = null;
