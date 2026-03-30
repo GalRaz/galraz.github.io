@@ -40,6 +40,9 @@ function hideSplash() {
 
 startSplashCycle();
 
+// Safety: force hide splash after 10 seconds no matter what
+setTimeout(() => { hideSplash(); }, 10000);
+
 // --- State ---
 let currentUser = null;
 const userNames = {};
@@ -58,7 +61,10 @@ auth.onAuthStateChanged((user) => {
     currentUser = user;
     // Don't set userNames here — showApp loads the Firestore nickname
     saveUserProfile(user);
-    showApp();
+    showApp().catch((err) => {
+      console.error('showApp failed:', err);
+      hideSplash();
+    });
   } else {
     currentUser = null;
     hideSplash();
