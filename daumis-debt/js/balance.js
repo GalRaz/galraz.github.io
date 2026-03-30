@@ -436,7 +436,8 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
   const showOriginal = balanceView === 'breakdown';
 
   const list = document.getElementById('history-list');
-  items = items.filter(item => !item.balanceExcluded);
+  // Filter out balance-excluded items EXCEPT scheduled (recurring) ones
+  items = items.filter(item => !item.balanceExcluded || item.type === 'scheduled');
   items.sort((a, b) => b.date - a.date);
   list.innerHTML = '';
 
