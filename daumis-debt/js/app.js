@@ -125,6 +125,44 @@ function showScreen(name, transition) {
   currentScreen = screenId;
 }
 
+// --- Currency select reordering ---
+function reorderCurrencySelect() {
+  const select = document.getElementById('entry-currency');
+  const allOptions = Array.from(select.options);
+
+  // Get currencies with balances from localStorage
+  const usedCurrencies = new Set();
+  try {
+    const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+    used.forEach(c => usedCurrencies.add(c));
+  } catch (e) {}
+
+  // Also add last used and default
+  const lastUsed = localStorage.getItem('daumis-debt-last-currency');
+  if (lastUsed) usedCurrencies.add(lastUsed);
+  const defaultCur = localStorage.getItem('daumis-debt-default-currency');
+  if (defaultCur) usedCurrencies.add(defaultCur);
+
+  if (usedCurrencies.size === 0) return;
+
+  // Clear and rebuild
+  select.innerHTML = '';
+
+  // Add used currencies first
+  const usedOpts = allOptions.filter(o => usedCurrencies.has(o.value));
+  const otherOpts = allOptions.filter(o => !usedCurrencies.has(o.value));
+
+  usedOpts.forEach(o => select.appendChild(o.cloneNode(true)));
+
+  // Add separator
+  const sep = document.createElement('option');
+  sep.disabled = true;
+  sep.textContent = '──────────';
+  select.appendChild(sep);
+
+  otherOpts.forEach(o => select.appendChild(o.cloneNode(true)));
+}
+
 // --- FAB ---
 document.getElementById('fab-add').addEventListener('click', () => {
   editingEntry = null;
@@ -140,8 +178,10 @@ document.getElementById('fab-add').addEventListener('click', () => {
   document.querySelectorAll('#entry-recurring .toggle-btn').forEach((b, i) =>
     b.classList.toggle('active', i === 0)
   );
-  // Apply default currency
-  const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
+  // Apply default currency (prefer last-used, fall back to default setting)
+  const defaultCurrency = localStorage.getItem('daumis-debt-last-currency')
+    || localStorage.getItem('daumis-debt-default-currency') || 'USD';
+  reorderCurrencySelect();
   document.getElementById('entry-currency').value = defaultCurrency;
   // Reset edit UI
   const deleteBtn = document.getElementById('btn-delete-entry');
@@ -441,6 +481,24 @@ document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
   });
 });
 
+// Pre-fill settle-up amount when switching to payment
+document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    if (btn.dataset.value === 'payment' && !editingEntry) {
+      try {
+        const { computeBalance } = await import('./balance.js');
+        const balance = await computeBalance();
+        if (Math.abs(balance) > 0.005) {
+          const currency = document.getElementById('entry-currency').value;
+          if (currency === 'USD' || currency === (localStorage.getItem('daumis-debt-consol-currency') || 'USD')) {
+            document.getElementById('entry-amount').value = Math.abs(balance).toFixed(2);
+          }
+        }
+      } catch (e) { console.warn('Could not pre-fill settle amount:', e); }
+    }
+  });
+});
+
 function updateFormForType(type) {
   const descField = document.getElementById('entry-desc');
   const expenseOptions = document.getElementById('expense-options');
@@ -624,6 +682,16 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
         });
       }
     }
+
+    // Track last-used and used currencies
+    localStorage.setItem('daumis-debt-last-currency', currency);
+    try {
+      const usedCurrencies = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+      if (!usedCurrencies.includes(currency)) {
+        usedCurrencies.push(currency);
+        localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(usedCurrencies));
+      }
+    } catch (e) {}
 
     // Go back to dashboard
     editingEntry = null;

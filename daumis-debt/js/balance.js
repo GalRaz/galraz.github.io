@@ -281,13 +281,13 @@ export async function loadDashboard() {
       renderBalanceView();
     };
 
-    // Add fun quote (uses USD balance for tier calculation)
+    // Add fun quote (always visible, at bottom of card)
     let quoteEl = balanceEl.querySelector('.balance-quote');
     if (!quoteEl) {
       quoteEl = document.createElement('p');
       quoteEl.className = 'balance-quote';
-      // Insert after amount but before breakdown
-      breakdown.insertAdjacentElement('beforebegin', quoteEl);
+      // Append to end of balance card so it's always below everything
+      balanceEl.appendChild(quoteEl);
     }
     quoteEl.textContent = getBalanceQuote(balance);
 
