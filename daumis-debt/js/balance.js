@@ -271,8 +271,8 @@ export async function loadDashboard() {
   }
 }
 
-const MOODS = [
-  { max: 1, name: 'zen', bg: 'linear-gradient(180deg, #e8f5e9, #c8e6c9)', card: 'rgba(255,255,255,0.7)', label: '#66bb6a', amount: '#2e7d32', quote: '#81c784', item: 'rgba(255,255,255,0.5)', icon: 'rgba(102,187,106,0.15)', name_: '#2e7d32', meta: '#81c784', section: '#81c784', pos: '#2e7d32', neg: '#c62828', emojis: ['🧘','☮️','🌿'] },
+// You owe → escalating dread
+const OWE_MOODS = [
   { max: 50, name: 'chill', bg: 'linear-gradient(180deg, #f5f5f0, #ede8df)', card: 'rgba(255,255,255,0.8)', label: '#9e9e8a', amount: '#c0392b', quote: '#b0a890', item: 'rgba(255,255,255,0.6)', icon: 'rgba(0,0,0,0.04)', name_: '#3e3e36', meta: '#b0a890', section: '#b0a890', pos: '#27ae60', neg: '#c0392b', emojis: [] },
   { max: 500, name: 'warm', bg: 'linear-gradient(180deg, #fff3e0, #ffe0b2)', card: 'rgba(255,255,255,0.7)', label: '#e65100', amount: '#bf360c', quote: '#ff8a65', item: 'rgba(255,255,255,0.5)', icon: 'rgba(230,81,0,0.08)', name_: '#4e342e', meta: '#ff8a65', section: '#ff8a65', pos: '#2e7d32', neg: '#bf360c', emojis: ['😬','💸'] },
   { max: 1000, name: 'tense', bg: 'linear-gradient(180deg, #37242a, #2a1520)', card: 'rgba(80,30,40,0.6)', label: '#e57373', amount: '#ff5252', quote: '#b05060', item: 'rgba(255,255,255,0.06)', icon: 'rgba(255,82,82,0.12)', name_: '#e0ccd0', meta: '#8a6070', section: '#8a6070', pos: '#69f0ae', neg: '#ff5252', emojis: ['🫠','💀','🔥','😰'] },
@@ -280,9 +280,28 @@ const MOODS = [
   { max: Infinity, name: 'chaos', bg: 'linear-gradient(180deg, #1a0000, #0a0000)', card: 'linear-gradient(135deg, rgba(180,20,20,0.3), rgba(80,0,0,0.3))', label: '#ff6b6b', amount: '#ff1744', quote: '#b71c1c', item: 'rgba(255,255,255,0.03)', icon: 'rgba(255,23,68,0.1)', name_: '#c0a0a0', meta: '#6a3030', section: '#6a3030', pos: '#69f0ae', neg: '#ff1744', emojis: ['🔥','💀','💸','😱','🪦','☠️','😭','🔥','💀','💸'] }
 ];
 
+// They owe you → escalating smugness
+const OWED_MOODS = [
+  { max: 50, name: 'calm', bg: 'linear-gradient(180deg, #f0f5f0, #e0ebe0)', card: 'rgba(255,255,255,0.8)', label: '#6a9a6a', amount: '#2e7d32', quote: '#8ab88a', item: 'rgba(255,255,255,0.6)', icon: 'rgba(46,125,50,0.08)', name_: '#2e3e2e', meta: '#8ab88a', section: '#8ab88a', pos: '#2e7d32', neg: '#c0392b', emojis: [] },
+  { max: 500, name: 'cozy', bg: 'linear-gradient(180deg, #fdf6e3, #f5e6c8)', card: 'rgba(255,255,255,0.75)', label: '#b8860b', amount: '#8b6914', quote: '#c4a35a', item: 'rgba(255,255,255,0.55)', icon: 'rgba(184,134,11,0.08)', name_: '#4a3e28', meta: '#c4a35a', section: '#c4a35a', pos: '#2e7d32', neg: '#c0392b', emojis: ['😌','☕'] },
+  { max: 1000, name: 'golden', bg: 'linear-gradient(180deg, #fff8e1, #ffecb3)', card: 'rgba(255,248,225,0.8)', label: '#f9a825', amount: '#e65100', quote: '#ffa726', item: 'rgba(255,255,255,0.6)', icon: 'rgba(249,168,37,0.1)', name_: '#4e342e', meta: '#ffa726', section: '#ffa726', pos: '#2e7d32', neg: '#e65100', emojis: ['😏','💅','✨'] },
+  { max: 5000, name: 'champagne', bg: 'linear-gradient(180deg, #1a1510, #0f0d08)', card: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(180,140,40,0.15))', label: '#d4af37', amount: '#ffd700', quote: '#a08520', item: 'rgba(212,175,55,0.06)', icon: 'rgba(212,175,55,0.1)', name_: '#e0d8c0', meta: '#8a7a50', section: '#8a7a50', pos: '#ffd700', neg: '#e57373', emojis: ['🍾','👑','💰','😏','💅'] },
+  { max: Infinity, name: 'throne', bg: 'linear-gradient(180deg, #0a0510, #050208)', card: 'linear-gradient(135deg, rgba(180,140,255,0.15), rgba(255,215,0,0.1))', label: '#b388ff', amount: '#ffd700', quote: '#7c5cbf', item: 'rgba(255,215,0,0.04)', icon: 'rgba(179,136,255,0.1)', name_: '#d0c0e0', meta: '#6a508a', section: '#6a508a', pos: '#ffd700', neg: '#e57373', emojis: ['👑','🏆','💎','🍾','🎩','💰','🤑','👑'] }
+];
+
+// Settled
+const ZEN_MOOD = { name: 'zen', bg: 'linear-gradient(180deg, #e8f5e9, #c8e6c9)', card: 'rgba(255,255,255,0.7)', label: '#66bb6a', amount: '#2e7d32', quote: '#81c784', item: 'rgba(255,255,255,0.5)', icon: 'rgba(102,187,106,0.15)', name_: '#2e7d32', meta: '#81c784', section: '#81c784', pos: '#2e7d32', neg: '#c62828', emojis: ['🧘','☮️','🌿'] };
+
 function applyMood(balance) {
   const abs = Math.abs(balance);
-  const mood = MOODS.find(m => abs < m.max);
+  let mood;
+  if (abs < 1) {
+    mood = ZEN_MOOD;
+  } else if (balance < 0) {
+    mood = OWE_MOODS.find(m => abs < m.max);
+  } else {
+    mood = OWED_MOODS.find(m => abs < m.max);
+  }
   const dashboard = document.getElementById('screen-dashboard');
   const card = document.getElementById('balance-display');
 
