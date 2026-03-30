@@ -66,30 +66,102 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-// --- Swipe right to go back (simple, non-interactive) ---
-let swipeStartX = 0;
-let swipeStartY = 0;
-let swipeLocked = false;
+// --- Interactive swipe to go back ---
+// Uses position:fixed layering so both screens are genuinely stacked
+{
+  let startX = 0, startY = 0;
+  let dragging = false;       // are we in a confirmed horizontal drag?
+  let decided = false;        // have we decided drag vs scroll?
+  let topScreen = null;       // the screen being dragged away
+  const THRESHOLD = 0.3;      // fraction of screen width to complete
 
-document.addEventListener('touchstart', (e) => {
-  swipeStartX = e.touches[0].clientX;
-  swipeStartY = e.touches[0].clientY;
-  swipeLocked = false;
-}, { passive: true });
+  document.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    dragging = false;
+    decided = false;
+    topScreen = null;
 
-document.addEventListener('touchend', (e) => {
-  if (swipeLocked) return;
-  const dx = e.changedTouches[0].clientX - swipeStartX;
-  const dy = e.changedTouches[0].clientY - swipeStartY;
-
-  // Right swipe: fast horizontal gesture, at least 80px
-  if (dx > 80 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+    // Find the active sub-screen (not dashboard, not auth)
     const active = document.querySelector('.screen.active');
     if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
-      goBack();
+      topScreen = active;
     }
-  }
-}, { passive: true });
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!topScreen) return;
+
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+
+    // First 10px of movement: decide if this is a swipe-back or a scroll
+    if (!decided) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        decided = true;
+        if (dx > 5 && Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal right — start dragging
+          dragging = true;
+          const dashboard = document.getElementById('screen-dashboard');
+          dashboard.classList.add('swipe-base');
+          topScreen.classList.add('swipe-top');
+          topScreen.style.transition = 'none';
+        } else {
+          // Vertical or leftward — not a swipe-back, let it scroll
+          topScreen = null;
+        }
+      }
+      return;
+    }
+
+    if (!dragging) return;
+
+    // Move the top screen to follow the finger (only rightward)
+    const clampedDx = Math.max(0, dx);
+    topScreen.style.transform = `translateX(${clampedDx}px)`;
+  }, { passive: true });
+
+  document.addEventListener('touchend', async (e) => {
+    if (!topScreen || !dragging) {
+      topScreen = null;
+      return;
+    }
+
+    const finalDx = e.changedTouches[0].clientX - startX;
+    const dashboard = document.getElementById('screen-dashboard');
+
+    function cleanup() {
+      topScreen.classList.remove('swipe-top');
+      topScreen.style.transform = '';
+      topScreen.style.transition = '';
+      dashboard.classList.remove('swipe-base');
+      topScreen = null;
+    }
+
+    if (finalDx > window.innerWidth * THRESHOLD) {
+      // Complete: animate off screen
+      topScreen.style.transition = 'transform 0.25s ease-out';
+      topScreen.style.transform = `translateX(${window.innerWidth}px)`;
+      setTimeout(() => {
+        topScreen.classList.remove('active');
+        cleanup();
+      }, 250);
+      editingEntry = null;
+      currentScreen = 'screen-dashboard';
+      dashboard.classList.remove('swipe-base');
+      dashboard.classList.add('active');
+      const { loadDashboard } = await import('./balance.js');
+      loadDashboard();
+    } else {
+      // Snap back
+      topScreen.style.transition = 'transform 0.2s ease-out';
+      topScreen.style.transform = 'translateX(0)';
+      setTimeout(() => cleanup(), 200);
+    }
+
+    dragging = false;
+  }, { passive: true });
+}
 
 // --- Pull to refresh ---
 let pullStartY = 0;
