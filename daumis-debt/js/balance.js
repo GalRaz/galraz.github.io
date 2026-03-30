@@ -217,11 +217,6 @@ export async function loadDashboard() {
       }
     }
 
-    // Save currency balances to localStorage for the currency dropdown sorting
-    try {
-      localStorage.setItem('daumis-debt-currency-balances', JSON.stringify(currencyBalances));
-    } catch (e) {}
-
     // Compute consolidated balance: fetch all exchange rates in parallel
     // Filter out dust balances (< 0.10 USD equivalent)
     const nonZeroCurrencies = Object.entries(currencyBalances).filter(([, a]) => Math.abs(a) >= 0.005);
@@ -270,6 +265,11 @@ export async function loadDashboard() {
         delete currencyBalances[cur];
       }
     }
+
+    // Save filtered currency balances to localStorage for dropdown sorting
+    try {
+      localStorage.setItem('daumis-debt-currency-balances', JSON.stringify(currencyBalances));
+    } catch (e) {}
 
     // Render balance label
     const label = balanceEl.querySelector('.balance-label');
