@@ -245,42 +245,87 @@ function showScreen(name, transition) {
   currentScreen = screenId;
 }
 
-// --- Currency select reordering ---
-function reorderCurrencySelect() {
-  const select = document.getElementById('entry-currency');
-  const allOptions = Array.from(select.options);
+// --- Smart currency dropdown ---
+const ALL_CURRENCIES = [
+  { code: 'USD', label: '$ USD' }, { code: 'EUR', label: '€ EUR' },
+  { code: 'GBP', label: '£ GBP' }, { code: 'JPY', label: '¥ JPY' },
+  { code: 'THB', label: '฿ THB' }, { code: 'BTN', label: 'Nu BTN' },
+  { code: 'TWD', label: 'NT$ TWD' }, { code: 'KRW', label: '₩ KRW' },
+  { code: 'CNY', label: '¥ CNY' }, { code: 'INR', label: '₹ INR' },
+  { code: 'AUD', label: 'A$ AUD' }, { code: 'CAD', label: 'C$ CAD' },
+  { code: 'CHF', label: 'Fr CHF' }, { code: 'SGD', label: 'S$ SGD' },
+  { code: 'HKD', label: 'HK$ HKD' }, { code: 'NZD', label: 'NZ$ NZD' },
+  { code: 'SEK', label: 'kr SEK' }, { code: 'NOK', label: 'kr NOK' },
+  { code: 'DKK', label: 'kr DKK' }, { code: 'MXN', label: '$ MXN' },
+  { code: 'BRL', label: 'R$ BRL' }, { code: 'PLN', label: 'zł PLN' },
+  { code: 'CZK', label: 'Kč CZK' }, { code: 'HUF', label: 'Ft HUF' },
+  { code: 'ILS', label: '₪ ILS' }, { code: 'TRY', label: '₺ TRY' },
+  { code: 'ZAR', label: 'R ZAR' }, { code: 'PHP', label: '₱ PHP' },
+  { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' }
+];
 
-  // Get currencies with balances from localStorage
-  const usedCurrencies = new Set();
+let showingAllCurrencies = false;
+
+function buildCurrencySelect() {
+  const select = document.getElementById('entry-currency');
+  const usedSet = new Set();
+
+  // Get currencies with balances
   try {
     const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
-    used.forEach(c => usedCurrencies.add(c));
+    used.forEach(c => usedSet.add(c));
   } catch (e) {}
 
-  // Also add last used and default
+  // Always include last used
   const lastUsed = localStorage.getItem('daumis-debt-last-currency');
-  if (lastUsed) usedCurrencies.add(lastUsed);
-  const defaultCur = localStorage.getItem('daumis-debt-default-currency');
-  if (defaultCur) usedCurrencies.add(defaultCur);
+  if (lastUsed) usedSet.add(lastUsed);
 
-  if (usedCurrencies.size === 0) return;
+  // Always include consolidation currency
+  const consolCur = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+  usedSet.add(consolCur);
 
-  // Clear and rebuild
+  // If no used currencies, show common defaults
+  if (usedSet.size <= 1) {
+    usedSet.add('USD');
+    usedSet.add('EUR');
+    usedSet.add('GBP');
+  }
+
   select.innerHTML = '';
 
-  // Add used currencies first
-  const usedOpts = allOptions.filter(o => usedCurrencies.has(o.value));
-  const otherOpts = allOptions.filter(o => !usedCurrencies.has(o.value));
+  if (showingAllCurrencies) {
+    // Show all currencies
+    ALL_CURRENCIES.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.code;
+      opt.textContent = c.label;
+      select.appendChild(opt);
+    });
+  } else {
+    // Show only used currencies + "More..."
+    const usedCurrencies = ALL_CURRENCIES.filter(c => usedSet.has(c.code));
+    usedCurrencies.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.code;
+      opt.textContent = c.label;
+      select.appendChild(opt);
+    });
 
-  usedOpts.forEach(o => select.appendChild(o.cloneNode(true)));
+    const more = document.createElement('option');
+    more.value = '__more__';
+    more.textContent = 'More currencies…';
+    select.appendChild(more);
+  }
 
-  // Add separator
-  const sep = document.createElement('option');
-  sep.disabled = true;
-  sep.textContent = '──────────';
-  select.appendChild(sep);
-
-  otherOpts.forEach(o => select.appendChild(o.cloneNode(true)));
+  // Handle "More currencies…" selection
+  select.onchange = () => {
+    if (select.value === '__more__') {
+      showingAllCurrencies = true;
+      const prevValue = lastUsed || consolCur;
+      buildCurrencySelect();
+      select.value = prevValue;
+    }
+  };
 }
 
 // --- FAB ---
@@ -298,10 +343,10 @@ document.getElementById('fab-add').addEventListener('click', () => {
   document.querySelectorAll('#entry-recurring .toggle-btn').forEach((b, i) =>
     b.classList.toggle('active', i === 0)
   );
-  // Apply default currency (prefer last-used, fall back to default setting)
-  const defaultCurrency = localStorage.getItem('daumis-debt-last-currency')
-    || localStorage.getItem('daumis-debt-default-currency') || 'USD';
-  reorderCurrencySelect();
+  // Build smart currency dropdown and select last-used
+  showingAllCurrencies = false;
+  buildCurrencySelect();
+  const defaultCurrency = localStorage.getItem('daumis-debt-last-currency') || 'USD';
   document.getElementById('entry-currency').value = defaultCurrency;
   // Reset edit UI
   const deleteBtn = document.getElementById('btn-delete-entry');
@@ -348,9 +393,6 @@ async function loadSettings() {
   document.getElementById('settings-consolidation-currency').value = consolCurrency;
 
   // Load default expense currency
-  const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
-  document.getElementById('settings-default-currency').value = defaultCurrency;
-
   // Load duel status
   await loadDuelSettings();
 }
@@ -442,9 +484,6 @@ document.getElementById('btn-save-nickname').addEventListener('click', async () 
   }
 });
 
-document.getElementById('settings-default-currency').addEventListener('change', (e) => {
-  localStorage.setItem('daumis-debt-default-currency', e.target.value);
-});
 
 document.querySelectorAll('#settings-balance-view .toggle-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -539,6 +578,9 @@ window.addEventListener('edit-entry', (e) => {
     document.getElementById('entry-desc').value = data.description || '';
   }
   document.getElementById('entry-amount').value = data.amount || '';
+  // Show all currencies when editing (the entry might use a non-common one)
+  showingAllCurrencies = true;
+  buildCurrencySelect();
   document.getElementById('entry-currency').value = data.currency || 'USD';
 
   // Set the correct option
