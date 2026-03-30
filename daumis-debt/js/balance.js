@@ -1,5 +1,13 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, getPartnerUid, getUserName, setPartnerInfo } from './app.js';
+import { getExchangeRate } from './exchange.js';
+
+const CURRENCY_SYMBOLS = {
+  USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu', TWD:'NT$', KRW:'₩',
+  CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
+  SEK:'kr', NOK:'kr', DKK:'kr', MXN:'$', BRL:'R$', PLN:'zł', CZK:'Kč', HUF:'Ft',
+  ILS:'₪', TRY:'₺', ZAR:'R', PHP:'₱', MYR:'RM', IDR:'Rp'
+};
 
 function categorize(description) {
   if (!description) return { icon: '$', label: 'other' };
@@ -196,59 +204,92 @@ export async function loadDashboard() {
     }
     balance = Math.round(balance * 100) / 100;
 
-    // Render balance
+    // Get user preferences
+    const balanceView = localStorage.getItem('daumis-debt-balance-view') || 'consolidated';
+    const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+
+    // Convert USD balance to consolidation currency
+    let displayBalance = balance;
+    let symbol = CURRENCY_SYMBOLS[consolCurrency] || consolCurrency;
+    if (consolCurrency !== 'USD') {
+      try {
+        const rate = await getExchangeRate(consolCurrency); // rate = consolCurrency → USD
+        displayBalance = Math.round((balance / rate) * 100) / 100; // USD → consolCurrency
+      } catch (e) { console.warn('Could not convert to', consolCurrency); }
+    }
+
+    // Render balance label
     const label = balanceEl.querySelector('.balance-label');
     const amount = balanceEl.querySelector('.balance-amount');
     const partnerName = getUserName(getPartnerUid());
 
     if (balance > 0.005) {
       label.textContent = `${partnerName} owes you`;
-      amount.textContent = `$${balance.toFixed(2)}`;
-      amount.className = 'balance-amount positive';
     } else if (balance < -0.005) {
       label.textContent = `You owe ${partnerName}`;
-      amount.textContent = `$${Math.abs(balance).toFixed(2)}`;
-      amount.className = 'balance-amount negative';
     } else {
       label.textContent = "You're all settled up!";
-      amount.textContent = '$0.00';
-      amount.className = 'balance-amount';
     }
 
-    // Add fun quote
-    let quoteEl = balanceEl.querySelector('.balance-quote');
-    if (!quoteEl) {
-      quoteEl = document.createElement('p');
-      quoteEl.className = 'balance-quote';
-      amount.insertAdjacentElement('afterend', quoteEl);
-    }
-    quoteEl.textContent = getBalanceQuote(balance);
+    // Build consolidated view
+    const consolidatedText = Math.abs(balance) < 0.005
+      ? `${symbol}0.00`
+      : `${symbol}${Math.abs(displayBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const consolidatedClass = balance > 0.005 ? 'positive' : balance < -0.005 ? 'negative' : '';
 
-    // Render currency breakdown (hidden by default)
-    const breakdown = document.getElementById('balance-breakdown');
-    const hint = document.getElementById('balance-hint');
-    breakdown.innerHTML = '';
+    // Build breakdown view
     const nonZeroCurrencies = Object.entries(currencyBalances)
       .filter(([, v]) => Math.abs(v) > 0.005)
       .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
-    if (nonZeroCurrencies.length > 0) {
-      hint.classList.remove('hidden');
-      for (const [cur, val] of nonZeroCurrencies) {
-        const rounded = Math.round(Math.abs(val) * 100) / 100;
-        const sign = val >= 0 ? '+' : '-';
-        const cls = val >= 0 ? 'positive' : 'negative';
-        const span = document.createElement('span');
-        span.className = `currency-line ${cls}`;
-        span.textContent = `${sign}${rounded.toLocaleString()} ${cur}`;
-        breakdown.appendChild(span);
+    let breakdownHTML = '';
+    for (const [cur, val] of nonZeroCurrencies) {
+      const rounded = Math.round(Math.abs(val) * 100) / 100;
+      const s = CURRENCY_SYMBOLS[cur] || cur;
+      const sign = val >= 0 ? '+' : '-';
+      const cls = val >= 0 ? 'positive' : 'negative';
+      breakdownHTML += `<span class="currency-line ${cls}">${sign}${s}${rounded.toLocaleString()}</span> `;
+    }
+
+    // Render based on preference
+    const breakdown = document.getElementById('balance-breakdown');
+    const hint = document.getElementById('balance-hint');
+    let showingConsolidated = balanceView === 'consolidated';
+
+    function renderBalanceView() {
+      if (showingConsolidated) {
+        amount.textContent = consolidatedText;
+        amount.className = `balance-amount ${consolidatedClass}`;
+        amount.style.display = '';
+        breakdown.classList.add('hidden');
+        hint.textContent = nonZeroCurrencies.length > 0 ? 'tap for currency breakdown' : '';
+        hint.classList.toggle('hidden', nonZeroCurrencies.length === 0);
+      } else {
+        amount.style.display = 'none';
+        breakdown.innerHTML = breakdownHTML;
+        breakdown.classList.remove('hidden');
+        hint.textContent = 'tap for total';
+        hint.classList.remove('hidden');
       }
     }
 
-    // Toggle breakdown on tap
+    renderBalanceView();
+
+    // Toggle on tap
     balanceEl.onclick = () => {
-      breakdown.classList.toggle('hidden');
+      showingConsolidated = !showingConsolidated;
+      renderBalanceView();
     };
+
+    // Add fun quote (uses USD balance for tier calculation)
+    let quoteEl = balanceEl.querySelector('.balance-quote');
+    if (!quoteEl) {
+      quoteEl = document.createElement('p');
+      quoteEl.className = 'balance-quote';
+      // Insert after amount but before breakdown
+      breakdown.insertAdjacentElement('beforebegin', quoteEl);
+    }
+    quoteEl.textContent = getBalanceQuote(balance);
 
     // Apply mood theme
     applyMood(balance);

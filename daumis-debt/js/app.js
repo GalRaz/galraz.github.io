@@ -167,7 +167,17 @@ async function loadSettings() {
   const user = getCurrentUser();
   document.getElementById('settings-nickname').value = userNames[user.uid] || user.displayName || '';
 
-  // Load default currency from localStorage
+  // Load balance view preference
+  const balanceView = localStorage.getItem('daumis-debt-balance-view') || 'consolidated';
+  document.querySelectorAll('#settings-balance-view .toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.value === balanceView);
+  });
+
+  // Load consolidation currency
+  const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+  document.getElementById('settings-consolidation-currency').value = consolCurrency;
+
+  // Load default expense currency
   const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
   document.getElementById('settings-default-currency').value = defaultCurrency;
 
@@ -264,6 +274,18 @@ document.getElementById('btn-save-nickname').addEventListener('click', async () 
 
 document.getElementById('settings-default-currency').addEventListener('change', (e) => {
   localStorage.setItem('daumis-debt-default-currency', e.target.value);
+});
+
+document.querySelectorAll('#settings-balance-view .toggle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#settings-balance-view .toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    localStorage.setItem('daumis-debt-balance-view', btn.dataset.value);
+  });
+});
+
+document.getElementById('settings-consolidation-currency').addEventListener('change', (e) => {
+  localStorage.setItem('daumis-debt-consol-currency', e.target.value);
 });
 
 document.getElementById('btn-export-csv').addEventListener('click', async () => {
