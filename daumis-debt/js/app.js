@@ -89,22 +89,46 @@ document.addEventListener('touchend', (e) => {
 
 async function goBack() {
   editingEntry = null;
-  showScreen('dashboard');
+  showScreen('dashboard', 'slide-back');
   const { loadDashboard } = await import('./balance.js');
   loadDashboard();
 }
 
 // --- Routing ---
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+let currentScreen = null;
+
+function showScreen(name, transition) {
   const screenId = name === 'add' ? 'screen-add' : `screen-${name}`;
-  document.getElementById(screenId).classList.add('active');
+  const next = document.getElementById(screenId);
+  const prev = currentScreen ? document.getElementById(currentScreen) : null;
+
+  if (prev && transition === 'slide-back' && prev !== next) {
+    // Slide current screen out to the right, then show next
+    prev.classList.add('slide-out-right');
+    prev.addEventListener('animationend', () => {
+      prev.classList.remove('active', 'slide-out-right', 'slide-in-right');
+    }, { once: true });
+    next.classList.remove('slide-in-right', 'slide-out-right');
+    next.classList.add('active');
+  } else if (prev && transition === 'slide-forward' && prev !== next) {
+    // Slide next screen in from the right
+    prev.classList.remove('active', 'slide-in-right', 'slide-out-right');
+    next.classList.add('active', 'slide-in-right');
+  } else {
+    // No animation (initial load, auth)
+    document.querySelectorAll('.screen').forEach((s) => {
+      s.classList.remove('active', 'slide-in-right', 'slide-out-right');
+    });
+    next.classList.add('active');
+  }
+
+  currentScreen = screenId;
 }
 
 // --- FAB ---
 document.getElementById('fab-add').addEventListener('click', () => {
   editingEntry = null;
-  showScreen('add');
+  showScreen('add', 'slide-forward');
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('entry-date').value = today;
   document.getElementById('form-entry').reset();
@@ -132,7 +156,7 @@ document.getElementById('btn-back-duel').addEventListener('click', goBack);
 
 // --- Settings ---
 document.getElementById('btn-settings').addEventListener('click', () => {
-  showScreen('settings');
+  showScreen('settings', 'slide-forward');
   loadSettings();
 });
 
@@ -310,7 +334,7 @@ window.addEventListener('edit-entry', (e) => {
   const { type, data } = e.detail;
   editingEntry = { id: data.id, type };
 
-  showScreen('add');
+  showScreen('add', 'slide-forward');
 
   // Set entry type toggle
   document.querySelectorAll('#entry-type .toggle-btn').forEach(b => {
@@ -368,7 +392,7 @@ window.addEventListener('edit-entry', (e) => {
       const collection = editingEntry.type === 'expense' ? 'expenses' : 'payments';
       await db.collection(collection).doc(editingEntry.id).delete();
       editingEntry = null;
-      showScreen('dashboard');
+      showScreen('dashboard', 'slide-back');
       const { loadDashboard } = await import('./balance.js');
       loadDashboard();
     } catch (err) {
@@ -581,7 +605,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 
     // Go back to dashboard
     editingEntry = null;
-    showScreen('dashboard');
+    showScreen('dashboard', 'slide-back');
     const { loadDashboard } = await import('./balance.js');
     loadDashboard();
   } catch (err) {

@@ -115,7 +115,7 @@ export async function startDuel() {
     game = getWeeklyGame(seed);
   }
 
-  showScreen('duel');
+  showScreen('duel', 'slide-forward');
   const content = document.getElementById('duel-content');
   content.innerHTML = `
     <div class="duel-game">

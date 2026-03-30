@@ -55,8 +55,26 @@ body {
 }
 
 /* Screens */
-.screen { display: none; padding: 24px 20px; max-width: 480px; margin: 0 auto; }
+.screen {
+  display: none; padding: 24px 20px; max-width: 480px; margin: 0 auto;
+  animation: screenFadeIn 0.25s ease-out;
+}
 .screen.active { display: block; }
+.screen.slide-in-right { animation: slideInRight 0.3s ease-out; }
+.screen.slide-out-right { animation: slideOutRight 0.25s ease-in forwards; }
+
+@keyframes screenFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes slideOutRight {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
 
 /* Auth */
 .auth-container {
