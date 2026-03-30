@@ -556,11 +556,23 @@ function renderOnThisDay(items) {
   const todayDay = today.getDate();
   const todayYear = today.getFullYear();
 
-  // Find expenses from previous years on this month+day
+  // Until July 30, 2026: also match 6 months ago (same day).
+  // After that, only match same day in previous years.
+  const useHalfYear = today < new Date(2026, 6, 31); // months are 0-indexed, so 6 = July
+  const sixMonthsAgo = new Date(today);
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const lookbackMonth = sixMonthsAgo.getMonth();
+  const lookbackDay = sixMonthsAgo.getDate();
+
   const matches = items.filter(item => {
     if (item.type !== 'expense') return false;
     const d = item.date;
-    return d && d.getMonth() === todayMonth && d.getDate() === todayDay && d.getFullYear() < todayYear;
+    if (!d) return false;
+    // Always match same day in previous years
+    if (d.getMonth() === todayMonth && d.getDate() === todayDay && d.getFullYear() < todayYear) return true;
+    // Before July 30, 2026: also match ~6 months ago
+    if (useHalfYear && d.getMonth() === lookbackMonth && d.getDate() === lookbackDay && d < today) return true;
+    return false;
   });
 
   if (matches.length === 0) {
@@ -570,7 +582,13 @@ function renderOnThisDay(items) {
 
   // Pick one at random
   const memory = matches[Math.floor(Math.random() * matches.length)];
+  const diffMs = today - memory.date;
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffMonths = Math.round(diffDays / 30);
   const yearsAgo = todayYear - memory.date.getFullYear();
+  const timeLabel = yearsAgo >= 1 && memory.date.getMonth() === todayMonth
+    ? `${yearsAgo} year${yearsAgo > 1 ? 's' : ''} ago`
+    : `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
   const dateStr = memory.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const symbol = CURRENCY_SYMBOLS[memory.currency] || memory.currency + ' ';
   const amount = `${symbol}${memory.amount.toLocaleString()}`;
@@ -578,7 +596,7 @@ function renderOnThisDay(items) {
   container.innerHTML = `
     <div class="otd-polaroid">
       <div class="otd-top">
-        <span class="otd-tag">On this day · ${yearsAgo} year${yearsAgo > 1 ? 's' : ''} ago</span>
+        <span class="otd-tag">On this day · ${timeLabel}</span>
         <button class="otd-dismiss" id="otd-dismiss">×</button>
       </div>
       <div class="otd-desc">${memory.description}</div>
