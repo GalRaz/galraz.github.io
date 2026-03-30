@@ -629,9 +629,22 @@ export function setPartnerInfo(uid, name) {
   userNames[uid] = name;
 }
 
-// Register service worker for PWA
+// Register service worker for PWA + auto-reload on updates
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/daumis-debt/sw.js')
-    .then(() => console.log('SW registered'))
+  navigator.serviceWorker.register('/daumis-debt/sw.js', { updateViaCache: 'none' })
+    .then((reg) => {
+      console.log('SW registered');
+      // Check for updates every 60 seconds
+      setInterval(() => reg.update(), 60000);
+    })
     .catch((err) => console.error('SW registration failed:', err));
+
+  // Auto-reload when a new SW takes control
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
 }
