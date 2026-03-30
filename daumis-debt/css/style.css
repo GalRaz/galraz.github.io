@@ -138,6 +138,72 @@ body {
   margin-top: 10px; font-size: 0.7rem; color: var(--text-muted);
 }
 
+/* On This Day — Polaroid card */
+.otd-polaroid {
+  background: #fff;
+  border-radius: 4px;
+  padding: 16px 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  transform: rotate(-0.8deg);
+  max-width: 320px;
+  position: relative;
+  animation: otdFadeIn 0.4s ease-out;
+}
+.otd-polaroid::before {
+  content: '';
+  position: absolute;
+  top: -8px; left: 50%;
+  transform: translateX(-50%) rotate(2deg);
+  width: 60px; height: 18px;
+  background: rgba(200, 190, 150, 0.4);
+  border-radius: 1px;
+}
+.otd-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.otd-tag {
+  font-size: 0.6rem;
+  color: #b08840;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+.otd-dismiss {
+  background: none; border: none;
+  color: #ccc; font-size: 0.85rem;
+  cursor: pointer; padding: 4px;
+}
+.otd-desc {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2a2a2a;
+  letter-spacing: -0.2px;
+}
+.otd-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 8px;
+}
+.otd-date {
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}
+.otd-amount {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #666;
+}
+@keyframes otdFadeIn {
+  from { opacity: 0; transform: rotate(-0.8deg) translateY(-10px); }
+  to { opacity: 1; transform: rotate(-0.8deg) translateY(0); }
+}
+
 /* Duel banner */
 .duel-banner {
   background: linear-gradient(135deg, #c5cdb8, #a8b89a);

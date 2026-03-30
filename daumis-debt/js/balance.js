@@ -295,6 +295,9 @@ export async function loadDashboard() {
     // Apply mood theme
     applyMood(balance);
 
+    // On This Day card
+    renderOnThisDay(items);
+
     // Check for weekly duel availability
     const { isDuelAvailable, startDuel } = await import('./duel.js');
     const duelBanner = document.getElementById('duel-banner');
@@ -531,4 +534,63 @@ export async function computeBalance() {
   processSnap(duelSnap, 'duel');
 
   return Math.round(balance * 100) / 100;
+}
+
+/**
+ * Render the "On This Day" polaroid card if there's a matching expense
+ * from a previous year on today's month+day.
+ */
+function renderOnThisDay(items) {
+  const container = document.getElementById('otd-card');
+  if (!container) return;
+
+  // Check if dismissed today
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  if (localStorage.getItem('otd-dismissed') === todayStr) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+  const todayYear = today.getFullYear();
+
+  // Find expenses from previous years on this month+day
+  const matches = items.filter(item => {
+    if (item.type !== 'expense') return false;
+    const d = item.date;
+    return d && d.getMonth() === todayMonth && d.getDate() === todayDay && d.getFullYear() < todayYear;
+  });
+
+  if (matches.length === 0) {
+    container.classList.add('hidden');
+    return;
+  }
+
+  // Pick one at random
+  const memory = matches[Math.floor(Math.random() * matches.length)];
+  const yearsAgo = todayYear - memory.date.getFullYear();
+  const dateStr = memory.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const symbol = CURRENCY_SYMBOLS[memory.currency] || memory.currency + ' ';
+  const amount = `${symbol}${memory.amount.toLocaleString()}`;
+
+  container.innerHTML = `
+    <div class="otd-polaroid">
+      <div class="otd-top">
+        <span class="otd-tag">On this day · ${yearsAgo} year${yearsAgo > 1 ? 's' : ''} ago</span>
+        <button class="otd-dismiss" id="otd-dismiss">×</button>
+      </div>
+      <div class="otd-desc">${memory.description}</div>
+      <div class="otd-details">
+        <span class="otd-date">${dateStr}</span>
+        <span class="otd-amount">${amount}</span>
+      </div>
+    </div>`;
+  container.classList.remove('hidden');
+
+  document.getElementById('otd-dismiss').addEventListener('click', () => {
+    localStorage.setItem('otd-dismissed', todayStr);
+    container.classList.add('hidden');
+  });
 }
