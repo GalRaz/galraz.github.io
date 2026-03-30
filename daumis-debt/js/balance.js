@@ -223,7 +223,7 @@ export async function loadDashboard() {
     } catch (e) {}
 
     // Compute consolidated balance: fetch all exchange rates in parallel
-    // Filter out dust balances (< 0.01 USD equivalent)
+    // Filter out dust balances (< 0.10 USD equivalent)
     const nonZeroCurrencies = Object.entries(currencyBalances).filter(([, a]) => Math.abs(a) >= 0.005);
     const currenciesToFetch = nonZeroCurrencies
       .map(([cur]) => cur)
@@ -266,7 +266,7 @@ export async function loadDashboard() {
     // Remove dust balances (< $0.01 in consolidation currency) from display
     for (const [cur, amount] of Object.entries(currencyBalances)) {
       const rate = rateCache[cur] || 1;
-      if (Math.abs(amount * rate) < 0.01) {
+      if (Math.abs(amount * rate) < 0.10) {
         delete currencyBalances[cur];
       }
     }

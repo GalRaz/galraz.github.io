@@ -339,6 +339,53 @@ function buildCurrencySelect(extraCurrency) {
   });
 }
 
+function buildConsolCurrencySelect(currentValue) {
+  const select = document.getElementById('settings-consolidation-currency');
+  const prioritySet = new Set();
+  const balanceSizes = {};
+
+  try {
+    const sizes = JSON.parse(localStorage.getItem('daumis-debt-currency-balances') || '{}');
+    Object.assign(balanceSizes, sizes);
+    for (const [cur, amt] of Object.entries(sizes)) {
+      if (Math.abs(amt) > 0.005) prioritySet.add(cur);
+    }
+  } catch (e) {}
+
+  const lastUsed = localStorage.getItem('daumis-debt-last-currency');
+  if (lastUsed) prioritySet.add(lastUsed);
+  if (currentValue) prioritySet.add(currentValue);
+
+  const priorityCurrencies = ALL_CURRENCIES.filter(c => prioritySet.has(c.code));
+  priorityCurrencies.sort((a, b) => {
+    if (a.code === currentValue) return -1;
+    if (b.code === currentValue) return 1;
+    return Math.abs(balanceSizes[b.code] || 0) - Math.abs(balanceSizes[a.code] || 0);
+  });
+  const otherCurrencies = ALL_CURRENCIES.filter(c => !prioritySet.has(c.code));
+
+  select.innerHTML = '';
+  priorityCurrencies.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.code;
+    opt.textContent = c.label;
+    select.appendChild(opt);
+  });
+  if (priorityCurrencies.length > 0 && otherCurrencies.length > 0) {
+    const sep = document.createElement('option');
+    sep.disabled = true;
+    sep.textContent = '── Other ──';
+    select.appendChild(sep);
+  }
+  otherCurrencies.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.code;
+    opt.textContent = c.label;
+    select.appendChild(opt);
+  });
+  select.value = currentValue;
+}
+
 // --- FAB ---
 document.getElementById('fab-add').addEventListener('click', () => {
   editingEntry = null;
@@ -400,9 +447,9 @@ async function loadSettings() {
     b.classList.toggle('active', b.dataset.value === balanceView);
   });
 
-  // Load consolidation currency
+  // Load consolidation currency with smart sorting
   const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
-  document.getElementById('settings-consolidation-currency').value = consolCurrency;
+  buildConsolCurrencySelect(consolCurrency);
 
   // Load recurring expenses
   await loadRecurringList();
@@ -944,13 +991,13 @@ async function renderSettleUp() {
     // Get exchange rates for "settle all"
     const { getExchangeRate } = await import('./exchange.js');
 
-    // Filter to non-zero currencies, excluding dust (< $0.01 USD equivalent)
+    // Filter to non-zero currencies, excluding dust (< $0.10 USD equivalent)
     const allDebts = Object.entries(currencyBalances).filter(([, v]) => Math.abs(v) > 0.005);
     const debts = [];
     for (const [cur, amount] of allDebts) {
       try {
         const rate = await getExchangeRate(cur);
-        if (Math.abs(amount * rate) >= 0.01) {
+        if (Math.abs(amount * rate) >= 0.10) {
           debts.push([cur, amount]);
         }
       } catch (e) {
