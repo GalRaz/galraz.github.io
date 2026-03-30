@@ -128,18 +128,29 @@ export async function loadDashboard() {
     // Build items list
     const items = [];
 
+    function buildItem(d, docId, type, dateField) {
+      const item = {};
+      // Copy all simple fields (strings, numbers, booleans, objects)
+      for (const [key, val] of Object.entries(d)) {
+        if (key === dateField || key === 'date' || key === 'playedAt' || key === 'createdAt') continue;
+        item[key] = val;
+      }
+      item.type = type;
+      item.id = docId;
+      item.date = toJSDate(d[dateField]);
+      item.sortDate = toJSDate(d.createdAt || d[dateField]);
+      // Keep raw amount/currency for history display
+      item.amount = d.amount;
+      item.currency = d.currency;
+      return item;
+    }
+
     expSnap.forEach((doc) => {
       try {
         const d = doc.data();
-        // Track partner info
         if (d.paidBy !== user.uid && isValidUid(d.paidBy)) setPartnerInfo(d.paidBy, '');
         if (d.owedBy !== user.uid && isValidUid(d.owedBy)) setPartnerInfo(d.owedBy, '');
-        const parsed = { ...d };
-        parsed.type = 'expense';
-        parsed.id = doc.id;
-        parsed.date = toJSDate(d.date);
-        parsed.sortDate = toJSDate(d.createdAt || d.date);
-        items.push(parsed);
+        items.push(buildItem(d, doc.id, 'expense', 'date'));
       } catch (e) { console.error('Bad expense doc:', doc.id, e); }
     });
 
@@ -148,24 +159,14 @@ export async function loadDashboard() {
         const d = doc.data();
         if (d.paidBy !== user.uid && isValidUid(d.paidBy)) setPartnerInfo(d.paidBy, '');
         if (d.paidTo !== user.uid && isValidUid(d.paidTo)) setPartnerInfo(d.paidTo, '');
-        const parsed = { ...d };
-        parsed.type = 'payment';
-        parsed.id = doc.id;
-        parsed.date = toJSDate(d.date);
-        parsed.sortDate = toJSDate(d.createdAt || d.date);
-        items.push(parsed);
+        items.push(buildItem(d, doc.id, 'payment', 'date'));
       } catch (e) { console.error('Bad payment doc:', doc.id, e); }
     });
 
     duelSnap.forEach((doc) => {
       try {
         const d = doc.data();
-        const parsed = { ...d };
-        parsed.type = 'duel';
-        parsed.id = doc.id;
-        parsed.date = toJSDate(d.playedAt);
-        parsed.sortDate = toJSDate(d.playedAt);
-        items.push(parsed);
+        items.push(buildItem(d, doc.id, 'duel', 'playedAt'));
       } catch (e) { console.error('Bad duel doc:', doc.id, e); }
     });
 
