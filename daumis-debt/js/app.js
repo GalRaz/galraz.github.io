@@ -333,6 +333,8 @@ function buildCurrencySelect(extraCurrency) {
 document.getElementById('fab-add').addEventListener('click', () => {
   editingEntry = null;
   showScreen('add', 'slide-forward');
+  // Restore entry type toggle visibility
+  document.querySelector('#screen-add > .toggle-group').style.display = '';
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('entry-date').value = today;
   document.getElementById('form-entry').reset();
@@ -566,44 +568,85 @@ window.addEventListener('edit-entry', (e) => {
   const { type, data } = e.detail;
   editingEntry = { id: data.id, type };
 
+  // Payments get a detail view with delete, not the full edit form
+  if (type === 'payment') {
+    showScreen('add', 'slide-forward');
+    const title = document.getElementById('add-title');
+    title.textContent = 'Settlement Details';
+
+    // Hide the entry type toggle and form
+    document.querySelector('#screen-add > .toggle-group').style.display = 'none';
+    document.getElementById('form-entry').style.display = 'none';
+
+    // Show detail in settle container
+    let container = document.getElementById('settle-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'settle-container';
+      document.getElementById('form-entry').parentNode.insertBefore(container, document.getElementById('form-entry'));
+    }
+
+    const sym = getCurrencySymbol(data.currency);
+    const dateObj = data.date instanceof Date ? data.date : (data.date?.toDate ? data.date.toDate() : new Date(data.date));
+    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const paidByName = data.paidBy === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidBy);
+    const paidToName = data.paidTo === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidTo);
+
+    container.innerHTML = `
+      <div style="text-align:center;padding:30px 0 20px">
+        <div style="font-size:2rem;font-weight:700;color:var(--text);margin-bottom:8px">${sym}${data.amount.toLocaleString()}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted)">${data.currency} · ${dateStr}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${paidByName} paid ${paidToName}</div>
+      </div>
+      <button class="btn btn-delete" id="btn-delete-payment">Delete Settlement</button>`;
+    container.style.display = '';
+
+    document.getElementById('btn-delete-payment').addEventListener('click', async () => {
+      if (!confirm('Delete this settlement? The debt will be restored.')) return;
+      try {
+        await db.collection('payments').doc(editingEntry.id).delete();
+        editingEntry = null;
+        showScreen('dashboard');
+        const { loadDashboard } = await import('./balance.js');
+        loadDashboard();
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to delete.');
+      }
+    });
+    return;
+  }
+
   showScreen('add', 'slide-forward');
 
-  // Set entry type toggle
+  // Set entry type toggle to expense
   document.querySelectorAll('#entry-type .toggle-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.value === type);
+    b.classList.toggle('active', b.dataset.value === 'expense');
   });
-  updateFormForType(type);
+  // Show entry type toggle
+  document.querySelector('#screen-add > .toggle-group').style.display = '';
+  updateFormForType('expense');
 
   // Pre-fill fields
-  if (type === 'expense') {
-    document.getElementById('entry-desc').value = data.description || '';
-  }
+  document.getElementById('entry-desc').value = data.description || '';
   document.getElementById('entry-amount').value = data.amount || '';
-  // Rebuild dropdown, ensuring the entry's currency is included
   showingAllCurrencies = false;
   buildCurrencySelect(data.currency);
   document.getElementById('entry-currency').value = data.currency || 'USD';
 
-  // Set the correct option
+  // Set the correct split option
   const paidBySelf = data.paidBy === currentUser.uid;
   const paidValue = paidBySelf ? 'self' : 'partner';
-
-  if (type === 'expense') {
-    const splitValue = data.splitType || 'even';
-    document.querySelectorAll('.split-option').forEach(b => {
-      b.classList.toggle('active', b.dataset.paid === paidValue && b.dataset.split === splitValue);
-    });
-  } else {
-    document.querySelectorAll('#entry-paid-by .toggle-btn').forEach(b => {
-      b.classList.toggle('active', (b.dataset.value === 'self') === paidBySelf);
-    });
-  }
+  const splitValue = data.splitType || 'even';
+  document.querySelectorAll('.split-option').forEach(b => {
+    b.classList.toggle('active', b.dataset.paid === paidValue && b.dataset.split === splitValue);
+  });
 
   // Set date
   const dateObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
   document.getElementById('entry-date').value = dateObj.toISOString().split('T')[0];
 
-  // Hide recurring group when editing (editing doesn't change recurrence)
+  // Hide recurring group when editing
   document.getElementById('recurring-group').style.display = 'none';
 
   // Update UI for edit mode
@@ -777,6 +820,8 @@ async function renderSettleUp() {
       btn.addEventListener('click', async () => {
         const currency = btn.dataset.currency;
         const amount = parseFloat(btn.dataset.amount);
+        const sym = getCurrencySymbol(currency);
+        if (!confirm(`Settle ${sym}${amount.toLocaleString()} ${currency}?`)) return;
         btn.disabled = true;
         btn.textContent = 'Settling...';
 
