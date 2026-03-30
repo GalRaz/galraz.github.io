@@ -276,6 +276,10 @@ function buildCurrencySelect(extraCurrency) {
     used.forEach(c => prioritySet.add(c));
     const sizes = JSON.parse(localStorage.getItem('daumis-debt-currency-balances') || '{}');
     Object.assign(balanceSizes, sizes);
+    // Add any currency with a non-zero balance to priority
+    for (const [cur, amt] of Object.entries(sizes)) {
+      if (Math.abs(amt) > 0.005) prioritySet.add(cur);
+    }
   } catch (e) {}
 
   // Always include last used
@@ -316,7 +320,7 @@ function buildCurrencySelect(extraCurrency) {
   if (priorityCurrencies.length > 0 && otherCurrencies.length > 0) {
     const sep = document.createElement('option');
     sep.disabled = true;
-    sep.textContent = '───────────';
+    sep.textContent = '── Other ──';
     select.appendChild(sep);
   }
 
