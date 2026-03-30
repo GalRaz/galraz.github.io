@@ -28,27 +28,38 @@ function categorize(description) {
 
 function getBalanceQuote(balance) {
   const abs = Math.abs(balance);
-  if (abs < 1) return "Perfectly balanced, as all things should be.";
+  const day = Math.floor(Date.now() / 86400000);
 
-  const owesQuotes = [
-    // < $50
-    ["Don't worry, it's just a coffee... or ten.", "Pocket change! ...right?", "That's like half a fancy dinner."],
-    // $50-200
-    ["That's a nice dinner you owe.", "Time to cook at home for a bit.", "Someone's been swiping the card a lot."],
-    // $200-500
-    ["Getting into 'we need to talk' territory.", "That's a round-trip flight somewhere cheap.", "Maybe suggest a picnic instead of a restaurant?"],
-    // $500-1000
-    ["Okay, this is getting real.", "That's rent money in some countries.", "Have you considered a payment plan?"],
-    // $1000-5000
-    ["This is a small vacation's worth.", "Time for a serious settle-up conversation.", "At this point, just buy them a really nice gift."],
-    // $5000+
-    ["This is getting legendary.", "You might need a second job.", "At this rate, just propose and merge finances."]
+  const settledQuotes = [
+    "Perfectly balanced, as all things should be.",
+    "Zero debt. Suspicious. Who are you people?",
+    "The rare moment where nobody can complain."
   ];
 
+  // Negative balance = you owe
+  const youOweQuotes = [
+    ["That's barely a kebab and a beer. Embarrassing to even track.", "You owe less than a parking ticket. Somehow that's worse.", "This debt is so small it has an inferiority complex."],
+    ["You owe a nice dinner. One where you chew with your mouth closed.", "This is 'I'll grab the next one' except you've said that nine times.", "Your partner is not mad. Just disappointed. And keeping score."],
+    ["Your debt just got a LinkedIn profile.", "That's enough to buy a goat in some countries. A NICE goat.", "You could pay this off or you could avoid eye contact forever. Your call."],
+    ["You now owe a plane ticket. Economy. Middle seat. You deserve it.", "This is 'I will do literally any household chore without being asked' money.", "Your debt just applied for a mortgage."],
+    ["Sell the guitar you don't play.", "Your debt has more life goals than you do.", "This amount of money could start a small cult. Just saying."],
+    ["You don't have a relationship. You have a subprime loan with cuddling.", "Your debt is old enough to have opinions.", "Consider faking your own death. Financially speaking."]
+  ];
+
+  // Positive balance = they owe you
+  const theyOweQuotes = [
+    ["They owe you pocket change. Bring it up constantly anyway.", "Petty? No. Financially vigilant? Absolutely.", "It's the principle. The tiny, tiny principle."],
+    ["Leave this app open on the toilet. They'll see it.", "That's a date night THEY'RE planning AND paying for.", "You're owed a massage. Don't let them use their elbows though."],
+    ["You're not a partner, you're a patron of the arts of spending.", "That's a spa weekend. Robes included. FLUFFY robes.", "Start clearing your throat loudly whenever they buy something."],
+    ["They owe you a vacation. You pick the hotel. They sleep on the floor.", "Charge interest in cooking. Specifically, THEIR cooking.", "You're basically a loan shark but with feelings."],
+    ["You're a whole-ass philanthropist and nobody gave you a trophy.", "Their debt could buy you a very ugly boat. You deserve that boat.", "This relationship has a balance sheet and you are the asset."],
+    ["You're not a partner. You're a venture capitalist with abandonment issues.", "Their debt has its own area code.", "At this point, just put your name on their birth certificate."]
+  ];
+
+  if (abs < 1) return settledQuotes[day % settledQuotes.length];
+
   const idx = abs < 50 ? 0 : abs < 200 ? 1 : abs < 500 ? 2 : abs < 1000 ? 3 : abs < 5000 ? 4 : 5;
-  const pool = owesQuotes[idx];
-  // Pick deterministically based on date so it changes daily
-  const day = Math.floor(Date.now() / 86400000);
+  const pool = balance < 0 ? youOweQuotes[idx] : theyOweQuotes[idx];
   return pool[day % pool.length];
 }
 
