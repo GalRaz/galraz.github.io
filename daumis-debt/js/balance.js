@@ -138,11 +138,10 @@ export async function loadDashboard() {
 
   try {
     // Fetch all data once
-    const [expSnap, paySnap, duelSnap, recurSnap] = await Promise.all([
+    const [expSnap, paySnap, duelSnap] = await Promise.all([
       db.collection('expenses').get(),
       db.collection('payments').get(),
-      db.collection('duels').get(),
-      db.collection('recurring').where('active', '==', true).get()
+      db.collection('duels').get()
     ]);
 
     // Build items list
@@ -190,26 +189,7 @@ export async function loadDashboard() {
       } catch (e) { console.error('Bad duel doc:', doc.id, e); }
     });
 
-    // Add upcoming recurring as scheduled items (display only, not in balance)
-    recurSnap.forEach((doc) => {
-      try {
-        const d = doc.data();
-        const nextDue = d.nextDue?.toDate ? d.nextDue.toDate() : new Date(d.nextDue);
-        items.push({
-          type: 'scheduled',
-          id: doc.id,
-          description: d.description,
-          amount: d.amount,
-          currency: d.currency,
-          frequency: d.frequency,
-          paidBy: d.paidBy,
-          splitType: d.splitType,
-          date: nextDue,
-          sortDate: nextDue,
-          balanceExcluded: true // not counted in balance
-        });
-      } catch (e) { console.error('Bad recurring doc:', doc.id, e); }
-    });
+    // Recurring items only show in history after processRecurring creates the actual expense
 
     // Get user preferences
     const balanceView = localStorage.getItem('daumis-debt-balance-view') || 'consolidated';
@@ -436,8 +416,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
   const showOriginal = balanceView === 'breakdown';
 
   const list = document.getElementById('history-list');
-  // Filter out balance-excluded items EXCEPT scheduled (recurring) ones
-  items = items.filter(item => !item.balanceExcluded || item.type === 'scheduled');
+  items = items.filter(item => !item.balanceExcluded);
   items.sort((a, b) => b.date - a.date);
   list.innerHTML = '';
 
@@ -474,26 +453,6 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
     try {
       const li = document.createElement('li');
       const dateStr = formatDate(item.date);
-
-      // Scheduled (upcoming recurring) — display-only, not in balance
-      if (item.type === 'scheduled') {
-        const sym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const freqLabel = item.frequency === 'weekly' ? 'Weekly' : 'Monthly';
-        li.style.opacity = '0.5';
-        li.innerHTML = `
-          <div class="entry-icon expense" style="opacity:0.6">🔄</div>
-          <div class="entry-info">
-            <div class="entry-desc">${item.description || 'Recurring'}</div>
-            <div class="entry-meta">Scheduled ${dateStr} · ${freqLabel} · ${sym}${item.amount.toLocaleString()}</div>
-          </div>
-          <div class="entry-amount" style="color:var(--text-muted);font-size:0.8rem">Upcoming</div>`;
-        li.style.cursor = 'pointer';
-        li.addEventListener('click', () => {
-          window.dispatchEvent(new CustomEvent('edit-recurring', { detail: { data: item } }));
-        });
-        list.appendChild(li);
-        return;
-      }
 
       const impact = itemImpact(item, myUid);
       const isCredit = impact >= 0;
