@@ -944,10 +944,20 @@ async function renderSettleUp() {
     // Get exchange rates for "settle all"
     const { getExchangeRate } = await import('./exchange.js');
 
-    // Filter to non-zero currencies
-    const debts = Object.entries(currencyBalances)
-      .filter(([, v]) => Math.abs(v) > 0.005)
-      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    // Filter to non-zero currencies, excluding dust (< $0.01 USD equivalent)
+    const allDebts = Object.entries(currencyBalances).filter(([, v]) => Math.abs(v) > 0.005);
+    const debts = [];
+    for (const [cur, amount] of allDebts) {
+      try {
+        const rate = await getExchangeRate(cur);
+        if (Math.abs(amount * rate) >= 0.01) {
+          debts.push([cur, amount]);
+        }
+      } catch (e) {
+        debts.push([cur, amount]); // keep if can't check
+      }
+    }
+    debts.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
     if (debts.length === 0) {
       container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px 0">All settled up! Nothing to pay.</p>';
