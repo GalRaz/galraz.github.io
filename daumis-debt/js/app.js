@@ -73,18 +73,18 @@ let isSwiping = false;
 let swipeTarget = null;
 
 document.addEventListener('touchstart', (e) => {
-  // Only start if touch begins within 30px of left edge
-  if (e.touches[0].clientX > 30) {
-    swipeStartX = e.touches[0].clientX;
-    swipeStartY = e.touches[0].clientY;
-    return;
-  }
+  const x = e.touches[0].clientX;
+  swipeStartX = x;
+  swipeStartY = e.touches[0].clientY;
+  swipeTarget = null;
+  isSwiping = false;
+
+  // Only enable peek-swipe from left 40px edge
+  if (x > 40) return;
+
   const active = document.querySelector('.screen.active');
   if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
-    swipeStartX = e.touches[0].clientX;
-    swipeStartY = e.touches[0].clientY;
     swipeTarget = active;
-    isSwiping = false;
   }
 }, { passive: true });
 
@@ -94,29 +94,47 @@ document.addEventListener('touchmove', (e) => {
   const dy = e.touches[0].clientY - swipeStartY;
 
   // Must be moving mostly horizontally to the right
-  if (!isSwiping && dx > 10 && Math.abs(dy) < Math.abs(dx) * 0.5) {
-    isSwiping = true;
-    swipeTarget.style.transition = 'none';
-    // Show dashboard underneath
-    document.getElementById('screen-dashboard').classList.add('active');
+  if (!isSwiping) {
+    if (dx > 10 && Math.abs(dy) < Math.abs(dx)) {
+      isSwiping = true;
+      // Position the swipe target on top and disable its transition
+      swipeTarget.style.transition = 'none';
+      swipeTarget.style.zIndex = '50';
+      swipeTarget.style.position = 'relative';
+      // Show dashboard underneath (behind the current screen)
+      const dashboard = document.getElementById('screen-dashboard');
+      dashboard.classList.add('active');
+      dashboard.style.position = 'fixed';
+      dashboard.style.top = '0';
+      dashboard.style.left = '0';
+      dashboard.style.right = '0';
+      dashboard.style.bottom = '0';
+      dashboard.style.zIndex = '1';
+      dashboard.style.overflow = 'auto';
+    } else if (Math.abs(dy) > 10) {
+      // Vertical scroll — cancel swipe
+      swipeTarget = null;
+    }
+    return;
   }
 
-  if (isSwiping && dx > 0) {
+  if (dx > 0) {
     swipeTarget.style.transform = `translateX(${dx}px)`;
-    // Slight dim on the revealed dashboard
-    swipeTarget.style.opacity = Math.max(0.3, 1 - dx / window.innerWidth);
+    swipeTarget.style.boxShadow = `-8px 0 24px rgba(0,0,0,${0.15 * (1 - dx / window.innerWidth)})`;
   }
 }, { passive: true });
 
 document.addEventListener('touchend', async (e) => {
   if (!swipeTarget || !isSwiping) {
-    // Check for non-edge swipes (original threshold)
-    const dx = e.changedTouches[0].clientX - swipeStartX;
-    const dy = e.changedTouches[0].clientY - swipeStartY;
-    if (dx > 80 && Math.abs(dy) < Math.abs(dx) * 0.5) {
-      const active = document.querySelector('.screen.active');
-      if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
-        goBack();
+    // Non-edge full swipe fallback
+    if (!isSwiping) {
+      const dx = e.changedTouches[0].clientX - swipeStartX;
+      const dy = e.changedTouches[0].clientY - swipeStartY;
+      if (dx > 100 && Math.abs(dy) < Math.abs(dx) * 0.5) {
+        const active = document.querySelector('.screen.active');
+        if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
+          goBack();
+        }
       }
     }
     swipeTarget = null;
@@ -125,33 +143,48 @@ document.addEventListener('touchend', async (e) => {
   }
 
   const dx = e.changedTouches[0].clientX - swipeStartX;
-  swipeTarget.style.transition = 'transform 0.25s ease-out, opacity 0.25s ease-out';
+  const dashboard = document.getElementById('screen-dashboard');
 
-  if (dx > window.innerWidth * 0.35) {
-    // Complete the swipe — slide fully off screen
+  function cleanupSwipe() {
+    if (swipeTarget) {
+      swipeTarget.style.transform = '';
+      swipeTarget.style.zIndex = '';
+      swipeTarget.style.position = '';
+      swipeTarget.style.boxShadow = '';
+      swipeTarget.style.transition = '';
+    }
+    dashboard.style.position = '';
+    dashboard.style.top = '';
+    dashboard.style.left = '';
+    dashboard.style.right = '';
+    dashboard.style.bottom = '';
+    dashboard.style.zIndex = '';
+    dashboard.style.overflow = '';
+  }
+
+  if (dx > window.innerWidth * 0.3) {
+    // Complete — slide off to the right
+    swipeTarget.style.transition = 'transform 0.2s ease-out, box-shadow 0.2s ease-out';
     swipeTarget.style.transform = `translateX(${window.innerWidth}px)`;
-    swipeTarget.style.opacity = '0';
+    swipeTarget.style.boxShadow = 'none';
     setTimeout(() => {
       swipeTarget.classList.remove('active');
-      swipeTarget.style.transform = '';
-      swipeTarget.style.opacity = '';
-      swipeTarget.style.transition = '';
+      cleanupSwipe();
       swipeTarget = null;
-    }, 250);
-    // Load dashboard
+    }, 200);
     editingEntry = null;
     currentScreen = 'screen-dashboard';
     const { loadDashboard } = await import('./balance.js');
     loadDashboard();
   } else {
     // Snap back
+    swipeTarget.style.transition = 'transform 0.2s ease-out, box-shadow 0.2s ease-out';
     swipeTarget.style.transform = 'translateX(0)';
-    swipeTarget.style.opacity = '1';
     setTimeout(() => {
-      swipeTarget.style.transition = '';
-      document.getElementById('screen-dashboard').classList.remove('active');
+      dashboard.classList.remove('active');
+      cleanupSwipe();
       swipeTarget = null;
-    }, 250);
+    }, 200);
   }
 
   isSwiping = false;
