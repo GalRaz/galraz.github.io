@@ -609,6 +609,62 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   }
 });
 
+// --- Edit recurring ---
+window.addEventListener('edit-recurring', (e) => {
+  const { data } = e.detail;
+
+  showScreen('add', 'slide-forward');
+  const title = document.getElementById('add-title');
+  title.textContent = 'Recurring Expense';
+
+  // Hide entry type toggle and form
+  document.querySelector('#screen-add > .toggle-group').style.display = 'none';
+  document.getElementById('form-entry').style.display = 'none';
+
+  // Show detail in settle container
+  let container = document.getElementById('settle-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'settle-container';
+    document.getElementById('form-entry').parentNode.insertBefore(container, document.getElementById('form-entry'));
+  }
+
+  const sym = getCurrencySymbol(data.currency);
+  const nextDate = data.date instanceof Date ? data.date : new Date(data.date);
+  const dateStr = nextDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const freqLabel = data.frequency === 'weekly' ? 'Weekly' : 'Monthly';
+  const splitLabel = data.splitType === 'even' ? 'Split evenly' : 'Owed fully';
+  const paidByName = data.paidBy === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidBy);
+
+  container.innerHTML = `
+    <div style="text-align:center;padding:30px 0 10px">
+      <div style="font-size:2.5rem;margin-bottom:8px">🔄</div>
+      <div style="font-size:1.4rem;font-weight:700;color:var(--text);margin-bottom:4px">${data.description}</div>
+      <div style="font-size:1.1rem;font-weight:600;color:var(--text-muted);margin-bottom:12px">${sym}${data.amount.toLocaleString()} ${data.currency}</div>
+      <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">${freqLabel} · ${splitLabel}</div>
+      <div style="font-size:0.85rem;color:var(--text-muted);margin-bottom:4px">${paidByName} pays</div>
+      <div style="font-size:0.85rem;color:var(--text-muted)">Next: ${dateStr}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:20px">
+      <button class="btn btn-delete" id="btn-cancel-recurring">Cancel Recurring</button>
+    </div>`;
+  container.style.display = '';
+
+  document.getElementById('btn-cancel-recurring').addEventListener('click', async () => {
+    if (!confirm(`Cancel recurring "${data.description}"? Future charges will stop.`)) return;
+    try {
+      const { deactivateRecurring } = await import('./recurring.js');
+      await deactivateRecurring(data.id);
+      showScreen('dashboard');
+      const { loadDashboard } = await import('./balance.js');
+      loadDashboard();
+    } catch (err) {
+      console.error('Cancel recurring failed:', err);
+      alert('Failed to cancel.');
+    }
+  });
+});
+
 // --- Edit entry ---
 window.addEventListener('edit-entry', (e) => {
   const { type, data } = e.detail;
