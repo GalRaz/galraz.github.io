@@ -3,7 +3,7 @@ import { getCurrentUser, getPartnerUid, getUserName, setPartnerInfo } from './ap
 import { getExchangeRate } from './exchange.js';
 
 const CURRENCY_SYMBOLS = {
-  USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu', TWD:'NT$', KRW:'₩',
+  USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu ', TWD:'NT$', KRW:'₩',
   CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
   SEK:'kr', NOK:'kr', DKK:'kr', MXN:'$', BRL:'R$', PLN:'zł', CZK:'Kč', HUF:'Ft',
   ILS:'₪', TRY:'₺', ZAR:'R', PHP:'₱', MYR:'RM', IDR:'Rp'
