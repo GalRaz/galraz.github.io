@@ -429,7 +429,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
 
   const list = document.getElementById('history-list');
   items = items.filter(item => !item.balanceExcluded);
-  items.sort((a, b) => b.date - a.date);
+  items.sort((a, b) => (b.sortDate || b.date) - (a.sortDate || a.date));
   list.innerHTML = '';
 
   if (items.length === 0) {
