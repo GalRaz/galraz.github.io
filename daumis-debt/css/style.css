@@ -1,19 +1,19 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg: #000000;
-  --surface: #1c1c1e;
-  --surface-2: #2c2c2e;
-  --surface-3: #3a3a3c;
-  --accent: #0a84ff;
-  --accent-soft: rgba(10, 132, 255, 0.12);
-  --text: #ffffff;
-  --text-muted: #98989d;
-  --green: #30d158;
-  --green-soft: rgba(48, 209, 88, 0.12);
-  --red: #ff453a;
-  --red-soft: rgba(255, 69, 58, 0.12);
-  --gold: #ffd60a;
+  --bg: #f2f0eb;
+  --surface: #e6e3da;
+  --surface-2: #dddad0;
+  --surface-3: #ccc9be;
+  --accent: #5c6b4f;
+  --accent-soft: rgba(92, 107, 79, 0.12);
+  --text: #33372c;
+  --text-muted: #7c7b6f;
+  --green: #4a7c50;
+  --green-soft: rgba(74, 124, 80, 0.1);
+  --red: #b5453a;
+  --red-soft: rgba(181, 69, 58, 0.08);
+  --gold: #8b6914;
   --radius: 16px;
   --radius-sm: 12px;
 }
@@ -55,6 +55,7 @@ body {
   padding: 32px 24px 24px;
   text-align: center;
   margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
 }
 .balance-label { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 8px; font-weight: 500; }
 .balance-amount { font-size: 3.2rem; font-weight: 700; letter-spacing: -1.5px; line-height: 1; }
@@ -82,14 +83,14 @@ body {
 
 /* Duel banner */
 .duel-banner {
-  background: var(--surface);
+  background: linear-gradient(135deg, #c5cdb8, #a8b89a);
   border-radius: 20px; padding: 18px 20px; margin-bottom: 20px;
   display: flex; align-items: center; justify-content: space-between;
 }
-.duel-banner p { font-weight: 600; font-size: 0.95rem; }
+.duel-banner p { font-weight: 600; font-size: 0.95rem; color: #2e3328; }
 .duel-banner .btn {
   width: auto; padding: 10px 24px; font-size: 0.85rem;
-  background: var(--accent); border-radius: 24px; font-weight: 600;
+  background: #33372c; color: #f2f0eb; border-radius: 24px; font-weight: 600;
 }
 
 /* Forms */
@@ -142,14 +143,15 @@ body {
 }
 .split-option:active { transform: scale(0.97); }
 
-/* History list — mood-aware via CSS custom properties */
+/* History list */
 .history-list { list-style: none; padding-bottom: 80px; }
 .history-list li {
-  background: var(--mood-item, var(--surface));
+  background: var(--surface);
   border-radius: var(--radius-sm);
   padding: 16px; margin-bottom: 8px;
   display: flex; align-items: center;
   gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 
 .entry-icon {
@@ -158,22 +160,22 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 0.9rem; font-weight: 700;
   flex-shrink: 0;
-  background: var(--mood-icon, var(--surface-2));
+  background: var(--surface-2);
 }
 .entry-icon.expense { color: var(--text-muted); }
-.entry-icon.payment { color: var(--mood-pos, var(--green)); }
+.entry-icon.payment { color: var(--green); }
 .entry-icon.duel { color: var(--gold); }
 
 .entry-info { flex: 1; min-width: 0; }
 .entry-desc {
   font-size: 0.95rem; font-weight: 500;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  color: var(--mood-name, var(--text));
+  color: var(--text);
 }
-.entry-meta { font-size: 0.75rem; color: var(--mood-meta, var(--text-muted)); margin-top: 3px; }
+.entry-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
 .entry-amount { font-weight: 700; font-size: 0.95rem; text-align: right; white-space: nowrap; }
-.entry-amount.credit { color: var(--mood-pos, var(--green)); }
-.entry-amount.debit { color: var(--mood-neg, var(--red)); }
+.entry-amount.credit { color: var(--green); }
+.entry-amount.debit { color: var(--red); }
 
 /* Mood animations */
 @keyframes chaosPulse {
@@ -199,7 +201,7 @@ body {
   width: 56px; height: 56px; border-radius: 50%;
   background: var(--accent); color: white;
   border: none; font-size: 1.8rem; cursor: pointer;
-  box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(92, 107, 79, 0.3);
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.2s;
   z-index: 10; line-height: 1;

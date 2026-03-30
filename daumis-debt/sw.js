@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daumis-debt-v8';
+const CACHE_NAME = 'daumis-debt-v9';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',

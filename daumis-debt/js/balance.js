@@ -271,102 +271,67 @@ export async function loadDashboard() {
   }
 }
 
-// You owe → escalating dread
-const OWE_MOODS = [
-  { max: 500, name: 'warm', bg: 'linear-gradient(180deg, #fff3e0, #ffe0b2)', card: 'rgba(255,255,255,0.7)', label: '#e65100', amount: '#bf360c', quote: '#ff8a65', item: 'rgba(255,255,255,0.5)', icon: 'rgba(230,81,0,0.08)', name_: '#4e342e', meta: '#ff8a65', section: '#ff8a65', pos: '#2e7d32', neg: '#bf360c', emojis: ['😬','💸'] },
-  { max: 1000, name: 'tense', bg: 'linear-gradient(180deg, #37242a, #2a1520)', card: 'rgba(80,30,40,0.6)', label: '#e57373', amount: '#ff5252', quote: '#b05060', item: 'rgba(255,255,255,0.06)', icon: 'rgba(255,82,82,0.12)', name_: '#e0ccd0', meta: '#8a6070', section: '#8a6070', pos: '#69f0ae', neg: '#ff5252', emojis: ['🫠','💀','🔥','😰'] },
-  { max: 5000, name: 'drama', bg: 'linear-gradient(180deg, #1a0a1e, #0d0510)', card: 'linear-gradient(135deg, rgba(120,40,80,0.4), rgba(60,20,80,0.4))', label: '#ce93d8', amount: '#f48fb1', quote: '#8e6090', item: 'rgba(255,255,255,0.04)', icon: 'rgba(244,143,177,0.12)', name_: '#d0b0c0', meta: '#7a5070', section: '#7a5070', pos: '#69f0ae', neg: '#f48fb1', emojis: ['💸','😱','🪦','💀','🔥','😭'] },
-  { max: Infinity, name: 'chaos', bg: 'linear-gradient(180deg, #1a0000, #0a0000)', card: 'linear-gradient(135deg, rgba(180,20,20,0.3), rgba(80,0,0,0.3))', label: '#ff6b6b', amount: '#ff1744', quote: '#b71c1c', item: 'rgba(255,255,255,0.03)', icon: 'rgba(255,23,68,0.1)', name_: '#c0a0a0', meta: '#6a3030', section: '#6a3030', pos: '#69f0ae', neg: '#ff1744', emojis: ['🔥','💀','💸','😱','🪦','☠️','😭','🔥','💀','💸'] }
-];
-
-// They owe you → escalating smugness
-const OWED_MOODS = [
-  { max: 500, name: 'cozy', bg: 'linear-gradient(180deg, #fdf6e3, #f5e6c8)', card: 'rgba(255,255,255,0.75)', label: '#b8860b', amount: '#8b6914', quote: '#c4a35a', item: 'rgba(255,255,255,0.55)', icon: 'rgba(184,134,11,0.08)', name_: '#4a3e28', meta: '#c4a35a', section: '#c4a35a', pos: '#2e7d32', neg: '#c0392b', emojis: ['😌','☕'] },
-  { max: 1000, name: 'golden', bg: 'linear-gradient(180deg, #fff8e1, #ffecb3)', card: 'rgba(255,248,225,0.8)', label: '#f9a825', amount: '#e65100', quote: '#ffa726', item: 'rgba(255,255,255,0.6)', icon: 'rgba(249,168,37,0.1)', name_: '#4e342e', meta: '#ffa726', section: '#ffa726', pos: '#2e7d32', neg: '#e65100', emojis: ['😏','💅','✨'] },
-  { max: 5000, name: 'champagne', bg: 'linear-gradient(180deg, #1a1510, #0f0d08)', card: 'linear-gradient(135deg, rgba(212,175,55,0.2), rgba(180,140,40,0.15))', label: '#d4af37', amount: '#ffd700', quote: '#a08520', item: 'rgba(212,175,55,0.06)', icon: 'rgba(212,175,55,0.1)', name_: '#e0d8c0', meta: '#8a7a50', section: '#8a7a50', pos: '#ffd700', neg: '#e57373', emojis: ['🍾','👑','💰','😏','💅'] },
-  { max: Infinity, name: 'throne', bg: 'linear-gradient(180deg, #0a0510, #050208)', card: 'linear-gradient(135deg, rgba(180,140,255,0.15), rgba(255,215,0,0.1))', label: '#b388ff', amount: '#ffd700', quote: '#7c5cbf', item: 'rgba(255,215,0,0.04)', icon: 'rgba(179,136,255,0.1)', name_: '#d0c0e0', meta: '#6a508a', section: '#6a508a', pos: '#ffd700', neg: '#e57373', emojis: ['👑','🏆','💎','🍾','🎩','💰','🤑','👑'] }
-];
-
-// Settled
-const ZEN_MOOD = { name: 'zen', bg: 'linear-gradient(180deg, #e8f5e9, #c8e6c9)', card: 'rgba(255,255,255,0.7)', label: '#66bb6a', amount: '#2e7d32', quote: '#81c784', item: 'rgba(255,255,255,0.5)', icon: 'rgba(102,187,106,0.15)', name_: '#2e7d32', meta: '#81c784', section: '#81c784', pos: '#2e7d32', neg: '#c62828', emojis: ['🧘','☮️','🌿'] };
+// Emoji sets by tier — emojis only, no color changes
+const EMOJI_TIERS = {
+  owe: [
+    { max: 50, emojis: [] },
+    { max: 500, emojis: ['😬','💸'] },
+    { max: 1000, emojis: ['🫠','💀','🔥','😰'] },
+    { max: 5000, emojis: ['💸','😱','🪦','💀','🔥','😭'] },
+    { max: Infinity, emojis: ['🔥','💀','💸','😱','🪦','☠️','😭','🔥','💀','💸'] }
+  ],
+  owed: [
+    { max: 50, emojis: [] },
+    { max: 500, emojis: ['😌','☕'] },
+    { max: 1000, emojis: ['😏','💅','✨'] },
+    { max: 5000, emojis: ['🍾','👑','💰','😏','💅'] },
+    { max: Infinity, emojis: ['👑','🏆','💎','🍾','🎩','💰','🤑','👑'] }
+  ],
+  settled: ['🧘','☮️','🌿']
+};
 
 function applyMood(balance) {
   const abs = Math.abs(balance);
-  let mood;
-  if (abs < 50) {
-    mood = ZEN_MOOD;
-  } else if (balance < 0) {
-    mood = OWE_MOODS.find(m => abs < m.max);
+
+  // Pick emojis based on direction and tier
+  let emojis;
+  if (abs < 1) {
+    emojis = EMOJI_TIERS.settled;
   } else {
-    mood = OWED_MOODS.find(m => abs < m.max);
-  }
-  const dashboard = document.getElementById('screen-dashboard');
-  const card = document.getElementById('balance-display');
-
-  // Apply background
-  dashboard.style.background = mood.bg;
-  dashboard.style.minHeight = '100dvh';
-
-  // Apply card colors
-  card.style.background = mood.card;
-  card.querySelector('.balance-label').style.color = mood.label;
-  card.querySelector('.balance-amount').style.color = mood.amount;
-  const quoteEl = card.querySelector('.balance-quote');
-  if (quoteEl) quoteEl.style.color = mood.quote;
-
-  // Apply to history section
-  const sectionH3 = dashboard.querySelector('h3');
-  if (sectionH3) sectionH3.style.color = mood.section;
-
-  // Apply to history items via CSS custom properties
-  dashboard.style.setProperty('--mood-item', mood.item);
-  dashboard.style.setProperty('--mood-icon', mood.icon);
-  dashboard.style.setProperty('--mood-name', mood.name_);
-  dashboard.style.setProperty('--mood-meta', mood.meta);
-  dashboard.style.setProperty('--mood-pos', mood.pos);
-  dashboard.style.setProperty('--mood-neg', mood.neg);
-
-  // Chaos tier: pulse + shake
-  if (mood.name === 'chaos') {
-    card.style.animation = 'chaosPulse 2s ease-in-out infinite';
-    card.querySelector('.balance-amount').style.animation = 'chaosShake 0.5s ease-in-out infinite';
-  } else {
-    card.style.animation = '';
-    const amtEl = card.querySelector('.balance-amount');
-    if (amtEl) amtEl.style.animation = '';
+    const tiers = balance < 0 ? EMOJI_TIERS.owe : EMOJI_TIERS.owed;
+    emojis = (tiers.find(t => abs < t.max) || tiers[tiers.length - 1]).emojis;
   }
 
-  // Emojis — burst for 5 seconds then fade
+  // Emojis — burst for 7 seconds then fade
   let emojiContainer = document.getElementById('emoji-burst');
   if (emojiContainer) emojiContainer.remove();
 
-  if (mood.emojis.length > 0) {
+  if (emojis.length > 0) {
     emojiContainer = document.createElement('div');
     emojiContainer.id = 'emoji-burst';
     emojiContainer.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:100;overflow:hidden;transition:opacity 1s;';
     document.body.appendChild(emojiContainer);
 
-    for (let i = 0; i < mood.emojis.length * 2; i++) {
+    for (let i = 0; i < emojis.length * 2; i++) {
       const emoji = document.createElement('span');
-      emoji.textContent = mood.emojis[i % mood.emojis.length];
+      emoji.textContent = emojis[i % emojis.length];
       emoji.style.cssText = `
         position:absolute;
         font-size:${1 + Math.random() * 0.8}rem;
         left:${5 + Math.random() * 85}%;
         bottom:-30px;
         opacity:0;
-        animation: emojiBurst ${2 + Math.random() * 2}s ease-out ${Math.random() * 2}s forwards;
+        animation: emojiBurst ${2.5 + Math.random() * 2.5}s ease-out ${Math.random() * 3}s forwards;
       `;
       emojiContainer.appendChild(emoji);
     }
 
-    // Fade out after 5 seconds
     setTimeout(() => {
       if (emojiContainer) {
         emojiContainer.style.opacity = '0';
         setTimeout(() => { if (emojiContainer.parentNode) emojiContainer.remove(); }, 1000);
       }
-    }, 5000);
+    }, 7000);
   }
 }
 

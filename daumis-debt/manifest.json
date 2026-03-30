@@ -3,8 +3,8 @@
   "short_name": "Daumi's Debt",
   "start_url": "/daumis-debt/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#f2f0eb",
+  "theme_color": "#f2f0eb",
   "icons": [
     {
       "src": "assets/icons/icon.png",
