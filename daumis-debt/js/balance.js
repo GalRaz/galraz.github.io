@@ -222,28 +222,40 @@ export async function loadDashboard() {
       localStorage.setItem('daumis-debt-currency-balances', JSON.stringify(currencyBalances));
     } catch (e) {}
 
-    // Compute consolidated balance: convert each currency to consolCurrency via live rates
+    // Compute consolidated balance: fetch all exchange rates in parallel
+    const nonZeroCurrencies = Object.entries(currencyBalances).filter(([, a]) => Math.abs(a) >= 0.005);
+    const currenciesToFetch = nonZeroCurrencies
+      .map(([cur]) => cur)
+      .filter(cur => cur !== consolCurrency);
+
+    // Fetch all rates in parallel
+    const rateResults = await Promise.allSettled(
+      currenciesToFetch.map(async (cur) => {
+        const curToUsd = await getExchangeRate(cur);
+        return { cur, curToUsd };
+      })
+    );
+
+    // Also fetch consolCurrency rate if not USD
+    let consolToUsd = 1;
+    if (consolCurrency !== 'USD') {
+      try { consolToUsd = await getExchangeRate(consolCurrency); } catch (e) {}
+    }
+
+    const rateCache = {};
     let consolidatedBalance = 0;
-    const rateCache = {}; // cur → consolCurrency rate
-    for (const [cur, amount] of Object.entries(currencyBalances)) {
-      if (Math.abs(amount) < 0.005) continue;
+
+    for (const [cur, amount] of nonZeroCurrencies) {
       if (cur === consolCurrency) {
         rateCache[cur] = 1;
         consolidatedBalance += amount;
       } else {
-        try {
-          // getExchangeRate returns cur → USD rate
-          const curToUsd = await getExchangeRate(cur);
-          let curToConsol;
-          if (consolCurrency === 'USD') {
-            curToConsol = curToUsd;
-          } else {
-            const consolToUsd = await getExchangeRate(consolCurrency);
-            curToConsol = curToUsd / consolToUsd;
-          }
+        const result = rateResults.find(r => r.status === 'fulfilled' && r.value.cur === cur);
+        if (result) {
+          const curToConsol = consolCurrency === 'USD' ? result.value.curToUsd : result.value.curToUsd / consolToUsd;
           rateCache[cur] = curToConsol;
           consolidatedBalance += amount * curToConsol;
-        } catch (e) {
+        } else {
           console.warn(`Rate unavailable for ${cur}`);
         }
       }

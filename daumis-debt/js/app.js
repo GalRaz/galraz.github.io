@@ -657,7 +657,7 @@ window.addEventListener('edit-recurring', (e) => {
         </div>
       </div>
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Who pays</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Who is paying</label>
         <div class="toggle" id="recur-paid-by">
           <button type="button" class="toggle-btn ${data.paidBy === currentUser.uid ? 'active' : ''}" data-value="self">Me</button>
           <button type="button" class="toggle-btn ${data.paidBy !== currentUser.uid ? 'active' : ''}" data-value="partner">${partnerName}</button>
@@ -1286,30 +1286,41 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 // --- App entry ---
 async function showApp() {
   showScreen('dashboard');
-  await initNotifications();
-  // Load partner name from users collection
-  try {
-    const usersSnap = await db.collection('users').get();
-    usersSnap.forEach((doc) => {
-      const data = doc.data();
-      // Set display name for all users from Firestore
-      if (data.displayName) {
-        userNames[doc.id] = data.displayName;
-      } else if (doc.id === currentUser.uid) {
-        userNames[doc.id] = currentUser.displayName || data.email || currentUser.email;
-      } else {
-        userNames[doc.id] = data.email || 'Partner';
-      }
-    });
-  } catch (e) { console.warn('Could not load user profiles:', e); }
-  // Backfill any docs with null paidBy/owedBy/paidTo now that partner UID is known
-  await backfillPartnerUids();
-  const { loadDashboard } = await import('./balance.js');
+
+  // Load user profiles and init notifications in parallel
+  const [, { loadDashboard }] = await Promise.all([
+    (async () => {
+      // Load partner names
+      try {
+        const usersSnap = await db.collection('users').get();
+        usersSnap.forEach((doc) => {
+          const data = doc.data();
+          if (data.displayName) {
+            userNames[doc.id] = data.displayName;
+          } else if (doc.id === currentUser.uid) {
+            userNames[doc.id] = currentUser.displayName || data.email || currentUser.email;
+          } else {
+            userNames[doc.id] = data.email || 'Partner';
+          }
+        });
+      } catch (e) { console.warn('Could not load user profiles:', e); }
+    })(),
+    import('./balance.js'),
+    initNotifications()
+  ]);
+
+  // Load dashboard first, then hide splash
   await loadDashboard();
   hideSplash();
-  const { processRecurring } = await import('./recurring.js');
-  const count = await processRecurring(currentUser);
-  if (count > 0) await loadDashboard();
+
+  // Run backfill and recurring in background (don't block the UI)
+  backfillPartnerUids().then(() => {
+    import('./recurring.js').then(({ processRecurring }) => {
+      processRecurring(currentUser).then(count => {
+        if (count > 0) loadDashboard();
+      });
+    });
+  });
 }
 
 /**
@@ -1317,7 +1328,9 @@ async function showApp() {
  * This happens when expenses were created before the partner logged in.
  * Replaces null with the partner's UID now that both users are known.
  */
+let backfillDone = false;
 async function backfillPartnerUids() {
+  if (backfillDone) return;
   const partnerUid = getPartnerUid();
   if (!partnerUid) return; // partner still unknown
 
@@ -1360,6 +1373,7 @@ async function backfillPartnerUids() {
     }
   }
 
+  backfillDone = true;
   if (patched > 0) console.log(`Backfilled ${patched} docs with partner UID`);
 }
 
