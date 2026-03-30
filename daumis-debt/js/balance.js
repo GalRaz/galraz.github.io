@@ -305,7 +305,15 @@ export async function loadDashboard() {
     }
 
     // Render history using same itemImpact for consistency
-    renderHistory(items, user.uid, balance);
+    // Pass display preferences so amounts match the balance card
+    let usdToConsolRate = 1;
+    if (consolCurrency !== 'USD') {
+      try {
+        const rate = await getExchangeRate(consolCurrency);
+        usdToConsolRate = 1 / rate; // USD → consolCurrency
+      } catch (e) {}
+    }
+    renderHistory(items, user.uid, balance, { balanceView, consolCurrency, consolSymbol: symbol, usdToConsolRate });
 
   } catch (err) {
     console.error('Error loading dashboard:', err);
@@ -376,9 +384,11 @@ function applyMood(balance) {
   }
 }
 
-function renderHistory(items, myUid, totalBalance) {
+function renderHistory(items, myUid, totalBalance, displayOpts) {
+  const { balanceView, consolCurrency, consolSymbol, usdToConsolRate } = displayOpts;
+  const showOriginal = balanceView === 'breakdown';
+
   const list = document.getElementById('history-list');
-  // Sort by creation time (most recent first), falling back to entry date
   items.sort((a, b) => (b.sortDate || b.date) - (a.sortDate || a.date));
   list.innerHTML = '';
 
@@ -387,7 +397,28 @@ function renderHistory(items, myUid, totalBalance) {
     return;
   }
 
-  // Verify consistency: sum of displayed items should equal the balance
+  /**
+   * Format the display amount for a history entry.
+   * - "breakdown" mode: show in original currency (e.g. ฿500, ¥45,133)
+   * - "consolidated" mode: show in consolidation currency (e.g. $282.08)
+   */
+  function formatEntryAmount(item, impact) {
+    const sign = impact >= 0 ? '+' : '-';
+
+    if (showOriginal && item.currency) {
+      // Show original currency amount
+      const sym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
+      const origAmount = item.splitType === 'even' ? item.amount / 2 : item.amount;
+      const rounded = Math.round(Math.abs(origAmount) * 100) / 100;
+      return `${sign}${sym}${rounded.toLocaleString(undefined, { minimumFractionDigits: rounded % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+    }
+
+    // Consolidated: convert USD impact to consolidation currency
+    const consolAmount = Math.abs(impact) * usdToConsolRate;
+    const rounded = Math.round(consolAmount * 100) / 100;
+    return `${sign}${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
   let historySum = 0;
 
   items.forEach((item) => {
@@ -397,18 +428,28 @@ function renderHistory(items, myUid, totalBalance) {
       const impact = itemImpact(item, myUid);
       historySum += impact;
       const isCredit = impact >= 0;
-      const absAmount = Math.abs(impact);
+      const displayAmt = formatEntryAmount(item, impact);
+
+      // Meta line: show the "other" format as context
+      let metaAmount = '';
+      if (showOriginal && item.currency) {
+        // In breakdown mode, show consolidated equivalent in meta
+        const consolAmt = Math.abs(impact) * usdToConsolRate;
+        metaAmount = ` · ${consolSymbol}${Math.round(consolAmt * 100 / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      } else if (!showOriginal && item.currency && item.currency !== consolCurrency) {
+        // In consolidated mode, show original amount in meta
+        metaAmount = ` · ${item.amount} ${item.currency}`;
+      }
 
       if (item.type === 'expense') {
+        const splitLabel = item.splitType === 'even' ? 'split' : 'full';
         li.innerHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
             <div class="entry-desc">${item.description || 'Expense'}</div>
-            <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>
+            <div class="entry-meta">${dateStr}${metaAmount} · ${splitLabel}</div>
           </div>
-          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-            ${isCredit ? '+' : '-'}$${absAmount.toFixed(2)}
-          </div>`;
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
       } else if (item.type === 'payment') {
@@ -416,11 +457,9 @@ function renderHistory(items, myUid, totalBalance) {
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
             <div class="entry-desc">Settle up</div>
-            <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency}</div>
+            <div class="entry-meta">${dateStr}${metaAmount}</div>
           </div>
-          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-            ${isCredit ? '+' : '-'}$${absAmount.toFixed(2)}
-          </div>`;
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
       } else if (item.type === 'duel') {
@@ -430,9 +469,7 @@ function renderHistory(items, myUid, totalBalance) {
             <div class="entry-desc">${item.game || 'Duel'}</div>
             <div class="entry-meta">${dateStr} · Week ${item.week}</div>
           </div>
-          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">
-            ${isCredit ? '+' : '-'}$${absAmount.toFixed(2)}
-          </div>`;
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       }
       list.appendChild(li);
     } catch (e) {
@@ -440,7 +477,6 @@ function renderHistory(items, myUid, totalBalance) {
     }
   });
 
-  // Consistency check
   historySum = Math.round(historySum * 100) / 100;
   if (Math.abs(historySum - totalBalance) > 0.01) {
     console.error(`CONSISTENCY ERROR: balance=$${totalBalance}, history sum=$${historySum}, diff=$${(totalBalance - historySum).toFixed(2)}`);
