@@ -56,7 +56,7 @@ document.getElementById('btn-google-login').addEventListener('click', () => {
 auth.onAuthStateChanged((user) => {
   if (user) {
     currentUser = user;
-    userNames[user.uid] = user.displayName || user.email;
+    // Don't set userNames here — showApp loads the Firestore nickname
     saveUserProfile(user);
     showApp();
   } else {
@@ -833,10 +833,12 @@ async function showApp() {
     const usersSnap = await db.collection('users').get();
     usersSnap.forEach((doc) => {
       const data = doc.data();
-      // Set display name for all users (including self — Firestore nickname overrides Google name)
+      // Set display name for all users from Firestore
       if (data.displayName) {
         userNames[doc.id] = data.displayName;
-      } else if (doc.id !== currentUser.uid) {
+      } else if (doc.id === currentUser.uid) {
+        userNames[doc.id] = currentUser.displayName || data.email || currentUser.email;
+      } else {
         userNames[doc.id] = data.email || 'Partner';
       }
     });

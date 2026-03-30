@@ -38,11 +38,22 @@ export async function initNotifications() {
  */
 export async function saveUserProfile(user) {
   try {
-    await db.collection('users').doc(user.uid).set({
-      email: user.email,
-      displayName: user.displayName || user.email,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    // Check if a custom nickname already exists — don't overwrite it
+    const existing = await db.collection('users').doc(user.uid).get();
+    if (existing.exists && existing.data().displayName) {
+      // Only update email and timestamp, preserve nickname
+      await db.collection('users').doc(user.uid).update({
+        email: user.email,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      // First time — set Google display name as default
+      await db.collection('users').doc(user.uid).set({
+        email: user.email,
+        displayName: user.displayName || user.email,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
   } catch (err) {
     console.warn('Failed to save user profile:', err);
   }
