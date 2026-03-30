@@ -402,26 +402,16 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
     return;
   }
 
-  /**
-   * Format the display amount for a history entry.
-   * - "breakdown" mode: show in original currency (e.g. ฿500, ¥45,133)
-   * - "consolidated" mode: show in consolidation currency (e.g. $282.08)
-   */
-  function formatEntryAmount(item, impact) {
-    const sign = impact >= 0 ? '+' : '-';
+  function fmtCurrency(amount, currency) {
+    const sym = CURRENCY_SYMBOLS[currency] || currency + ' ';
+    const rounded = Math.round(Math.abs(amount) * 100) / 100;
+    return `${sym}${rounded.toLocaleString(undefined, { minimumFractionDigits: rounded % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+  }
 
-    if (showOriginal && item.currency) {
-      // Show original currency amount
-      const sym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-      const origAmount = item.splitType === 'even' ? item.amount / 2 : item.amount;
-      const rounded = Math.round(Math.abs(origAmount) * 100) / 100;
-      return `${sign}${sym}${rounded.toLocaleString(undefined, { minimumFractionDigits: rounded % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
-    }
-
-    // Consolidated: convert USD impact to consolidation currency
-    const consolAmount = Math.abs(impact) * usdToConsolRate;
+  function fmtConsol(usdImpact) {
+    const consolAmount = Math.abs(usdImpact) * usdToConsolRate;
     const rounded = Math.round(consolAmount * 100) / 100;
-    return `${sign}${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   let historySum = 0;
@@ -433,41 +423,65 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       const impact = itemImpact(item, myUid);
       historySum += impact;
       const isCredit = impact >= 0;
-      const displayAmt = formatEntryAmount(item, impact);
+      const sign = isCredit ? '+' : '-';
 
-      // Meta line: show the "other" format as context
-      let metaAmount = '';
-      if (showOriginal && item.currency) {
-        // In breakdown mode, show consolidated equivalent in meta
-        const consolAmt = Math.abs(impact) * usdToConsolRate;
-        metaAmount = ` · ${consolSymbol}${Math.round(consolAmt * 100 / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      } else if (!showOriginal && item.currency && item.currency !== consolCurrency) {
-        // In consolidated mode, show original amount in meta
-        metaAmount = ` · ${item.amount} ${item.currency}`;
-      }
+      // Who paid (nickname)
+      const paidByName = item.paidBy === myUid ? getUserName(myUid) : getUserName(item.paidBy);
 
       if (item.type === 'expense') {
+        // Meta: "[who] paid [full amount in original currency] · split/full"
+        const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
         const splitLabel = item.splitType === 'even' ? 'split' : 'full';
+        const metaLine = `${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
+
+        // Display amount: the user's share in the appropriate currency
+        let displayAmt;
+        if (showOriginal && item.currency) {
+          displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
+        } else {
+          displayAmt = `${sign}${fmtConsol(impact)}`;
+        }
+
         li.innerHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
             <div class="entry-desc">${item.description || 'Expense'}</div>
-            <div class="entry-meta">${dateStr}${metaAmount} · ${splitLabel}</div>
+            <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
+
       } else if (item.type === 'payment') {
+        const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
+        const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
+        const metaLine = `${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
+
+        let displayAmt;
+        if (showOriginal && item.currency) {
+          displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
+        } else {
+          displayAmt = `${sign}${fmtConsol(impact)}`;
+        }
+
         li.innerHTML = `
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
             <div class="entry-desc">Settle up</div>
-            <div class="entry-meta">${dateStr}${metaAmount}</div>
+            <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
         li.style.cursor = 'pointer';
         li.addEventListener('click', () => editEntry(item.type, item));
+
       } else if (item.type === 'duel') {
+        let displayAmt;
+        if (showOriginal) {
+          displayAmt = `${sign}$${Math.abs(item.balanceAdjust || 0).toFixed(2)}`;
+        } else {
+          displayAmt = `${sign}${fmtConsol(impact)}`;
+        }
+
         li.innerHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
