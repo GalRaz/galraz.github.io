@@ -86,9 +86,9 @@ document.getElementById('btn-back-settings').addEventListener('click', async () 
 });
 
 async function loadSettings() {
-  // Load nickname from current user's display name
+  // Load nickname from local state (which reflects Firestore), fall back to Auth profile
   const user = getCurrentUser();
-  document.getElementById('settings-nickname').value = user.displayName || '';
+  document.getElementById('settings-nickname').value = userNames[user.uid] || user.displayName || '';
 
   // Load default currency from localStorage
   const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
