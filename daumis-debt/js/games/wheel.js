@@ -1,6 +1,5 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult } from '../duel.js';
-import { computeBalance } from '../balance.js';
 
 const SLICES = [
   { value: -10, label: '-$10', color: '#e94560' },
@@ -13,11 +12,9 @@ const SLICES = [
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
-  const balance = await computeBalance();
-  const userIsDebtor = balance < 0;
 
   container.innerHTML = `
-    <p>Values are from the debtor's perspective.</p>
+    <p>Spin the wheel! Positive values are in your favor.</p>
     <div class="wheel-container">
       <div class="wheel-pointer"></div>
       <canvas id="wheel-canvas" width="280" height="280"></canvas>
@@ -94,20 +91,18 @@ export async function play(container, { year, week, seed }) {
       } else {
         const resultEl = document.getElementById('spin-result');
         const partnerUid = getPartnerUid() || 'partner';
-        const debtorUid = userIsDebtor ? user.uid : partnerUid;
-        const creditorUid = userIsDebtor ? partnerUid : user.uid;
 
         let favoredUser = null;
         if (resultSlice.value > 0) {
-          favoredUser = debtorUid;
+          favoredUser = user.uid;
         } else if (resultSlice.value < 0) {
-          favoredUser = creditorUid;
+          favoredUser = partnerUid;
         }
 
         if (resultSlice.value > 0) {
-          resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">${resultSlice.label} — debt reduced!</div>`;
+          resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">${resultSlice.label} — you win!</div>`;
         } else if (resultSlice.value < 0) {
-          resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">${resultSlice.label} — debt increased!</div>`;
+          resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">${resultSlice.label} — you lose!</div>`;
         } else {
           resultEl.innerHTML = `<div class="duel-result">$0 — no change!</div>`;
         }

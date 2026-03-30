@@ -1,6 +1,31 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, getPartnerUid, getUserName, setPartnerInfo } from './app.js';
 
+function categorize(description) {
+  if (!description) return { icon: '$', label: 'other' };
+  const d = description.toLowerCase();
+
+  const categories = [
+    { keywords: ['grocery', 'groceries', 'supermarket', 'market', 'food', 'produce'], icon: '🛒', label: 'groceries' },
+    { keywords: ['restaurant', 'dinner', 'lunch', 'breakfast', 'cafe', 'coffee', 'eat', 'sushi', 'pizza', 'burger', 'ramen', 'noodle', 'brunch', 'bistro', 'datshi', 'thai', 'korean', 'japanese', 'indian', 'chinese', 'mexican', 'italian', 'pastry', 'bakery', 'bar', 'pub', 'beer', 'wine', 'drink', 'cocktail'], icon: '🍽️', label: 'dining' },
+    { keywords: ['flight', 'flights', 'airline', 'airport', 'plane', 'boarding'], icon: '✈️', label: 'flights' },
+    { keywords: ['hotel', 'hostel', 'airbnb', 'accommodation', 'stay', 'booking', 'resort'], icon: '🏨', label: 'lodging' },
+    { keywords: ['uber', 'lyft', 'taxi', 'cab', 'bus', 'train', 'metro', 'subway', 'transport', 'transit', 'grab', 'bolt'], icon: '🚕', label: 'transport' },
+    { keywords: ['gas', 'fuel', 'petrol', 'parking', 'car', 'rental', 'toll'], icon: '⛽', label: 'auto' },
+    { keywords: ['movie', 'cinema', 'ticket', 'concert', 'show', 'museum', 'park', 'tour', 'attraction', 'entertainment', 'game'], icon: '🎬', label: 'entertainment' },
+    { keywords: ['rent', 'electric', 'electricity', 'water', 'internet', 'wifi', 'utility', 'utilities', 'bill', 'phone'], icon: '🏠', label: 'housing' },
+    { keywords: ['doctor', 'hospital', 'medicine', 'pharmacy', 'health', 'medical', 'dental'], icon: '💊', label: 'health' },
+    { keywords: ['clothes', 'clothing', 'shoes', 'shirt', 'dress', 'shopping', 'mall', 'store', 'shop'], icon: '🛍️', label: 'shopping' },
+    { keywords: ['gift', 'present', 'birthday', 'anniversary'], icon: '🎁', label: 'gifts' },
+    { keywords: ['splitwise', 'balance', 'transfer', 'settle'], icon: '📊', label: 'balance' },
+  ];
+
+  for (const cat of categories) {
+    if (cat.keywords.some(kw => d.includes(kw))) return cat;
+  }
+  return { icon: '$', label: 'other' };
+}
+
 function getBalanceQuote(balance) {
   const abs = Math.abs(balance);
   if (abs < 1) return "Perfectly balanced, as all things should be.";
@@ -256,7 +281,7 @@ function renderHistory(items, myUid, totalBalance) {
 
       if (item.type === 'expense') {
         li.innerHTML = `
-          <div class="entry-icon expense">$</div>
+          <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
             <div class="entry-desc">${item.description || 'Expense'}</div>
             <div class="entry-meta">${dateStr} · ${item.amount} ${item.currency} · ${item.splitType}</div>

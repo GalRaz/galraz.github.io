@@ -1,24 +1,16 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult, seededRandom } from '../duel.js';
-import { computeBalance } from '../balance.js';
 
 const VALUES = [-10, -5, 0, 5, 10];
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
-  const balance = await computeBalance();
-  const userIsDebtor = balance < 0;
 
   const rng = seededRandom(seed * 13 + 7);
-  const userValue = VALUES[Math.floor(rng() * VALUES.length)];
-  const partnerValue = VALUES[Math.floor(rng() * VALUES.length)];
-  const debtorCard = userIsDebtor ? userValue : partnerValue;
-  const creditorCard = userIsDebtor ? partnerValue : userValue;
-  const netAdjust = debtorCard;
+  const netAdjust = VALUES[Math.floor(rng() * VALUES.length)];
 
   container.innerHTML = `
     <p>Scratch your card to reveal the result!</p>
-    <p style="color:var(--text-muted);margin-top:4px">Values from debtor's perspective.</p>
     <div class="scratch-card" id="scratch-card">
       <div class="scratch-value" id="scratch-value">
         ${netAdjust >= 0 ? '+' : ''}$${netAdjust}
@@ -86,23 +78,21 @@ export async function play(container, { year, week, seed }) {
 
     const resultEl = document.getElementById('scratch-result');
     const partnerUid = getPartnerUid() || 'partner';
-    const debtorUid = userIsDebtor ? user.uid : partnerUid;
-    const creditorUid = userIsDebtor ? partnerUid : user.uid;
 
     let favoredUser = null;
     if (netAdjust > 0) {
-      favoredUser = debtorUid;
-      resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">+$${netAdjust} — debt reduced!</div>`;
+      favoredUser = user.uid;
+      resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">+$${netAdjust} — you win!</div>`;
     } else if (netAdjust < 0) {
-      favoredUser = creditorUid;
-      resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">-$${Math.abs(netAdjust)} — debt increased!</div>`;
+      favoredUser = partnerUid;
+      resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">-$${Math.abs(netAdjust)} — you lose!</div>`;
     } else {
       resultEl.innerHTML = `<div class="duel-result">$0 — no change!</div>`;
     }
 
     await recordDuelResult({
       game: 'scratch-card',
-      result: { userCard: userValue, partnerCard: partnerValue, netAdjust },
+      result: { netAdjust },
       balanceAdjust: Math.abs(netAdjust),
       favoredUser,
       seed, year, week

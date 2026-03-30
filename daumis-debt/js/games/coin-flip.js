@@ -1,16 +1,11 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult } from '../duel.js';
-import { computeBalance } from '../balance.js';
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
-  const balance = await computeBalance();
-  const userIsDebtor = balance < 0;
-  const debtorName = userIsDebtor ? 'You' : 'Partner';
 
   container.innerHTML = `
-    <p>${debtorName} flip${userIsDebtor ? '' : 's'} the coin.</p>
-    <p style="margin-top:8px;color:var(--text-muted)">Heads: $10 forgiven. Tails: $10 added.</p>
+    <p>Flip the coin! Heads: you win $10. Tails: you lose $10.</p>
     <div class="coin" id="coin">?</div>
     <button class="btn btn-primary" id="btn-flip" style="max-width:200px;margin:0 auto">Flip!</button>
     <div id="flip-result"></div>`;
@@ -30,14 +25,12 @@ export async function play(container, { year, week, seed }) {
 
       const resultEl = document.getElementById('flip-result');
       const partnerUid = getPartnerUid() || 'partner';
-      const debtorUid = userIsDebtor ? user.uid : partnerUid;
-      const creditorUid = userIsDebtor ? partnerUid : user.uid;
-      const favoredUser = isHeads ? debtorUid : creditorUid;
+      const favoredUser = isHeads ? user.uid : partnerUid;
 
       if (isHeads) {
-        resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">Heads! $10 forgiven!</div>`;
+        resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">Heads! You win $10!</div>`;
       } else {
-        resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">Tails! $10 added to debt.</div>`;
+        resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">Tails! You lose $10.</div>`;
       }
 
       await recordDuelResult({
