@@ -3,6 +3,44 @@ import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
 import { initNotifications, saveUserProfile, notifyPartner } from './notifications.js';
 
+// --- Splash screen ---
+const SPLASH_MESSAGES = [
+  { emoji: '💰', text: 'Counting the damage...' },
+  { emoji: '🧮', text: 'Crunching numbers...' },
+  { emoji: '🔍', text: 'Investigating expenses...' },
+  { emoji: '📊', text: 'Tallying the receipts...' },
+  { emoji: '🤔', text: 'Who paid for what again?' },
+  { emoji: '💸', text: 'Following the money trail...' },
+  { emoji: '🧾', text: 'Reviewing the evidence...' },
+  { emoji: '🎲', text: 'Preparing the weekly duel...' },
+];
+
+let splashInterval = null;
+function startSplashCycle() {
+  const emojiEl = document.getElementById('splash-emoji');
+  const subEl = document.getElementById('splash-sub');
+  if (!emojiEl || !subEl) return;
+  let idx = Math.floor(Math.random() * SPLASH_MESSAGES.length);
+  splashInterval = setInterval(() => {
+    idx = (idx + 1) % SPLASH_MESSAGES.length;
+    emojiEl.textContent = SPLASH_MESSAGES[idx].emoji;
+    subEl.textContent = SPLASH_MESSAGES[idx].text;
+  }, 800);
+}
+
+function hideSplash() {
+  if (splashInterval) { clearInterval(splashInterval); splashInterval = null; }
+  const splash = document.getElementById('splash');
+  const app = document.getElementById('app');
+  if (splash) {
+    splash.classList.add('fade-out');
+    setTimeout(() => { splash.remove(); }, 500);
+  }
+  if (app) app.style.display = '';
+}
+
+startSplashCycle();
+
 // --- State ---
 let currentUser = null;
 const userNames = {};
@@ -24,6 +62,7 @@ auth.onAuthStateChanged((user) => {
     showApp();
   } else {
     currentUser = null;
+    hideSplash();
     showScreen('auth');
   }
 });
@@ -558,6 +597,7 @@ async function showApp() {
   await backfillPartnerUids();
   const { loadDashboard } = await import('./balance.js');
   await loadDashboard();
+  hideSplash();
   const { processRecurring } = await import('./recurring.js');
   const count = await processRecurring(currentUser);
   if (count > 0) await loadDashboard();
