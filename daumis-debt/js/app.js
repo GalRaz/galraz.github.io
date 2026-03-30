@@ -324,7 +324,17 @@ document.getElementById('btn-back-settings').addEventListener('click', goBack);
 async function loadSettings() {
   // Load nickname from local state (which reflects Firestore), fall back to Auth profile
   const user = getCurrentUser();
-  document.getElementById('settings-nickname').value = userNames[user.uid] || user.displayName || '';
+  // Load nickname from Firestore (not from userNames which may have the Google name)
+  try {
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    if (userDoc.exists && userDoc.data().displayName) {
+      document.getElementById('settings-nickname').value = userDoc.data().displayName;
+    } else {
+      document.getElementById('settings-nickname').value = user.displayName || '';
+    }
+  } catch (e) {
+    document.getElementById('settings-nickname').value = userNames[user.uid] || user.displayName || '';
+  }
 
   // Load balance view preference
   const balanceView = localStorage.getItem('daumis-debt-balance-view') || 'consolidated';
@@ -835,8 +845,11 @@ async function showApp() {
     const usersSnap = await db.collection('users').get();
     usersSnap.forEach((doc) => {
       const data = doc.data();
-      if (doc.id !== currentUser.uid) {
-        userNames[doc.id] = data.displayName || data.email || 'Partner';
+      // Set display name for all users (including self — Firestore nickname overrides Google name)
+      if (data.displayName) {
+        userNames[doc.id] = data.displayName;
+      } else if (doc.id !== currentUser.uid) {
+        userNames[doc.id] = data.email || 'Partner';
       }
     });
   } catch (e) { console.warn('Could not load user profiles:', e); }
