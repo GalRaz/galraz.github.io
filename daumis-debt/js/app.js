@@ -66,129 +66,30 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
-// --- Interactive swipe to go back ---
+// --- Swipe right to go back (simple, non-interactive) ---
 let swipeStartX = 0;
 let swipeStartY = 0;
-let isSwiping = false;
-let swipeTarget = null;
+let swipeLocked = false;
 
 document.addEventListener('touchstart', (e) => {
-  const x = e.touches[0].clientX;
-  swipeStartX = x;
+  swipeStartX = e.touches[0].clientX;
   swipeStartY = e.touches[0].clientY;
-  swipeTarget = null;
-  isSwiping = false;
-
-  // Only enable peek-swipe from left 40px edge
-  if (x > 40) return;
-
-  const active = document.querySelector('.screen.active');
-  if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
-    swipeTarget = active;
-  }
+  swipeLocked = false;
 }, { passive: true });
 
-document.addEventListener('touchmove', (e) => {
-  if (!swipeTarget) return;
-  const dx = e.touches[0].clientX - swipeStartX;
-  const dy = e.touches[0].clientY - swipeStartY;
-
-  // Must be moving mostly horizontally to the right
-  if (!isSwiping) {
-    if (dx > 10 && Math.abs(dy) < Math.abs(dx)) {
-      isSwiping = true;
-      // Position the swipe target on top and disable its transition
-      swipeTarget.style.transition = 'none';
-      swipeTarget.style.zIndex = '50';
-      swipeTarget.style.position = 'relative';
-      // Show dashboard underneath (behind the current screen)
-      const dashboard = document.getElementById('screen-dashboard');
-      dashboard.classList.add('active');
-      dashboard.style.position = 'fixed';
-      dashboard.style.top = '0';
-      dashboard.style.left = '0';
-      dashboard.style.right = '0';
-      dashboard.style.bottom = '0';
-      dashboard.style.zIndex = '1';
-      dashboard.style.overflow = 'auto';
-    } else if (Math.abs(dy) > 10) {
-      // Vertical scroll — cancel swipe
-      swipeTarget = null;
-    }
-    return;
-  }
-
-  if (dx > 0) {
-    swipeTarget.style.transform = `translateX(${dx}px)`;
-    swipeTarget.style.boxShadow = `-8px 0 24px rgba(0,0,0,${0.15 * (1 - dx / window.innerWidth)})`;
-  }
-}, { passive: true });
-
-document.addEventListener('touchend', async (e) => {
-  if (!swipeTarget || !isSwiping) {
-    // Non-edge full swipe fallback
-    if (!isSwiping) {
-      const dx = e.changedTouches[0].clientX - swipeStartX;
-      const dy = e.changedTouches[0].clientY - swipeStartY;
-      if (dx > 100 && Math.abs(dy) < Math.abs(dx) * 0.5) {
-        const active = document.querySelector('.screen.active');
-        if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
-          goBack();
-        }
-      }
-    }
-    swipeTarget = null;
-    isSwiping = false;
-    return;
-  }
-
+document.addEventListener('touchend', (e) => {
+  if (swipeLocked) return;
   const dx = e.changedTouches[0].clientX - swipeStartX;
-  const dashboard = document.getElementById('screen-dashboard');
+  const dy = e.changedTouches[0].clientY - swipeStartY;
 
-  function cleanupSwipe() {
-    if (swipeTarget) {
-      swipeTarget.style.transform = '';
-      swipeTarget.style.zIndex = '';
-      swipeTarget.style.position = '';
-      swipeTarget.style.boxShadow = '';
-      swipeTarget.style.transition = '';
+  // Right swipe: fast horizontal gesture, at least 80px
+  if (dx > 80 && Math.abs(dy) < Math.abs(dx) * 0.6) {
+    const active = document.querySelector('.screen.active');
+    if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
+      goBack();
     }
-    dashboard.style.position = '';
-    dashboard.style.top = '';
-    dashboard.style.left = '';
-    dashboard.style.right = '';
-    dashboard.style.bottom = '';
-    dashboard.style.zIndex = '';
-    dashboard.style.overflow = '';
   }
-
-  if (dx > window.innerWidth * 0.3) {
-    // Complete — slide off to the right
-    swipeTarget.style.transition = 'transform 0.2s ease-out, box-shadow 0.2s ease-out';
-    swipeTarget.style.transform = `translateX(${window.innerWidth}px)`;
-    swipeTarget.style.boxShadow = 'none';
-    setTimeout(() => {
-      swipeTarget.classList.remove('active');
-      cleanupSwipe();
-      swipeTarget = null;
-    }, 200);
-    editingEntry = null;
-    currentScreen = 'screen-dashboard';
-    const { loadDashboard } = await import('./balance.js');
-    loadDashboard();
-  } else {
-    // Snap back
-    swipeTarget.style.transition = 'transform 0.2s ease-out, box-shadow 0.2s ease-out';
-    swipeTarget.style.transform = 'translateX(0)';
-    setTimeout(() => {
-      dashboard.classList.remove('active');
-      cleanupSwipe();
-      swipeTarget = null;
-    }, 200);
-  }
-
-  isSwiping = false;
-});
+}, { passive: true });
 
 // --- Pull to refresh ---
 let pullStartY = 0;
