@@ -225,27 +225,22 @@ let currentScreen = null;
 function showScreen(name, transition) {
   const screenId = name === 'add' ? 'screen-add' : `screen-${name}`;
   const next = document.getElementById(screenId);
-  const prev = currentScreen ? document.getElementById(currentScreen) : null;
 
-  if (prev && transition === 'slide-back' && prev !== next) {
-    // Slide current screen out to the right, then show next
-    prev.classList.add('slide-out-right');
-    prev.addEventListener('animationend', () => {
-      prev.classList.remove('active', 'slide-out-right', 'slide-in-right');
-    }, { once: true });
-    next.classList.remove('slide-in-right', 'slide-out-right');
-    next.classList.add('active');
-  } else if (prev && transition === 'slide-forward' && prev !== next) {
-    // Slide next screen in from the right
-    prev.classList.remove('active', 'slide-in-right', 'slide-out-right');
+  // Hide ALL screens first — no stacking
+  document.querySelectorAll('.screen').forEach((s) => {
+    s.classList.remove('active', 'slide-in-right');
+  });
+
+  // Show the target screen
+  if (transition === 'slide-forward') {
     next.classList.add('active', 'slide-in-right');
   } else {
-    // No animation (initial load, auth)
-    document.querySelectorAll('.screen').forEach((s) => {
-      s.classList.remove('active', 'slide-in-right', 'slide-out-right');
-    });
     next.classList.add('active');
   }
+
+  // Scroll to top
+  next.scrollTop = 0;
+  window.scrollTo(0, 0);
 
   currentScreen = screenId;
 }
