@@ -266,9 +266,10 @@ const ALL_CURRENCIES = [
 
 let showingAllCurrencies = false;
 
-function buildCurrencySelect() {
+function buildCurrencySelect(extraCurrency) {
   const select = document.getElementById('entry-currency');
   const usedSet = new Set();
+  if (extraCurrency) usedSet.add(extraCurrency);
 
   // Get currencies with balances
   try {
@@ -578,9 +579,9 @@ window.addEventListener('edit-entry', (e) => {
     document.getElementById('entry-desc').value = data.description || '';
   }
   document.getElementById('entry-amount').value = data.amount || '';
-  // Show all currencies when editing (the entry might use a non-common one)
-  showingAllCurrencies = true;
-  buildCurrencySelect();
+  // Rebuild dropdown, ensuring the entry's currency is included
+  showingAllCurrencies = false;
+  buildCurrencySelect(data.currency);
   document.getElementById('entry-currency').value = data.currency || 'USD';
 
   // Set the correct option
