@@ -157,7 +157,7 @@ export async function loadDashboard() {
       item.type = type;
       item.id = docId;
       item.date = toJSDate(d[dateField]);
-      item.sortDate = toJSDate(d.createdAt || d[dateField]);
+      item.sortDate = d.source === 'splitwise' ? toJSDate(d[dateField]) : toJSDate(d.createdAt || d[dateField]);
       // Keep raw amount/currency for history display
       item.amount = d.amount;
       item.currency = d.currency;
@@ -193,6 +193,7 @@ export async function loadDashboard() {
     let balance = 0;
     const currencyBalances = {}; // { 'THB': 500, 'USD': -20, ... }
     for (const item of items) {
+      if (item.balanceExcluded) continue;
       const impact = itemImpact(item, user.uid);
       balance += impact;
       // Track per-currency: use the original amount with the correct sign
@@ -389,7 +390,8 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
   const showOriginal = balanceView === 'breakdown';
 
   const list = document.getElementById('history-list');
-  items.sort((a, b) => (b.sortDate || b.date) - (a.sortDate || a.date));
+  items = items.filter(item => !item.balanceExcluded);
+  items.sort((a, b) => b.date - a.date);
   list.innerHTML = '';
 
   if (items.length === 0) {
@@ -518,6 +520,7 @@ export async function computeBalance() {
   const processSnap = (snap, type, dateField) => {
     snap.forEach((doc) => {
       const d = doc.data();
+      if (d.balanceExcluded) return;
       d.type = type;
       balance += itemImpact(d, user.uid);
     });
