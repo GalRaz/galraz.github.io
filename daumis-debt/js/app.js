@@ -610,24 +610,6 @@ document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
   });
 });
 
-// Pre-fill settle-up amount when switching to payment
-document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
-  btn.addEventListener('click', async () => {
-    if (btn.dataset.value === 'payment' && !editingEntry) {
-      try {
-        const { computeBalance } = await import('./balance.js');
-        const balance = await computeBalance();
-        if (Math.abs(balance) > 0.005) {
-          const currency = document.getElementById('entry-currency').value;
-          if (currency === 'USD' || currency === (localStorage.getItem('daumis-debt-consol-currency') || 'USD')) {
-            document.getElementById('entry-amount').value = Math.abs(balance).toFixed(2);
-          }
-        }
-      } catch (e) { console.warn('Could not pre-fill settle amount:', e); }
-    }
-  });
-});
-
 function updateFormForType(type) {
   const descField = document.getElementById('entry-desc');
   const expenseOptions = document.getElementById('expense-options');
