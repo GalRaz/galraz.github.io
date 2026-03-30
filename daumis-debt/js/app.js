@@ -794,13 +794,23 @@ async function renderSettleUp() {
     const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
     const consolSym = getCurrencySymbol(consolCurrency);
 
-    // Convert total USD balance to consolCurrency
-    let totalConsol = Math.abs(totalUsdBalance);
-    if (consolCurrency !== 'USD') {
-      try {
-        const rate = await getExchangeRate(consolCurrency);
-        totalConsol = totalConsol / rate;
-      } catch (e) {}
+    // Convert per-currency balances to consolCurrency via live rates
+    let totalConsol = 0;
+    for (const [cur, amount] of debts) {
+      const abs = Math.abs(amount);
+      if (cur === consolCurrency) {
+        totalConsol += abs;
+      } else {
+        try {
+          const curToUsd = await getExchangeRate(cur);
+          if (consolCurrency === 'USD') {
+            totalConsol += abs * curToUsd;
+          } else {
+            const consolToUsd = await getExchangeRate(consolCurrency);
+            totalConsol += abs * (curToUsd / consolToUsd);
+          }
+        } catch (e) {}
+      }
     }
     totalConsol = Math.round(totalConsol * 100) / 100;
 

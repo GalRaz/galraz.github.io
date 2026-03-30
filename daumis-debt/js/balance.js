@@ -189,54 +189,78 @@ export async function loadDashboard() {
       } catch (e) { console.error('Bad duel doc:', doc.id, e); }
     });
 
-    // Compute USD balance and per-currency balances
-    let balance = 0;
-    const currencyBalances = {}; // { 'THB': 500, 'USD': -20, ... }
-    for (const item of items) {
-      if (item.balanceExcluded) continue;
-      const impact = itemImpact(item, user.uid);
-      balance += impact;
-      // Track per-currency: use the original amount with the correct sign
-      if (item.currency && item.type !== 'duel') {
-        const sign = impact >= 0 ? 1 : -1;
-        const originalAmount = (item.splitType === 'even' ? item.amount / 2 : item.amount) * sign;
-        currencyBalances[item.currency] = (currencyBalances[item.currency] || 0) + originalAmount;
-      }
-    }
-    balance = Math.round(balance * 100) / 100;
-
     // Get user preferences
     const balanceView = localStorage.getItem('daumis-debt-balance-view') || 'consolidated';
     const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
-
-    // Convert USD balance to consolidation currency
-    let displayBalance = balance;
     let symbol = CURRENCY_SYMBOLS[consolCurrency] || consolCurrency;
-    if (consolCurrency !== 'USD') {
-      try {
-        const rate = await getExchangeRate(consolCurrency); // rate = consolCurrency → USD
-        displayBalance = Math.round((balance / rate) * 100) / 100; // USD → consolCurrency
-      } catch (e) { console.warn('Could not convert to', consolCurrency); }
+
+    // Compute per-currency balances (source of truth)
+    const currencyBalances = {};
+    for (const item of items) {
+      if (item.balanceExcluded) continue;
+      if (item.type === 'duel') {
+        const impact = itemImpact(item, user.uid);
+        if (impact !== 0) {
+          currencyBalances['USD'] = (currencyBalances['USD'] || 0) + impact;
+        }
+      } else if (item.currency) {
+        const impact = itemImpact(item, user.uid);
+        if (impact !== 0) {
+          const sign = impact >= 0 ? 1 : -1;
+          const originalAmount = item.type === 'payment'
+            ? item.amount * sign
+            : (item.splitType === 'even' ? item.amount / 2 : item.amount) * sign;
+          currencyBalances[item.currency] = (currencyBalances[item.currency] || 0) + originalAmount;
+        }
+      }
     }
+
+    // Compute consolidated balance: convert each currency to consolCurrency via live rates
+    let consolidatedBalance = 0;
+    const rateCache = {}; // cur → consolCurrency rate
+    for (const [cur, amount] of Object.entries(currencyBalances)) {
+      if (Math.abs(amount) < 0.005) continue;
+      if (cur === consolCurrency) {
+        rateCache[cur] = 1;
+        consolidatedBalance += amount;
+      } else {
+        try {
+          // getExchangeRate returns cur → USD rate
+          const curToUsd = await getExchangeRate(cur);
+          let curToConsol;
+          if (consolCurrency === 'USD') {
+            curToConsol = curToUsd;
+          } else {
+            const consolToUsd = await getExchangeRate(consolCurrency);
+            curToConsol = curToUsd / consolToUsd;
+          }
+          rateCache[cur] = curToConsol;
+          consolidatedBalance += amount * curToConsol;
+        } catch (e) {
+          console.warn(`Rate unavailable for ${cur}`);
+        }
+      }
+    }
+    consolidatedBalance = Math.round(consolidatedBalance * 100) / 100;
 
     // Render balance label
     const label = balanceEl.querySelector('.balance-label');
     const amount = balanceEl.querySelector('.balance-amount');
     const partnerName = getUserName(getPartnerUid());
 
-    if (balance > 0.005) {
+    if (consolidatedBalance > 0.005) {
       label.textContent = `${partnerName} owes you`;
-    } else if (balance < -0.005) {
+    } else if (consolidatedBalance < -0.005) {
       label.textContent = `You owe ${partnerName}`;
     } else {
       label.textContent = "You're all settled up!";
     }
 
     // Build consolidated view
-    const consolidatedText = Math.abs(balance) < 0.005
+    const consolidatedText = Math.abs(consolidatedBalance) < 0.005
       ? `${symbol}0.00`
-      : `${symbol}${Math.abs(displayBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    const consolidatedClass = balance > 0.005 ? 'positive' : balance < -0.005 ? 'negative' : '';
+      : `${symbol}${Math.abs(consolidatedBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const consolidatedClass = consolidatedBalance > 0.005 ? 'positive' : consolidatedBalance < -0.005 ? 'negative' : '';
 
     // Build breakdown view
     const nonZeroCurrencies = Object.entries(currencyBalances)
@@ -290,10 +314,10 @@ export async function loadDashboard() {
       // Append to end of balance card so it's always below everything
       balanceEl.appendChild(quoteEl);
     }
-    quoteEl.textContent = getBalanceQuote(balance);
+    quoteEl.textContent = getBalanceQuote(consolidatedBalance);
 
     // Apply mood theme
-    applyMood(balance);
+    applyMood(consolidatedBalance);
 
     // On This Day card
     renderOnThisDay(items);
@@ -308,16 +332,8 @@ export async function loadDashboard() {
       duelBanner.classList.add('hidden');
     }
 
-    // Render history using same itemImpact for consistency
-    // Pass display preferences so amounts match the balance card
-    let usdToConsolRate = 1;
-    if (consolCurrency !== 'USD') {
-      try {
-        const rate = await getExchangeRate(consolCurrency);
-        usdToConsolRate = 1 / rate; // USD → consolCurrency
-      } catch (e) {}
-    }
-    renderHistory(items, user.uid, balance, { balanceView, consolCurrency, consolSymbol: symbol, usdToConsolRate });
+    // Render history — pass rateCache so per-item amounts match the balance card
+    renderHistory(items, user.uid, consolidatedBalance, { balanceView, consolCurrency, consolSymbol: symbol, rateCache });
 
   } catch (err) {
     console.error('Error loading dashboard:', err);
@@ -389,7 +405,7 @@ function applyMood(balance) {
 }
 
 function renderHistory(items, myUid, totalBalance, displayOpts) {
-  const { balanceView, consolCurrency, consolSymbol, usdToConsolRate } = displayOpts;
+  const { balanceView, consolCurrency, consolSymbol, rateCache } = displayOpts;
   const showOriginal = balanceView === 'breakdown';
 
   const list = document.getElementById('history-list');
@@ -408,20 +424,29 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
     return `${sym}${rounded.toLocaleString(undefined, { minimumFractionDigits: rounded % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
   }
 
-  function fmtConsol(usdImpact) {
-    const consolAmount = Math.abs(usdImpact) * usdToConsolRate;
+  function fmtConsol(item, impact) {
+    if (!item.currency) return `${consolSymbol}0.00`;
+    const rate = rateCache[item.currency] || 1;
+    const origAmount = item.type === 'payment'
+      ? item.amount
+      : (item.splitType === 'even' ? item.amount / 2 : item.amount);
+    const consolAmount = Math.abs(origAmount) * rate;
     const rounded = Math.round(consolAmount * 100) / 100;
     return `${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
-  let historySum = 0;
+  function fmtDuelConsol(usdAmount) {
+    const rate = rateCache['USD'] || 1;
+    const consolAmount = Math.abs(usdAmount) * rate;
+    const rounded = Math.round(consolAmount * 100) / 100;
+    return `${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
 
   items.forEach((item) => {
     try {
       const li = document.createElement('li');
       const dateStr = formatDate(item.date);
       const impact = itemImpact(item, myUid);
-      historySum += impact;
       const isCredit = impact >= 0;
       const sign = isCredit ? '+' : '-';
 
@@ -439,7 +464,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
         } else {
-          displayAmt = `${sign}${fmtConsol(impact)}`;
+          displayAmt = `${sign}${fmtConsol(item, impact)}`;
         }
 
         li.innerHTML = `
@@ -461,7 +486,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
         } else {
-          displayAmt = `${sign}${fmtConsol(impact)}`;
+          displayAmt = `${sign}${fmtConsol(item, impact)}`;
         }
 
         li.innerHTML = `
@@ -479,7 +504,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         if (showOriginal) {
           displayAmt = `${sign}$${Math.abs(item.balanceAdjust || 0).toFixed(2)}`;
         } else {
-          displayAmt = `${sign}${fmtConsol(impact)}`;
+          displayAmt = `${sign}${fmtDuelConsol(impact)}`;
         }
 
         li.innerHTML = `
@@ -496,10 +521,6 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
     }
   });
 
-  historySum = Math.round(historySum * 100) / 100;
-  if (Math.abs(historySum - totalBalance) > 0.01) {
-    console.error(`CONSISTENCY ERROR: balance=$${totalBalance}, history sum=$${historySum}, diff=$${(totalBalance - historySum).toFixed(2)}`);
-  }
 }
 
 function toJSDate(d) {
@@ -565,7 +586,11 @@ export async function computeCurrencyBalances() {
     const d = doc.data();
     if (d.balanceExcluded) return;
     d.type = 'duel';
-    balance += itemImpact(d, user.uid);
+    const impact = itemImpact(d, user.uid);
+    balance += impact;
+    if (impact !== 0) {
+      currencyBalances['USD'] = (currencyBalances['USD'] || 0) + impact;
+    }
   });
 
   return { balance: Math.round(balance * 100) / 100, currencyBalances };
@@ -573,28 +598,16 @@ export async function computeCurrencyBalances() {
 
 // Export for games that need balance to determine debtor
 export async function computeBalance() {
-  const user = getCurrentUser();
-  const [expSnap, paySnap, duelSnap] = await Promise.all([
-    db.collection('expenses').get(),
-    db.collection('payments').get(),
-    db.collection('duels').get()
-  ]);
-
-  let balance = 0;
-  const processSnap = (snap, type, dateField) => {
-    snap.forEach((doc) => {
-      const d = doc.data();
-      if (d.balanceExcluded) return;
-      d.type = type;
-      balance += itemImpact(d, user.uid);
-    });
-  };
-
-  processSnap(expSnap, 'expense');
-  processSnap(paySnap, 'payment');
-  processSnap(duelSnap, 'duel');
-
-  return Math.round(balance * 100) / 100;
+  const { currencyBalances } = await computeCurrencyBalances();
+  let usdTotal = 0;
+  for (const [cur, amount] of Object.entries(currencyBalances)) {
+    if (Math.abs(amount) < 0.005) continue;
+    try {
+      const rate = await getExchangeRate(cur);
+      usdTotal += amount * rate;
+    } catch (e) {}
+  }
+  return Math.round(usdTotal * 100) / 100;
 }
 
 /**
