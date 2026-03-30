@@ -398,9 +398,52 @@ async function loadSettings() {
   const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
   document.getElementById('settings-consolidation-currency').value = consolCurrency;
 
-  // Load default expense currency
+  // Load recurring expenses
+  await loadRecurringList();
+
   // Load duel status
   await loadDuelSettings();
+}
+
+async function loadRecurringList() {
+  const container = document.getElementById('recurring-list');
+  if (!container) return;
+
+  try {
+    const { getRecurring, deactivateRecurring } = await import('./recurring.js');
+    const items = await getRecurring();
+
+    if (items.length === 0) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">No recurring expenses</p>';
+      return;
+    }
+
+    container.innerHTML = '';
+    items.forEach(item => {
+      const sym = getCurrencySymbol(item.currency);
+      const nextDue = item.nextDue?.toDate ? item.nextDue.toDate() : new Date(item.nextDue);
+      const dateStr = nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;';
+      div.innerHTML = `
+        <div>
+          <div style="font-size:0.9rem;font-weight:500">${item.description}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">${sym}${item.amount.toLocaleString()} · ${item.frequency} · next: ${dateStr}</div>
+        </div>
+        <button class="btn btn-small" style="background:var(--red);font-size:0.75rem;padding:6px 12px" data-id="${item.id}">Cancel</button>`;
+      div.querySelector('button').addEventListener('click', async (e) => {
+        if (!confirm(`Cancel recurring "${item.description}"?`)) return;
+        e.target.disabled = true;
+        e.target.textContent = '...';
+        await deactivateRecurring(item.id);
+        await loadRecurringList();
+      });
+      container.appendChild(div);
+    });
+  } catch (err) {
+    console.error('Failed to load recurring:', err);
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Could not load</p>';
+  }
 }
 
 async function loadDuelSettings() {
@@ -1069,13 +1112,9 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     if (!editingEntry && entryType === 'expense') {
       const recurringValue = document.querySelector('#entry-recurring .toggle-btn.active').dataset.value;
       if (recurringValue !== 'none') {
-        const description = document.getElementById('entry-desc').value.trim();
-        const splitType = document.querySelector('#entry-split .toggle-btn.active').dataset.value;
-        const otherUid = paidByValue === 'self' ? getPartnerUid() : currentUser.uid;
-        const paidBy = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
         const { createRecurring } = await import('./recurring.js');
         await createRecurring({
-          description,
+          description: document.getElementById('entry-desc').value.trim(),
           amount,
           currency,
           paidBy,
