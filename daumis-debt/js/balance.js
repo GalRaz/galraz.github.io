@@ -266,9 +266,14 @@ export async function loadDashboard() {
       }
     }
 
-    // Save filtered currency balances to localStorage for dropdown sorting
+    // Save filtered currency balances and sync used-currencies list
     try {
       localStorage.setItem('daumis-debt-currency-balances', JSON.stringify(currencyBalances));
+      // Remove dust currencies from the used-currencies list too
+      const activeCurrencies = Object.keys(currencyBalances);
+      const usedCurrencies = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+      const filtered = usedCurrencies.filter(c => activeCurrencies.includes(c));
+      localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(filtered));
     } catch (e) {}
 
     // Render balance label
@@ -291,7 +296,10 @@ export async function loadDashboard() {
     const consolidatedClass = consolidatedBalance > 0.005 ? 'positive' : consolidatedBalance < -0.005 ? 'negative' : '';
 
     // Build breakdown view (reuse nonZeroCurrencies, sort by abs value for display)
-    const sortedCurrencies = [...nonZeroCurrencies].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    // Use filtered currencyBalances (dust removed) for breakdown display
+    const sortedCurrencies = Object.entries(currencyBalances)
+      .filter(([, v]) => Math.abs(v) >= 0.005)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
     let breakdownHTML = '';
     for (const [cur, val] of sortedCurrencies) {
