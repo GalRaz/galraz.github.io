@@ -269,10 +269,13 @@ function buildCurrencySelect(extraCurrency) {
   const prioritySet = new Set();
   if (extraCurrency) prioritySet.add(extraCurrency);
 
-  // Get currencies with balances
+  // Get currencies with balances and their sizes
+  const balanceSizes = {};
   try {
     const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
     used.forEach(c => prioritySet.add(c));
+    const sizes = JSON.parse(localStorage.getItem('daumis-debt-currency-balances') || '{}');
+    Object.assign(balanceSizes, sizes);
   } catch (e) {}
 
   // Always include last used
@@ -285,8 +288,21 @@ function buildCurrencySelect(extraCurrency) {
 
   select.innerHTML = '';
 
-  // Priority currencies first (ones with balances / recently used)
+  // Priority currencies sorted: last-used first, then by balance size
   const priorityCurrencies = ALL_CURRENCIES.filter(c => prioritySet.has(c.code));
+  priorityCurrencies.sort((a, b) => {
+    // Last used always first
+    if (a.code === lastUsed) return -1;
+    if (b.code === lastUsed) return 1;
+    // Then by absolute balance size (largest first)
+    const balA = Math.abs(balanceSizes[a.code] || 0);
+    const balB = Math.abs(balanceSizes[b.code] || 0);
+    if (balA !== balB) return balB - balA;
+    // Then consolidation currency
+    if (a.code === consolCur) return -1;
+    if (b.code === consolCur) return 1;
+    return 0;
+  });
   const otherCurrencies = ALL_CURRENCIES.filter(c => !prioritySet.has(c.code));
 
   priorityCurrencies.forEach(c => {

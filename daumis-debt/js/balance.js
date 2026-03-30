@@ -215,6 +215,11 @@ export async function loadDashboard() {
       }
     }
 
+    // Save currency balances to localStorage for the currency dropdown sorting
+    try {
+      localStorage.setItem('daumis-debt-currency-balances', JSON.stringify(currencyBalances));
+    } catch (e) {}
+
     // Compute consolidated balance: convert each currency to consolCurrency via live rates
     let consolidatedBalance = 0;
     const rateCache = {}; // cur → consolCurrency rate
