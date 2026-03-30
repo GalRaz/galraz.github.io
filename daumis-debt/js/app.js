@@ -66,6 +66,34 @@ auth.onAuthStateChanged((user) => {
   }
 });
 
+// --- Swipe to go back ---
+let touchStartX = 0;
+let touchStartY = 0;
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  // Right swipe: horizontal > 80px, more horizontal than vertical
+  if (dx > 80 && Math.abs(dy) < Math.abs(dx) * 0.5) {
+    // Only if not on dashboard or auth
+    const active = document.querySelector('.screen.active');
+    if (active && active.id !== 'screen-dashboard' && active.id !== 'screen-auth') {
+      goBack();
+    }
+  }
+});
+
+async function goBack() {
+  editingEntry = null;
+  showScreen('dashboard');
+  const { loadDashboard } = await import('./balance.js');
+  loadDashboard();
+}
+
 // --- Routing ---
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
@@ -99,17 +127,8 @@ document.getElementById('fab-add').addEventListener('click', () => {
 });
 
 // --- Back buttons ---
-document.getElementById('btn-back').addEventListener('click', async () => {
-  editingEntry = null;
-  showScreen('dashboard');
-  const { loadDashboard } = await import('./balance.js');
-  loadDashboard();
-});
-document.getElementById('btn-back-duel').addEventListener('click', async () => {
-  showScreen('dashboard');
-  const { loadDashboard } = await import('./balance.js');
-  loadDashboard();
-});
+document.getElementById('btn-back').addEventListener('click', goBack);
+document.getElementById('btn-back-duel').addEventListener('click', goBack);
 
 // --- Settings ---
 document.getElementById('btn-settings').addEventListener('click', () => {
@@ -117,11 +136,7 @@ document.getElementById('btn-settings').addEventListener('click', () => {
   loadSettings();
 });
 
-document.getElementById('btn-back-settings').addEventListener('click', async () => {
-  showScreen('dashboard');
-  const { loadDashboard } = await import('./balance.js');
-  loadDashboard();
-});
+document.getElementById('btn-back-settings').addEventListener('click', goBack);
 
 async function loadSettings() {
   // Load nickname from local state (which reflects Firestore), fall back to Auth profile
