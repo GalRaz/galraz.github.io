@@ -142,10 +142,10 @@ body {
 }
 .split-option:active { transform: scale(0.97); }
 
-/* History list */
+/* History list — mood-aware via CSS custom properties */
 .history-list { list-style: none; padding-bottom: 80px; }
 .history-list li {
-  background: var(--surface);
+  background: var(--mood-item, var(--surface));
   border-radius: var(--radius-sm);
   padding: 16px; margin-bottom: 8px;
   display: flex; align-items: center;
@@ -158,20 +158,38 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 0.9rem; font-weight: 700;
   flex-shrink: 0;
+  background: var(--mood-icon, var(--surface-2));
 }
-.entry-icon.expense { background: var(--surface-2); color: var(--text-muted); }
-.entry-icon.payment { background: var(--green-soft); color: var(--green); }
-.entry-icon.duel { background: rgba(255, 214, 10, 0.12); color: var(--gold); }
+.entry-icon.expense { color: var(--text-muted); }
+.entry-icon.payment { color: var(--mood-pos, var(--green)); }
+.entry-icon.duel { color: var(--gold); }
 
 .entry-info { flex: 1; min-width: 0; }
 .entry-desc {
   font-size: 0.95rem; font-weight: 500;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--mood-name, var(--text));
 }
-.entry-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+.entry-meta { font-size: 0.75rem; color: var(--mood-meta, var(--text-muted)); margin-top: 3px; }
 .entry-amount { font-weight: 700; font-size: 0.95rem; text-align: right; white-space: nowrap; }
-.entry-amount.credit { color: var(--green); }
-.entry-amount.debit { color: var(--red); }
+.entry-amount.credit { color: var(--mood-pos, var(--green)); }
+.entry-amount.debit { color: var(--mood-neg, var(--red)); }
+
+/* Mood animations */
+@keyframes chaosPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255,0,0,0.1); }
+  50% { box-shadow: 0 0 40px rgba(255,0,0,0.25); }
+}
+@keyframes chaosShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1.5px); }
+  75% { transform: translateX(1.5px); }
+}
+@keyframes emojiBurst {
+  0% { opacity: 0; transform: translateY(0) rotate(0deg) scale(0.5); }
+  20% { opacity: 0.8; transform: translateY(-80px) rotate(10deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-500px) rotate(30deg) scale(0.8); }
+}
 
 .entry-type { display: none; }
 
