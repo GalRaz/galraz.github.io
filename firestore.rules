@@ -34,6 +34,10 @@ service cloud.firestore {
       allow write: if isAllowedUser() && userId == request.auth.uid;
     }
 
+    match /settings/{doc} {
+      allow read, write: if isAllowedUser();
+    }
+
     match /recurring/{doc} {
       allow read: if isAllowedUser();
       allow create: if isAllowedUser() && isOwnEntry();

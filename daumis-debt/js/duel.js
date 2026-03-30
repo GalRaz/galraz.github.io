@@ -66,9 +66,19 @@ function isDuelDay() {
   return new Date().getDay() >= 3; // 0=Sun, 3=Wed
 }
 
-/** Check if a duel is available this week (not yet played, and it's Wednesday or later). */
+/** Check if duels are enabled in shared settings. */
+async function areDuelsEnabled() {
+  try {
+    const doc = await db.collection('settings').doc('duel').get();
+    if (!doc.exists) return true; // default: on
+    return doc.data().active !== false;
+  } catch (e) { return true; }
+}
+
+/** Check if a duel is available this week (enabled, correct day, not yet played). */
 export async function isDuelAvailable() {
   if (!isDuelDay()) return false;
+  if (!(await areDuelsEnabled())) return false;
   const { year, week } = getCurrentWeekInfo();
   const snapshot = await db.collection('duels')
     .where('year', '==', year)

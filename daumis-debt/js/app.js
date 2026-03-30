@@ -85,7 +85,7 @@ document.getElementById('btn-back-settings').addEventListener('click', async () 
   loadDashboard();
 });
 
-function loadSettings() {
+async function loadSettings() {
   // Load nickname from current user's display name
   const user = getCurrentUser();
   document.getElementById('settings-nickname').value = user.displayName || '';
@@ -93,6 +93,68 @@ function loadSettings() {
   // Load default currency from localStorage
   const defaultCurrency = localStorage.getItem('daumis-debt-default-currency') || 'USD';
   document.getElementById('settings-default-currency').value = defaultCurrency;
+
+  // Load duel status
+  await loadDuelSettings();
+}
+
+async function loadDuelSettings() {
+  const hint = document.getElementById('duel-status-hint');
+  const btn = document.getElementById('btn-toggle-duel');
+  const user = getCurrentUser();
+
+  try {
+    const doc = await db.collection('settings').doc('duel').get();
+    const data = doc.exists ? doc.data() : { active: true, optInRequests: [] };
+    const isActive = data.active !== false;
+    const optInRequests = data.optInRequests || [];
+    const iRequested = optInRequests.includes(user.uid);
+
+    if (isActive) {
+      hint.textContent = 'Duels are active. Either player can opt out.';
+      btn.textContent = 'Turn Off Duels';
+      btn.className = 'btn btn-logout'; // red style
+      btn.onclick = async () => {
+        if (!confirm('This will disable weekly duels for both of you. Continue?')) return;
+        await db.collection('settings').doc('duel').set({ active: false, optInRequests: [], disabledBy: user.uid }, { merge: true });
+        await loadDuelSettings();
+      };
+    } else {
+      if (iRequested) {
+        hint.textContent = 'You voted to turn duels back on. Waiting for your partner to agree.';
+        btn.textContent = 'Cancel Request';
+        btn.className = 'btn btn-secondary';
+        btn.onclick = async () => {
+          const updated = optInRequests.filter(uid => uid !== user.uid);
+          await db.collection('settings').doc('duel').update({ optInRequests: updated });
+          await loadDuelSettings();
+        };
+      } else if (optInRequests.length > 0) {
+        hint.textContent = 'Your partner wants to turn duels back on. Agree to reactivate.';
+        btn.textContent = 'Agree — Turn On Duels';
+        btn.className = 'btn btn-primary';
+        btn.onclick = async () => {
+          await db.collection('settings').doc('duel').set({ active: true, optInRequests: [] }, { merge: true });
+          await loadDuelSettings();
+        };
+      } else {
+        hint.textContent = 'Duels are off. Both players must agree to turn them back on.';
+        btn.textContent = 'Request to Turn On';
+        btn.className = 'btn btn-secondary';
+        btn.onclick = async () => {
+          await db.collection('settings').doc('duel').set({
+            active: false,
+            optInRequests: firebase.firestore.FieldValue.arrayUnion(user.uid)
+          }, { merge: true });
+          await loadDuelSettings();
+        };
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load duel settings:', err);
+    hint.textContent = 'Could not load duel settings.';
+    btn.style.display = 'none';
+  }
 }
 
 document.getElementById('btn-save-nickname').addEventListener('click', async () => {
