@@ -628,25 +628,33 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
 
     let csv = 'Date,Type,Description,Amount,Currency,USD Amount,Split,Who Paid\n';
 
+    const rows = [];
+
     expSnap.forEach((doc) => {
       const d = doc.data();
-      const date = d.date?.toDate ? d.date.toDate().toISOString().split('T')[0] : '';
+      const ts = d.date?.toDate ? d.date.toDate() : new Date(d.date?.seconds ? d.date.seconds * 1000 : d.date);
+      const date = ts.toISOString().split('T')[0];
       const whoPaid = d.paidBy === getCurrentUser().uid ? 'Me' : 'Partner';
-      csv += `${date},Expense,"${(d.description || '').replace(/"/g, '""')}",${d.amount},${d.currency},${d.usdAmount},${d.splitType},${whoPaid}\n`;
+      rows.push({ ts, line: `${date},Expense,"${(d.description || '').replace(/"/g, '""')}",${d.amount},${d.currency},${d.usdAmount},${d.splitType},${whoPaid}\n` });
     });
 
     paySnap.forEach((doc) => {
       const d = doc.data();
-      const date = d.date?.toDate ? d.date.toDate().toISOString().split('T')[0] : '';
+      const ts = d.date?.toDate ? d.date.toDate() : new Date(d.date?.seconds ? d.date.seconds * 1000 : d.date);
+      const date = ts.toISOString().split('T')[0];
       const whoPaid = d.paidBy === getCurrentUser().uid ? 'Me' : 'Partner';
-      csv += `${date},Payment,,${d.amount},${d.currency},${d.usdAmount},,${whoPaid}\n`;
+      rows.push({ ts, line: `${date},Payment,,${d.amount},${d.currency},${d.usdAmount},,${whoPaid}\n` });
     });
 
     duelSnap.forEach((doc) => {
       const d = doc.data();
-      const date = d.playedAt?.toDate ? d.playedAt.toDate().toISOString().split('T')[0] : '';
-      csv += `${date},Duel,${d.game || ''},${d.balanceAdjust},USD,${d.balanceAdjust},,\n`;
+      const ts = d.playedAt?.toDate ? d.playedAt.toDate() : new Date(d.playedAt?.seconds ? d.playedAt.seconds * 1000 : 0);
+      const date = ts.toISOString().split('T')[0];
+      rows.push({ ts, line: `${date},Duel,${d.game || ''},${d.balanceAdjust},USD,${d.balanceAdjust},,\n` });
     });
+
+    rows.sort((a, b) => b.ts - a.ts);
+    rows.forEach(r => { csv += r.line; });
 
     // Download
     const blob = new Blob([csv], { type: 'text/csv' });
