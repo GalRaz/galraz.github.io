@@ -547,6 +547,9 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   padding: 16px; border-radius: var(--radius-sm);
   background: var(--surface);
 }
+.duel-result.win { background: var(--green-soft); color: var(--green); }
+.duel-result.loss { background: var(--red-soft); color: var(--red); }
+.duel-result.tie { background: var(--accent-soft); color: var(--text); }
 
 /* Coin flip */
 .coin {
