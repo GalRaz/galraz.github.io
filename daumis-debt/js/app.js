@@ -1545,7 +1545,8 @@ async function loadInsights(period) {
     html += `<div class="stat-row"><span class="stat-label">Smallest expense</span><span class="stat-value">$${smallest.amount.toFixed(2)} 🔍</span></div>`;
     if (topCat) html += `<div class="stat-row"><span class="stat-label">Top category</span><span class="stat-value">${catIcons[topCat[0]]} ${topCat[0]} (${topCat[1]}x)</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">Total expenses</span><span class="stat-value">${filtered.length}</span></div>`;
-    html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">Gal ${galWins} — ${daumWins} ${partnerName}</span></div>`;
+    const myName = getUserName(currentUser.uid);
+    html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">${myName} ${galWins} — ${daumWins} ${partnerName}</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">Avg daily spend</span><span class="stat-value">$${avgDaily.toFixed(2)}/day</span></div>`;
     html += '</div>';
 
