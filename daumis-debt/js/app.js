@@ -1494,6 +1494,18 @@ async function loadInsights(period) {
 
     const partnerName = getUserName(getPartnerUid());
 
+    // Get consolidation currency for display
+    const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+    let usdToConsol = 1;
+    if (consolCurrency !== 'USD') {
+      const { getExchangeRate } = await import('./exchange.js');
+      const rate = await getExchangeRate(consolCurrency);
+      usdToConsol = rate ? 1 / rate : 1;
+    }
+    const sym = getCurrencySymbol(consolCurrency);
+    const fmt = (usd) => sym + Math.round(usd * usdToConsol).toLocaleString();
+    const fmtDec = (usd) => sym + (usd * usdToConsol).toFixed(2);
+
     // --- Render ---
     let html = '';
 
@@ -1505,7 +1517,7 @@ async function loadInsights(period) {
         <span class="cat-icon">${catIcons[label]}</span>
         <span class="cat-name">${label}</span>
         <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
-        <span class="cat-amount">$${Math.round(total).toLocaleString()}</span>
+        <span class="cat-amount">${fmt(total)}</span>
       </div>`;
     });
     html += '</div>';
@@ -1519,7 +1531,7 @@ async function loadInsights(period) {
         const [y, m] = k.split('-');
         const label = monthNames[parseInt(m) - 1];
         html += `<div class="trend-bar" style="height:${pct}%">
-          <span class="t-val">$${Math.round(val).toLocaleString()}</span>
+          <span class="t-val">${fmt(val)}</span>
           <span class="t-label">${label}</span>
         </div>`;
       });
@@ -1533,7 +1545,7 @@ async function loadInsights(period) {
         html += `<div class="country-row">
           <span class="country-flag">${flag}</span>
           <span class="country-name">${name}</span>
-          <span class="country-amount">$${Math.round(total).toLocaleString()}</span>
+          <span class="country-amount">${fmt(total)}</span>
         </div>`;
       });
       html += '</div>';
@@ -1541,13 +1553,13 @@ async function loadInsights(period) {
 
     // Fun stats
     html += '<div class="insight-card"><h3>Fun Stats</h3>';
-    html += `<div class="stat-row"><span class="stat-label">Biggest expense</span><span class="stat-value">$${Math.round(biggest.amount).toLocaleString()} 🤯</span></div>`;
-    html += `<div class="stat-row"><span class="stat-label">Smallest expense</span><span class="stat-value">$${smallest.amount.toFixed(2)} 🔍</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Biggest expense</span><span class="stat-value">${fmt(biggest.amount)} 🤯</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Smallest expense</span><span class="stat-value">${fmtDec(smallest.amount)} 🔍</span></div>`;
     if (topCat) html += `<div class="stat-row"><span class="stat-label">Top category</span><span class="stat-value">${catIcons[topCat[0]]} ${topCat[0]} (${topCat[1]}x)</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">Total expenses</span><span class="stat-value">${filtered.length}</span></div>`;
     const myName = getUserName(currentUser.uid);
     html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">${myName} ${galWins} — ${daumWins} ${partnerName}</span></div>`;
-    html += `<div class="stat-row"><span class="stat-label">Avg daily spend</span><span class="stat-value">$${avgDaily.toFixed(2)}/day</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Avg daily spend</span><span class="stat-value">${fmtDec(avgDaily)}/day</span></div>`;
     html += '</div>';
 
     container.innerHTML = html;
