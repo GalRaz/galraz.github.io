@@ -1460,7 +1460,8 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/daumis-debt/sw.js', { updateViaCache: 'none' })
     .then((reg) => {
       console.log('SW registered');
-      // Check for updates every 60 seconds
+      // Check for updates immediately on load, then every 60 seconds
+      reg.update();
       setInterval(() => reg.update(), 60000);
     })
     .catch((err) => console.error('SW registration failed:', err));
