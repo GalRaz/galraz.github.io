@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daumis-debt-v17';
+const CACHE_NAME = 'daumis-debt-v18';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -15,7 +15,10 @@ const ASSETS = [
   '/daumis-debt/js/games/rps.js',
   '/daumis-debt/js/games/lucky-number.js',
   '/daumis-debt/js/games/scratch-card.js',
-  '/daumis-debt/manifest.json'
+  '/daumis-debt/manifest.json',
+  '/daumis-debt/assets/icons/icon.png',
+  '/daumis-debt/assets/icons/icon-192.png',
+  '/daumis-debt/assets/icons/icon-512.png'
 ];
 
 self.addEventListener('install', (e) => {
