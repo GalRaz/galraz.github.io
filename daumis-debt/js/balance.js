@@ -495,54 +495,45 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       const isCredit = impact >= 0;
       const sign = isCredit ? '+' : '-';
 
-      // Who paid (nickname)
       const paidByName = item.paidBy === myUid ? getUserName(myUid) : getUserName(item.paidBy);
 
+      let contentHTML = '';
+
       if (item.type === 'expense') {
-        // Meta: "[who] paid [full amount in original currency] · split/full"
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
         const splitLabel = item.splitType === 'even' ? 'split' : 'full';
         const metaLine = `${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
-
-        // Display amount: the user's share in the appropriate currency
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
         } else {
           displayAmt = `${sign}${fmtConsol(item, impact)}`;
         }
-
-        li.innerHTML = `
+        contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
             <div class="entry-desc">${item.description || 'Expense'}</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
-        li.style.cursor = 'pointer';
-        li.addEventListener('click', () => editEntry(item.type, item));
 
       } else if (item.type === 'payment') {
         const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
         const metaLine = `${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
-
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
         } else {
           displayAmt = `${sign}${fmtConsol(item, impact)}`;
         }
-
-        li.innerHTML = `
+        contentHTML = `
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
             <div class="entry-desc">Settle up</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
-        li.style.cursor = 'pointer';
-        li.addEventListener('click', () => editEntry(item.type, item));
 
       } else if (item.type === 'duel') {
         let displayAmt;
@@ -551,8 +542,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         } else {
           displayAmt = `${sign}${fmtDuelConsol(impact)}`;
         }
-
-        li.innerHTML = `
+        contentHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
             <div class="entry-desc">${item.game || 'Duel'}</div>
@@ -560,6 +550,108 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       }
+
+      // Wrap in swipe container with delete button behind
+      const canDelete = item.type === 'expense' || item.type === 'payment';
+      if (canDelete) {
+        li.innerHTML = `
+          <div class="swipe-delete">Delete</div>
+          <div class="swipe-content">${contentHTML}</div>`;
+
+        const content = li.querySelector('.swipe-content');
+        const deleteBtn = li.querySelector('.swipe-delete');
+        let startX = 0, startY = 0, swiping = false, decided = false;
+
+        content.addEventListener('touchstart', (e) => {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          swiping = false;
+          decided = false;
+          content.style.transition = 'none';
+        }, { passive: true });
+
+        content.addEventListener('touchmove', (e) => {
+          const dx = e.touches[0].clientX - startX;
+          const dy = e.touches[0].clientY - startY;
+          if (!decided) {
+            if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+              decided = true;
+              swiping = dx < -5 && Math.abs(dx) > Math.abs(dy);
+            }
+            return;
+          }
+          if (swiping && dx < 0) {
+            content.style.transform = `translateX(${Math.max(dx, -80)}px)`;
+          }
+        }, { passive: true });
+
+        content.addEventListener('touchend', (e) => {
+          if (!swiping) {
+            content.style.transition = 'transform 0.2s ease-out';
+            content.style.transform = '';
+            return;
+          }
+          const dx = e.changedTouches[0].clientX - startX;
+          content.style.transition = 'transform 0.2s ease-out';
+          if (dx < -40) {
+            content.style.transform = 'translateX(-80px)';
+          } else {
+            content.style.transform = '';
+          }
+        }, { passive: true });
+
+        // Tap delete button
+        deleteBtn.addEventListener('click', async () => {
+          const isRecurring = item.description?.includes('(recurring)');
+          const collection = item.type === 'expense' ? 'expenses' : 'payments';
+
+          if (isRecurring) {
+            const choice = prompt('This is a recurring expense.\nType "one" to delete just this one, or "all" to cancel all future charges.');
+            if (!choice) return;
+            if (choice.toLowerCase() === 'all') {
+              // Find and deactivate the recurring template
+              try {
+                const { getRecurring, deactivateRecurring } = await import('./recurring.js');
+                const recurrings = await getRecurring();
+                const match = recurrings.find(r => item.description.replace(' (recurring)', '') === r.description);
+                if (match) await deactivateRecurring(match.id);
+              } catch (e) { console.warn('Could not cancel recurring:', e); }
+            }
+            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') return;
+          } else {
+            if (!confirm('Delete this entry?')) return;
+          }
+
+          try {
+            const { db } = await import('./firebase-config.js');
+            await db.collection(collection).doc(item.id).delete();
+            li.style.transition = 'opacity 0.3s, max-height 0.3s';
+            li.style.opacity = '0';
+            li.style.maxHeight = '0';
+            li.style.overflow = 'hidden';
+            setTimeout(() => li.remove(), 300);
+          } catch (err) {
+            console.error('Delete failed:', err);
+            alert('Failed to delete.');
+            content.style.transform = '';
+          }
+        });
+
+        // Tap content to edit
+        content.addEventListener('click', (e) => {
+          if (Math.abs(parseFloat(content.style.transform?.match(/-?\d+/)?.[0] || 0)) > 10) {
+            // Swiped open — close instead of navigating
+            content.style.transition = 'transform 0.2s ease-out';
+            content.style.transform = '';
+            return;
+          }
+          editEntry(item.type, item);
+        });
+      } else {
+        // Duels — no swipe delete, just display
+        li.innerHTML = `<div class="swipe-content">${contentHTML}</div>`;
+      }
+
       list.appendChild(li);
     } catch (e) {
       console.error('Error rendering item:', item, e);

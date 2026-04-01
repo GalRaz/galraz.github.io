@@ -271,12 +271,30 @@ body {
 /* History list */
 .history-list { list-style: none; padding-bottom: 80px; }
 .history-list li {
-  background: var(--surface);
+  position: relative;
+  overflow: hidden;
   border-radius: var(--radius-sm);
-  padding: 16px; margin-bottom: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+}
+.swipe-content {
+  background: var(--surface);
+  padding: 16px;
   display: flex; align-items: center;
   gap: 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s ease-out;
+}
+.swipe-delete {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 80px;
+  background: var(--red);
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 600;
+  z-index: 1;
 }
 
 .entry-icon {
