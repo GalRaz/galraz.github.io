@@ -14,18 +14,18 @@ function categorize(description) {
   const d = description.toLowerCase();
 
   const categories = [
-    { keywords: ['grocery', 'groceries', 'supermarket', 'market', 'food', 'produce'], icon: '🛒', label: 'groceries' },
-    { keywords: ['restaurant', 'dinner', 'lunch', 'breakfast', 'cafe', 'coffee', 'eat', 'sushi', 'pizza', 'burger', 'ramen', 'noodle', 'brunch', 'bistro', 'datshi', 'thai', 'korean', 'japanese', 'indian', 'chinese', 'mexican', 'italian', 'pastry', 'bakery', 'bar', 'pub', 'beer', 'wine', 'drink', 'cocktail'], icon: '🍽️', label: 'dining' },
-    { keywords: ['flight', 'flights', 'airline', 'airport', 'plane', 'boarding'], icon: '✈️', label: 'flights' },
-    { keywords: ['hotel', 'hostel', 'airbnb', 'accommodation', 'stay', 'booking', 'resort'], icon: '🏨', label: 'lodging' },
-    { keywords: ['uber', 'lyft', 'taxi', 'cab', 'bus', 'train', 'metro', 'subway', 'transport', 'transit', 'grab', 'bolt'], icon: '🚕', label: 'transport' },
-    { keywords: ['gas', 'fuel', 'petrol', 'parking', 'car', 'rental', 'toll'], icon: '⛽', label: 'auto' },
-    { keywords: ['movie', 'cinema', 'ticket', 'concert', 'show', 'museum', 'park', 'tour', 'attraction', 'entertainment', 'game'], icon: '🎬', label: 'entertainment' },
-    { keywords: ['rent', 'electric', 'electricity', 'water', 'internet', 'wifi', 'utility', 'utilities', 'bill', 'phone'], icon: '🏠', label: 'housing' },
-    { keywords: ['doctor', 'hospital', 'medicine', 'pharmacy', 'health', 'medical', 'dental'], icon: '💊', label: 'health' },
-    { keywords: ['clothes', 'clothing', 'shoes', 'shirt', 'dress', 'shopping', 'mall', 'store', 'shop'], icon: '🛍️', label: 'shopping' },
-    { keywords: ['gift', 'present', 'birthday', 'anniversary'], icon: '🎁', label: 'gifts' },
-    { keywords: ['splitwise', 'balance', 'transfer', 'settle'], icon: '📊', label: 'balance' },
+    { keywords: ['grocery', 'groceries', 'supermarket', 'market', 'produce', 'trader joe', 'whole foods', 'lawson', 'conbini', '7/11', '7-11', 'jmart', 'vegg', 'fruit', 'egg', 'milk', 'bread', 'rice', 'olive oil', 'seaweed', 'detergent', 'snack'], icon: '🛒', label: 'groceries' },
+    { keywords: ['restaurant', 'dinner', 'lunch', 'breakfast', 'cafe', 'coffee', 'eat', 'sushi', 'pizza', 'burger', 'ramen', 'noodle', 'brunch', 'bistro', 'datshi', 'thai', 'korean', 'japanese', 'indian', 'chinese', 'mexican', 'italian', 'pastry', 'bakery', 'bar', 'pub', 'beer', 'wine', 'drink', 'cocktail', 'boba', 'bubble tea', 'tea', 'matcha', 'latte', 'cappuccino', 'capuccino', 'falafel', 'kebab', 'hummus', 'salad', 'momo', 'dosa', 'paneer', 'shabu', 'chipotle', 'mcdo', 'ice cream', 'cookie', 'chocolate', 'yogurt', 'smoothie', 'soho', 'munch', 'dimsum', 'wok'], icon: '🍽️', label: 'dining' },
+    { keywords: ['flight', 'flights', 'airline', 'airport', 'plane', 'boarding', 'eurowings', 'eva air', 'air'], icon: '✈️', label: 'flights' },
+    { keywords: ['hotel', 'hostel', 'airbnb', 'accommodation', 'stay', 'booking', 'resort', 'room upgrade'], icon: '🏨', label: 'lodging' },
+    { keywords: ['uber', 'lyft', 'taxi', 'cab', 'bus', 'train', 'metro', 'subway', 'transport', 'transit', 'grab', 'bolt', 'driver', 'sim card', 'data'], icon: '🚕', label: 'transport' },
+    { keywords: ['gas', 'fuel', 'petrol', 'parking', 'car', 'rental', 'toll', 'suv'], icon: '⛽', label: 'auto' },
+    { keywords: ['movie', 'cinema', 'ticket', 'concert', 'show', 'museum', 'park', 'tour', 'attraction', 'entertainment', 'game', 'entrance', 'festival', 'spa', 'massage', 'hot stone'], icon: '🎬', label: 'entertainment' },
+    { keywords: ['rent', 'electric', 'electricity', 'water', 'internet', 'wifi', 'utility', 'utilities', 'bill', 'phone', 'spotify', 'laundry', 'household', 'house stuff', 'machine', 'fitlab'], icon: '🏠', label: 'housing' },
+    { keywords: ['doctor', 'hospital', 'medicine', 'pharmacy', 'health', 'medical', 'dental', 'drugstore'], icon: '💊', label: 'health' },
+    { keywords: ['clothes', 'clothing', 'shoes', 'shirt', 'dress', 'shopping', 'mall', 'store', 'shop', 'uniqlo'], icon: '🛍️', label: 'shopping' },
+    { keywords: ['gift', 'present', 'birthday', 'anniversary', 'bday', 'tip'], icon: '🎁', label: 'gifts' },
+    { keywords: ['splitwise', 'balance', 'transfer', 'settle', 'cash', 'money exchange', 'pay off'], icon: '📊', label: 'balance' },
   ];
 
   for (const cat of categories) {
@@ -502,7 +502,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       if (item.type === 'expense') {
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
         const splitLabel = item.splitType === 'even' ? 'split' : 'full';
-        const metaLine = `${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
+        const metaLine = `${dateStr} · ${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
@@ -520,7 +520,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       } else if (item.type === 'payment') {
         const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const metaLine = `${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
+        const metaLine = `${dateStr} · ${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
