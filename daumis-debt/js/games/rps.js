@@ -91,8 +91,8 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
           resultText = `You lose! ${CHOICES[partnerSubmission]} beats ${CHOICES[myChoice]}. $10 to ${getUserName(partnerUid)}.`;
         }
 
-        const color = favoredUser === user.uid ? 'var(--green)' : favoredUser ? 'var(--red)' : 'var(--text)';
-        resultEl.innerHTML = `<div class="duel-result" style="color:${color}">${resultText}</div>`;
+        const resultClass = favoredUser === user.uid ? 'win' : favoredUser ? 'loss' : 'tie';
+        resultEl.innerHTML = `<div class="duel-result ${resultClass}">${resultText}</div>`;
 
         if (duelDocRef) {
           await duelDocRef.update({
