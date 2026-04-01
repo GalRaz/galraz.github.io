@@ -580,10 +580,13 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
             }
             return;
           }
-          if (swiping && dx < 0) {
-            content.style.transform = `translateX(${Math.max(dx, -100)}px)`;
+          if (swiping) {
+            e.preventDefault(); // lock scroll while swiping horizontally
+            if (dx < 0) {
+              content.style.transform = `translateX(${Math.max(dx, -100)}px)`;
+            }
           }
-        }, { passive: true });
+        }, { passive: false });
 
         async function handleDelete() {
           const isRecurring = item.description?.includes('(recurring)');
