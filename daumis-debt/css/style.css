@@ -486,7 +486,7 @@ body {
   display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
 }
 .cat-icon { font-size: 1rem; width: 24px; text-align: center; }
-.cat-name { font-size: 0.82rem; width: 75px; color: var(--text); }
+.cat-name { font-size: 0.82rem; width: 90px; color: var(--text); }
 .cat-bar-wrap { flex: 1; height: 18px; background: var(--surface-2); border-radius: 6px; overflow: hidden; }
 .cat-bar { height: 100%; border-radius: 6px; background: var(--accent); }
 .cat-amount { font-size: 0.78rem; font-weight: 600; width: 60px; text-align: right; color: var(--text); }
