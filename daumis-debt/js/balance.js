@@ -555,11 +555,12 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       const canDelete = item.type === 'expense' || item.type === 'payment';
       if (canDelete) {
         li.innerHTML = `
-          <div class="swipe-delete">Delete</div>
+          <div class="swipe-delete"><span class="swipe-delete-text">Delete</span></div>
           <div class="swipe-content">${contentHTML}</div>`;
 
         const content = li.querySelector('.swipe-content');
         const deleteBtn = li.querySelector('.swipe-delete');
+        const deleteText = li.querySelector('.swipe-delete-text');
         let startX = 0, startY = 0, swiping = false, decided = false;
 
         content.addEventListener('touchstart', (e) => {
@@ -568,6 +569,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
           swiping = false;
           decided = false;
           content.style.transition = 'none';
+          deleteText.style.transition = 'none';
         }, { passive: true });
 
         content.addEventListener('touchmove', (e) => {
@@ -581,9 +583,13 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
             return;
           }
           if (swiping) {
-            e.preventDefault(); // lock scroll while swiping horizontally
+            e.preventDefault();
             if (dx < 0) {
-              content.style.transform = `translateX(${Math.max(dx, -200)}px)`;
+              const clampedDx = Math.max(dx, -200);
+              content.style.transform = `translateX(${clampedDx}px)`;
+              // Position delete text to follow the content edge
+              const textOffset = Math.min(Math.abs(clampedDx) - 60, 0);
+              deleteText.style.transform = `translateX(${textOffset}px)`;
             }
           }
         }, { passive: false });
@@ -594,7 +600,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
 
           if (isRecurring) {
             const choice = prompt('This is a recurring expense.\nType "one" to delete just this one, or "all" to cancel all future charges.');
-            if (!choice) { content.style.transform = ''; return; }
+            if (!choice) { content.style.transform = ''; deleteText.style.transform = ''; return; }
             if (choice.toLowerCase() === 'all') {
               try {
                 const { getRecurring, deactivateRecurring } = await import('./recurring.js');
@@ -603,9 +609,9 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
                 if (match) await deactivateRecurring(match.id);
               } catch (e) { console.warn('Could not cancel recurring:', e); }
             }
-            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') { content.style.transform = ''; return; }
+            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') { content.style.transform = ''; deleteText.style.transform = ''; return; }
           } else {
-            if (!confirm('Delete this entry?')) { content.style.transform = ''; return; }
+            if (!confirm('Delete this entry?')) { content.style.transform = ''; deleteText.style.transform = ''; return; }
           }
 
           try {
@@ -626,17 +632,20 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         content.addEventListener('touchend', (e) => {
           if (!swiping) {
             content.style.transition = 'transform 0.2s ease-out';
+            deleteText.style.transition = 'transform 0.2s ease-out';
             content.style.transform = '';
+            deleteText.style.transform = '';
             return;
           }
           const dx = e.changedTouches[0].clientX - startX;
           content.style.transition = 'transform 0.2s ease-out';
+          deleteText.style.transition = 'transform 0.2s ease-out';
           if (dx < -150) {
-            // Swipe through — trigger delete confirmation directly
-            content.style.transform = 'translateX(-80px)';
+            content.style.transform = 'translateX(-200px)';
             handleDelete();
           } else {
             content.style.transform = '';
+            deleteText.style.transform = '';
           }
         }, { passive: true });
 

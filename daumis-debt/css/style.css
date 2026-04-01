@@ -293,6 +293,7 @@ body {
   color: white;
   display: flex; align-items: center; justify-content: flex-end;
   padding-right: 24px;
+  pointer-events: none;
   font-size: 0.8rem; font-weight: 600;
   z-index: 1;
 }
