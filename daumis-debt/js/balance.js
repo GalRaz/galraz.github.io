@@ -585,31 +585,14 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
           }
         }, { passive: true });
 
-        content.addEventListener('touchend', (e) => {
-          if (!swiping) {
-            content.style.transition = 'transform 0.2s ease-out';
-            content.style.transform = '';
-            return;
-          }
-          const dx = e.changedTouches[0].clientX - startX;
-          content.style.transition = 'transform 0.2s ease-out';
-          if (dx < -40) {
-            content.style.transform = 'translateX(-80px)';
-          } else {
-            content.style.transform = '';
-          }
-        }, { passive: true });
-
-        // Tap delete button
-        deleteBtn.addEventListener('click', async () => {
+        async function handleDelete() {
           const isRecurring = item.description?.includes('(recurring)');
           const collection = item.type === 'expense' ? 'expenses' : 'payments';
 
           if (isRecurring) {
             const choice = prompt('This is a recurring expense.\nType "one" to delete just this one, or "all" to cancel all future charges.');
-            if (!choice) return;
+            if (!choice) { content.style.transform = ''; return; }
             if (choice.toLowerCase() === 'all') {
-              // Find and deactivate the recurring template
               try {
                 const { getRecurring, deactivateRecurring } = await import('./recurring.js');
                 const recurrings = await getRecurring();
@@ -617,9 +600,9 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
                 if (match) await deactivateRecurring(match.id);
               } catch (e) { console.warn('Could not cancel recurring:', e); }
             }
-            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') return;
+            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') { content.style.transform = ''; return; }
           } else {
-            if (!confirm('Delete this entry?')) return;
+            if (!confirm('Delete this entry?')) { content.style.transform = ''; return; }
           }
 
           try {
@@ -635,7 +618,27 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
             alert('Failed to delete.');
             content.style.transform = '';
           }
-        });
+        }
+
+        content.addEventListener('touchend', (e) => {
+          if (!swiping) {
+            content.style.transition = 'transform 0.2s ease-out';
+            content.style.transform = '';
+            return;
+          }
+          const dx = e.changedTouches[0].clientX - startX;
+          content.style.transition = 'transform 0.2s ease-out';
+          if (dx < -40) {
+            // Swipe through — trigger delete confirmation directly
+            content.style.transform = 'translateX(-80px)';
+            handleDelete();
+          } else {
+            content.style.transform = '';
+          }
+        }, { passive: true });
+
+        // Tap delete button also works
+        deleteBtn.addEventListener('click', () => handleDelete());
 
         // Tap content to edit
         content.addEventListener('click', (e) => {
