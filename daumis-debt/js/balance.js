@@ -579,15 +579,23 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
             if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
               decided = true;
               swiping = dx < -5 && Math.abs(dx) > Math.abs(dy);
+              if (swiping) {
+                // Immediately lock scrolling
+                e.preventDefault();
+                e.stopPropagation();
+                // Disable scroll on parent
+                const scrollParent = content.closest('.dashboard-content');
+                if (scrollParent) scrollParent.style.overflow = 'hidden';
+              }
             }
             return;
           }
           if (swiping) {
             e.preventDefault();
+            e.stopPropagation();
             if (dx < 0) {
               const clampedDx = Math.max(dx, -200);
               content.style.transform = `translateX(${clampedDx}px)`;
-              // Position delete text to follow the content edge
               const textOffset = Math.min(Math.abs(clampedDx) - 60, 0);
               deleteText.style.transform = `translateX(${textOffset}px)`;
             }
@@ -630,6 +638,10 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         }
 
         content.addEventListener('touchend', (e) => {
+          // Re-enable scrolling on parent
+          const scrollParent = content.closest('.dashboard-content');
+          if (scrollParent) scrollParent.style.overflow = '';
+
           if (!swiping) {
             content.style.transition = 'transform 0.2s ease-out';
             deleteText.style.transition = 'transform 0.2s ease-out';
