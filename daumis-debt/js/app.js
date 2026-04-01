@@ -418,6 +418,22 @@ document.getElementById('fab-add').addEventListener('click', () => {
 document.getElementById('btn-back').addEventListener('click', goBack);
 document.getElementById('btn-back-duel').addEventListener('click', goBack);
 
+// --- Insights ---
+document.getElementById('btn-insights').addEventListener('click', () => {
+  showScreen('insights', 'slide-forward');
+  loadInsights('month');
+});
+
+document.getElementById('btn-back-insights').addEventListener('click', goBack);
+
+document.querySelectorAll('.time-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadInsights(btn.dataset.period);
+  });
+});
+
 // --- Settings ---
 document.getElementById('btn-settings').addEventListener('click', () => {
   showScreen('settings', 'slide-forward');
@@ -1345,6 +1361,201 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     submitBtn.textContent = editingEntry ? 'Save Changes' : 'Save';
   }
 });
+
+// --- Insights ---
+async function loadInsights(period) {
+  const container = document.getElementById('insights-content');
+  container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Loading...</p>';
+
+  try {
+    const [expSnap, paySnap, duelSnap] = await Promise.all([
+      db.collection('expenses').get(),
+      db.collection('payments').get(),
+      db.collection('duels').get()
+    ]);
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Build expense list with parsed dates
+    const expenses = [];
+    expSnap.forEach(doc => {
+      const d = doc.data();
+      let date;
+      try {
+        date = d.date?.toDate ? d.date.toDate() : (d.date?.seconds ? new Date(d.date.seconds * 1000) : new Date(d.date));
+      } catch(e) { date = new Date(); }
+      expenses.push({ ...d, date, id: doc.id });
+    });
+
+    // Filter by period
+    const filtered = period === 'month'
+      ? expenses.filter(e => e.date >= monthStart)
+      : expenses;
+
+    function categorizeLocal(desc) {
+      if (!desc) return { icon: '$', label: 'other' };
+      const d = desc.toLowerCase();
+      const cats = [
+        { keywords: ['grocery','groceries','supermarket','market','produce','trader joe','whole foods','lawson','conbini','7/11','7-11','jmart','vegg','fruit','egg','milk','bread','rice','olive oil','seaweed','detergent','snack'], icon: '🛒', label: 'groceries' },
+        { keywords: ['restaurant','dinner','lunch','breakfast','cafe','coffee','eat','sushi','pizza','burger','ramen','noodle','brunch','bistro','datshi','thai','korean','japanese','indian','chinese','mexican','italian','pastry','bakery','bar','pub','beer','wine','drink','cocktail','boba','bubble tea','tea','matcha','latte','cappuccino','capuccino','falafel','kebab','hummus','salad','momo','dosa','paneer','shabu','chipotle','mcdo','ice cream','cookie','chocolate','yogurt','smoothie','soho','munch','dimsum','wok'], icon: '🍽️', label: 'dining' },
+        { keywords: ['flight','flights','airline','airport','plane','boarding','eurowings','eva air','air'], icon: '✈️', label: 'flights' },
+        { keywords: ['hotel','hostel','airbnb','accommodation','stay','booking','resort','room upgrade'], icon: '🏨', label: 'lodging' },
+        { keywords: ['uber','lyft','taxi','cab','bus','train','metro','subway','transport','transit','grab','bolt','driver','sim card','data'], icon: '🚕', label: 'transport' },
+        { keywords: ['gas','fuel','petrol','parking','car','rental','toll','suv'], icon: '⛽', label: 'auto' },
+        { keywords: ['movie','cinema','ticket','concert','show','museum','park','tour','attraction','entertainment','game','entrance','festival','spa','massage','hot stone'], icon: '🎬', label: 'entertainment' },
+        { keywords: ['rent','electric','electricity','water','internet','wifi','utility','utilities','bill','phone','spotify','laundry','household','house stuff','machine','fitlab'], icon: '🏠', label: 'housing' },
+        { keywords: ['doctor','hospital','medicine','pharmacy','health','medical','dental','drugstore'], icon: '💊', label: 'health' },
+        { keywords: ['clothes','clothing','shoes','shirt','dress','shopping','mall','store','shop','uniqlo'], icon: '🛍️', label: 'shopping' },
+        { keywords: ['gift','present','birthday','anniversary','bday','tip'], icon: '🎁', label: 'gifts' },
+        { keywords: ['splitwise','balance','transfer','settle','cash','money exchange','pay off'], icon: '📊', label: 'balance' },
+      ];
+      for (const cat of cats) {
+        if (cat.keywords.some(kw => d.includes(kw))) return cat;
+      }
+      return { icon: '$', label: 'other' };
+    }
+
+    // --- Category breakdown ---
+    const catTotals = {};
+    const catIcons = {};
+    filtered.forEach(e => {
+      const cat = categorizeLocal(e.description);
+      if (!catTotals[cat.label]) { catTotals[cat.label] = 0; catIcons[cat.label] = cat.icon; }
+      catTotals[cat.label] += (e.usdAmount || e.amount || 0);
+    });
+
+    const catSorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+    const maxCat = catSorted.length > 0 ? catSorted[0][1] : 1;
+
+    // --- Monthly trend ---
+    const monthlyTotals = {};
+    expenses.forEach(e => {
+      const key = `${e.date.getFullYear()}-${String(e.date.getMonth() + 1).padStart(2, '0')}`;
+      monthlyTotals[key] = (monthlyTotals[key] || 0) + (e.usdAmount || e.amount || 0);
+    });
+    const monthKeys = Object.keys(monthlyTotals).sort();
+    const recentMonths = monthKeys.slice(-6);
+    const maxMonth = Math.max(...recentMonths.map(k => monthlyTotals[k]), 1);
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    // --- Country breakdown ---
+    const CURRENCY_COUNTRY = {
+      BTN: { flag: '🇧🇹', name: 'Bhutan' }, INR: { flag: '🇮🇳', name: 'India' },
+      JPY: { flag: '🇯🇵', name: 'Japan' }, USD: { flag: '🇺🇸', name: 'United States' },
+      GBP: { flag: '🇬🇧', name: 'United Kingdom' }, EUR: { flag: '🇪🇺', name: 'Europe' },
+      THB: { flag: '🇹🇭', name: 'Thailand' }, SGD: { flag: '🇸🇬', name: 'Singapore' },
+      KRW: { flag: '🇰🇷', name: 'South Korea' }, TWD: { flag: '🇹🇼', name: 'Taiwan' },
+      AUD: { flag: '🇦🇺', name: 'Australia' }, CAD: { flag: '🇨🇦', name: 'Canada' },
+      AED: { flag: '🇦🇪', name: 'UAE' }, CNY: { flag: '🇨🇳', name: 'China' },
+    };
+    const countryTotals = {};
+    filtered.forEach(e => {
+      if (!e.currency) return;
+      const country = CURRENCY_COUNTRY[e.currency] || { flag: '🌍', name: e.currency };
+      const key = country.name;
+      if (!countryTotals[key]) countryTotals[key] = { flag: country.flag, total: 0 };
+      countryTotals[key].total += (e.usdAmount || e.amount || 0);
+    });
+    const countrySorted = Object.entries(countryTotals).sort((a, b) => b[1].total - a[1].total);
+
+    // --- Fun stats ---
+    let biggest = { desc: '-', amount: 0 };
+    let smallest = { desc: '-', amount: Infinity };
+    filtered.forEach(e => {
+      const usd = e.usdAmount || e.amount || 0;
+      if (usd > biggest.amount) biggest = { desc: e.description || 'Unknown', amount: usd };
+      if (usd < smallest.amount && usd > 0) smallest = { desc: e.description || 'Unknown', amount: usd };
+    });
+    if (smallest.amount === Infinity) smallest = { desc: '-', amount: 0 };
+
+    const catCounts = {};
+    filtered.forEach(e => {
+      const cat = categorizeLocal(e.description);
+      catCounts[cat.label] = (catCounts[cat.label] || 0) + 1;
+    });
+    const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Duel record
+    let galWins = 0, daumWins = 0;
+    duelSnap.forEach(doc => {
+      const d = doc.data();
+      if (!d.result || !d.balanceAdjust) return;
+      if (d.favoredUser === currentUser.uid) galWins++;
+      else if (d.favoredUser) daumWins++;
+    });
+
+    // Average daily spend
+    const daySpan = filtered.length > 0
+      ? Math.max(1, Math.ceil((now - Math.min(...filtered.map(e => e.date.getTime()))) / 86400000))
+      : 1;
+    const totalSpend = filtered.reduce((sum, e) => sum + (e.usdAmount || e.amount || 0), 0);
+    const avgDaily = totalSpend / daySpan;
+
+    const partnerName = getUserName(getPartnerUid());
+
+    // --- Render ---
+    let html = '';
+
+    // Category breakdown
+    html += '<div class="insight-card"><h3>Spending by Category</h3>';
+    catSorted.slice(0, 8).forEach(([label, total]) => {
+      const pct = (total / maxCat * 100).toFixed(0);
+      html += `<div class="cat-row">
+        <span class="cat-icon">${catIcons[label]}</span>
+        <span class="cat-name">${label}</span>
+        <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
+        <span class="cat-amount">$${Math.round(total).toLocaleString()}</span>
+      </div>`;
+    });
+    html += '</div>';
+
+    // Monthly trend (only for "all time")
+    if (period === 'all' && recentMonths.length > 1) {
+      html += '<div class="insight-card"><h3>Monthly Spending</h3><div class="trend-chart">';
+      recentMonths.forEach(k => {
+        const val = monthlyTotals[k];
+        const pct = (val / maxMonth * 100).toFixed(0);
+        const [y, m] = k.split('-');
+        const label = monthNames[parseInt(m) - 1];
+        html += `<div class="trend-bar" style="height:${pct}%">
+          <span class="t-val">$${Math.round(val).toLocaleString()}</span>
+          <span class="t-label">${label}</span>
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+
+    // Country breakdown
+    if (countrySorted.length > 0) {
+      html += '<div class="insight-card"><h3>Where You Spend</h3>';
+      countrySorted.forEach(([name, { flag, total }]) => {
+        html += `<div class="country-row">
+          <span class="country-flag">${flag}</span>
+          <span class="country-name">${name}</span>
+          <span class="country-amount">$${Math.round(total).toLocaleString()}</span>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    // Fun stats
+    html += '<div class="insight-card"><h3>Fun Stats</h3>';
+    html += `<div class="stat-row"><span class="stat-label">Biggest expense</span><span class="stat-value">$${Math.round(biggest.amount).toLocaleString()} 🤯</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Smallest expense</span><span class="stat-value">$${smallest.amount.toFixed(2)} 🔍</span></div>`;
+    if (topCat) html += `<div class="stat-row"><span class="stat-label">Top category</span><span class="stat-value">${catIcons[topCat[0]]} ${topCat[0]} (${topCat[1]}x)</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Total expenses</span><span class="stat-value">${filtered.length}</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">Gal ${galWins} — ${daumWins} ${partnerName}</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Avg daily spend</span><span class="stat-value">$${avgDaily.toFixed(2)}/day</span></div>`;
+    html += '</div>';
+
+    container.innerHTML = html;
+
+  } catch (err) {
+    console.error('Insights error:', err);
+    container.innerHTML = '<p style="text-align:center;color:var(--red)">Failed to load insights.</p>';
+  }
+}
 
 // --- App entry ---
 async function showApp() {

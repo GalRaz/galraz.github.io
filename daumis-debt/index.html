@@ -36,6 +36,7 @@
       <div class="dashboard-content">
         <div class="dashboard-header">
           <h1 class="app-title">Daumi's Debt</h1>
+          <button id="btn-insights" class="btn-icon">📊</button>
           <button id="btn-settings" class="btn-icon">⚙</button>
         </div>
         <div id="pull-indicator" class="pull-indicator">
@@ -134,6 +135,19 @@
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
       </form>
+    </div>
+
+    <!-- Insights screen -->
+    <div id="screen-insights" class="screen">
+      <div class="screen-header">
+        <button id="btn-back-insights" class="btn-icon">&larr;</button>
+        <h2>Insights</h2>
+      </div>
+      <div class="time-filter">
+        <button class="time-btn active" data-period="month">This Month</button>
+        <button class="time-btn" data-period="all">All Time</button>
+      </div>
+      <div id="insights-content"></div>
     </div>
 
     <!-- Settings screen -->
