@@ -542,6 +542,39 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
 /* Duel game styles */
 .duel-game { text-align: center; padding: 20px 0; }
 .duel-game h2 { font-size: 1.5rem; margin-bottom: 20px; }
+
+/* Duel score card */
+.duel-score-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border-radius: var(--radius);
+  padding: 20px 24px; margin: 16px 0;
+  text-align: center;
+}
+.duel-score-player { flex: 1; }
+.duel-score-name { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+.duel-score-val { font-size: 2rem; font-weight: 700; }
+.duel-score-val.winning { color: var(--green); }
+.duel-score-vs { font-size: 1.1rem; color: var(--text-muted); padding: 0 12px; }
+.duel-score-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; min-height: 1em; }
+
+/* Duel history */
+.duel-history-section {
+  background: var(--surface); border-radius: var(--radius); padding: 20px; margin-bottom: 24px;
+}
+.duel-history-label {
+  font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 16px;
+}
+.history-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0; border-bottom: 1px solid var(--surface-2); font-size: 0.9rem;
+}
+.history-row:last-child { border-bottom: none; }
+.history-game { font-weight: 500; }
+.history-date { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+.result-win { color: var(--green); font-weight: 600; }
+.result-loss { color: var(--red); font-weight: 600; }
+.result-tie { color: var(--text-muted); font-weight: 500; }
 .duel-result {
   font-size: 1.4rem; font-weight: 700; margin: 20px 0;
   padding: 16px; border-radius: var(--radius-sm);

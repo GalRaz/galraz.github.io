@@ -1,5 +1,5 @@
 import { db } from './firebase-config.js';
-import { getCurrentUser, showScreen } from './app.js';
+import { getCurrentUser, showScreen, getPartnerUid, getUserName } from './app.js';
 import { notifyPartner } from './notifications.js';
 
 const GAMES = ['coin-flip', 'wheel', 'rps', 'lucky-number', 'scratch-card'];
@@ -122,10 +122,12 @@ export async function startDuel() {
       <h2>Weekly Duel</h2>
       <p class="subtitle">Week ${week} · ${GAME_NAMES[game]}</p>
       <div id="game-area"></div>
-    </div>`;
+    </div>
+    <div id="duel-history-area"></div>`;
 
   const gameModule = await import(`./games/${game}.js`);
   gameModule.play(document.getElementById('game-area'), { year, week, seed });
+  renderDuelHistory(document.getElementById('duel-history-area'));
 }
 
 /**
@@ -148,6 +150,77 @@ export async function recordDuelResult({ game, result, balanceAdjust, favoredUse
     type: 'duel',
     details: { game: GAME_NAMES[game] || game, balanceAdjust: Math.abs(balanceAdjust), favoredUser }
   });
+}
+
+/** Render past duel history and score summary into the given container. */
+async function renderDuelHistory(container) {
+  const user = getCurrentUser();
+  const partnerUid = getPartnerUid();
+  const myName = getUserName(user.uid) || 'You';
+  const partnerName = getUserName(partnerUid) || 'Partner';
+
+  try {
+    const snap = await db.collection('duels')
+      .orderBy('year', 'desc')
+      .orderBy('week', 'desc')
+      .limit(15)
+      .get();
+
+    if (snap.empty) return;
+
+    const duels = snap.docs.map(d => d.data()).filter(d => d.result);
+
+    // Compute cumulative score (wins)
+    let myWins = 0, partnerWins = 0, myBalance = 0;
+    for (const d of duels) {
+      if (!d.favoredUser) continue;
+      if (d.favoredUser === user.uid) { myWins++; myBalance += (d.balanceAdjust || 0); }
+      else { partnerWins++; myBalance -= (d.balanceAdjust || 0); }
+    }
+
+    const balanceNote = myBalance > 0
+      ? `+$${myBalance} ahead`
+      : myBalance < 0
+      ? `$${Math.abs(myBalance)} behind`
+      : 'Even';
+
+    const rows = duels.map(d => {
+      if (!d.result) return '';
+      const iWon = d.favoredUser === user.uid;
+      const tie = !d.favoredUser;
+      const resultClass = tie ? 'result-tie' : iWon ? 'result-win' : 'result-loss';
+      const resultText = tie ? 'Tie' : iWon ? `+$${d.balanceAdjust}` : `−$${d.balanceAdjust}`;
+      const whoWon = tie ? 'Tie' : iWon ? `${myName} wins` : `${partnerName} wins`;
+      return `<div class="history-row">
+        <div>
+          <div class="history-game">${d.game || 'Duel'}</div>
+          <div class="history-date">Week ${d.week} · ${whoWon}</div>
+        </div>
+        <div class="${resultClass}">${resultText}</div>
+      </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="duel-score-card">
+        <div class="duel-score-player">
+          <div class="duel-score-name">${myName}</div>
+          <div class="duel-score-val${myWins >= partnerWins ? ' winning' : ''}">${myWins}</div>
+          <div class="duel-score-note">${myBalance > 0 ? balanceNote : ''}</div>
+        </div>
+        <div class="duel-score-vs">vs</div>
+        <div class="duel-score-player">
+          <div class="duel-score-name">${partnerName}</div>
+          <div class="duel-score-val${partnerWins > myWins ? ' winning' : ''}">${partnerWins}</div>
+          <div class="duel-score-note">${myBalance < 0 ? balanceNote.replace('-', '') + ' ahead' : ''}</div>
+        </div>
+      </div>
+      <div class="duel-history-section">
+        <div class="duel-history-label">Past Duels</div>
+        ${rows}
+      </div>`;
+  } catch (e) {
+    // Silently skip if index not yet built
+  }
 }
 
 export { GAME_NAMES, getCurrentWeekInfo, seededRandom };
