@@ -285,6 +285,7 @@ body {
   position: relative;
   z-index: 2;
   transition: transform 0.2s ease-out;
+  touch-action: pan-y;
 }
 .swipe-delete {
   position: absolute;
