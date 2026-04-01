@@ -74,6 +74,9 @@ export async function createRecurring({ description, amount, currency, paidBy, s
     }
   }
 
+  // Normalize to midnight local time so charges fire at start of day
+  nextDue.setHours(0, 0, 0, 0);
+
   await db.collection('recurring').add({
     description,
     amount,
