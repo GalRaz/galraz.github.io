@@ -581,7 +581,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
             return;
           }
           if (swiping && dx < 0) {
-            content.style.transform = `translateX(${Math.max(dx, -80)}px)`;
+            content.style.transform = `translateX(${Math.max(dx, -100)}px)`;
           }
         }, { passive: true });
 
@@ -628,7 +628,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
           }
           const dx = e.changedTouches[0].clientX - startX;
           content.style.transition = 'transform 0.2s ease-out';
-          if (dx < -40) {
+          if (dx < -80) {
             // Swipe through — trigger delete confirmation directly
             content.style.transform = 'translateX(-80px)';
             handleDelete();
