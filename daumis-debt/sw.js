@@ -16,9 +16,7 @@ const ASSETS = [
   '/daumis-debt/js/games/lucky-number.js',
   '/daumis-debt/js/games/scratch-card.js',
   '/daumis-debt/manifest.json',
-  '/daumis-debt/assets/icons/icon.png',
-  '/daumis-debt/assets/icons/icon-192.png',
-  '/daumis-debt/assets/icons/icon-512.png'
+  '/daumis-debt/assets/icons/icon.png'
 ];
 
 self.addEventListener('install', (e) => {
