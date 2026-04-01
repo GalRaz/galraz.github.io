@@ -583,7 +583,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
           if (swiping) {
             e.preventDefault(); // lock scroll while swiping horizontally
             if (dx < 0) {
-              content.style.transform = `translateX(${Math.max(dx, -100)}px)`;
+              content.style.transform = `translateX(${Math.max(dx, -200)}px)`;
             }
           }
         }, { passive: false });
@@ -631,7 +631,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
           }
           const dx = e.changedTouches[0].clientX - startX;
           content.style.transition = 'transform 0.2s ease-out';
-          if (dx < -80) {
+          if (dx < -150) {
             // Swipe through — trigger delete confirmation directly
             content.style.transform = 'translateX(-80px)';
             handleDelete();
