@@ -1375,7 +1375,7 @@ async function loadInsights(period) {
     ]);
 
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
     // Build expense list with parsed dates
     const expenses = [];
@@ -1390,7 +1390,7 @@ async function loadInsights(period) {
 
     // Filter by period
     const filtered = period === 'month'
-      ? expenses.filter(e => e.date >= monthStart)
+      ? expenses.filter(e => e.date >= thirtyDaysAgo)
       : expenses;
 
     function categorizeLocal(desc) {
