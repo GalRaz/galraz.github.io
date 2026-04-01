@@ -343,9 +343,10 @@ body {
 /* FAB */
 .fab {
   position: fixed; bottom: 32px; right: 24px;
-  width: 56px; height: 56px; border-radius: 50%;
+  width: 73px; height: 73px; border-radius: 50%;
   background: var(--accent); color: white;
-  border: none; font-size: 1.8rem; cursor: pointer;
+  border: none; font-size: 2.2rem; cursor: pointer;
+  padding: 0; line-height: 1; text-align: center;
   box-shadow: 0 4px 16px rgba(92, 107, 79, 0.3);
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.2s;
