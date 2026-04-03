@@ -208,7 +208,7 @@ if (dashboardContent) {
 
       try {
         const { loadDashboard } = await import('./balance.js');
-        await loadDashboard();
+        await loadDashboard(true);
       } catch (e) { console.error('Refresh failed:', e); }
 
       indicator.classList.remove('refreshing');
@@ -869,7 +869,7 @@ window.addEventListener('edit-entry', (e) => {
         editingEntry = null;
         showScreen('dashboard');
         const { loadDashboard } = await import('./balance.js');
-        loadDashboard();
+        invalidateAllCaches(); loadDashboard();
       } catch (err) {
         console.error('Delete failed:', err);
         alert('Failed to delete.');
@@ -932,7 +932,7 @@ window.addEventListener('edit-entry', (e) => {
       editingEntry = null;
       showScreen('dashboard', 'slide-back');
       const { loadDashboard } = await import('./balance.js');
-      loadDashboard();
+      invalidateAllCaches(); loadDashboard();
     } catch (err) {
       console.error('Delete failed:', err);
       alert('Failed to delete.');
@@ -1180,7 +1180,7 @@ async function renderSettleUp() {
         setTimeout(async () => {
           showScreen('dashboard');
           const { loadDashboard } = await import('./balance.js');
-          loadDashboard();
+          invalidateAllCaches(); loadDashboard();
         }, 1000);
       } catch (err) {
         console.error('Settle all failed:', err);
@@ -1360,7 +1360,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     editingEntry = null;
     showScreen('dashboard', 'slide-back');
     const { loadDashboard } = await import('./balance.js');
-    loadDashboard();
+    invalidateAllCaches(); loadDashboard();
   } catch (err) {
     console.error('Error saving entry:', err);
     alert('Failed to save. Check your connection.');
@@ -1371,30 +1371,36 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 });
 
 // --- Insights ---
+let _insightsCache = null; // { expenses, duelSnap } — reused across period switches
+
 async function loadInsights(period) {
   const container = document.getElementById('insights-content');
   container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Loading...</p>';
 
   try {
-    const [expSnap, paySnap, duelSnap] = await Promise.all([
-      db.collection('expenses').get(),
-      db.collection('payments').get(),
-      db.collection('duels').get()
-    ]);
+    if (!_insightsCache) {
+      const [expSnap, paySnap, duelSnap] = await Promise.all([
+        db.collection('expenses').get(),
+        db.collection('payments').get(),
+        db.collection('duels').get()
+      ]);
+
+      const rawExpenses = [];
+      expSnap.forEach(doc => {
+        const d = doc.data();
+        let date;
+        try {
+          date = d.date?.toDate ? d.date.toDate() : (d.date?.seconds ? new Date(d.date.seconds * 1000) : new Date(d.date));
+        } catch(e) { date = new Date(); }
+        rawExpenses.push({ ...d, date, id: doc.id });
+      });
+      _insightsCache = { expenses: rawExpenses, duelSnap };
+    }
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
-
-    // Build expense list with parsed dates
-    const expenses = [];
-    expSnap.forEach(doc => {
-      const d = doc.data();
-      let date;
-      try {
-        date = d.date?.toDate ? d.date.toDate() : (d.date?.seconds ? new Date(d.date.seconds * 1000) : new Date(d.date));
-      } catch(e) { date = new Date(); }
-      expenses.push({ ...d, date, id: doc.id });
-    });
+    const expenses = _insightsCache.expenses;
+    const duelSnap = _insightsCache.duelSnap;
 
     // Filter by period
     const filtered = period === 'month'
@@ -1612,7 +1618,7 @@ async function showApp() {
   backfillPartnerUids().then(() => {
     import('./recurring.js').then(({ processRecurring }) => {
       processRecurring(currentUser).then(count => {
-        if (count > 0) loadDashboard();
+        if (count > 0) { invalidateAllCaches(); import('./balance.js').then(({ loadDashboard }) => loadDashboard()); }
       });
     });
   });
@@ -1624,8 +1630,10 @@ async function showApp() {
  * Replaces null with the partner's UID now that both users are known.
  */
 let backfillDone = false;
+const BACKFILL_KEY = 'daumis-debt-backfill-v1';
 async function backfillPartnerUids() {
   if (backfillDone) return;
+  if (localStorage.getItem(BACKFILL_KEY)) return;
   const partnerUid = getPartnerUid();
   if (!partnerUid) return; // partner still unknown
 
@@ -1669,7 +1677,13 @@ async function backfillPartnerUids() {
   }
 
   backfillDone = true;
+  localStorage.setItem(BACKFILL_KEY, '1');
   if (patched > 0) console.log(`Backfilled ${patched} docs with partner UID`);
+}
+
+export function invalidateAllCaches() {
+  _insightsCache = null;
+  import('./balance.js').then(({ invalidateDataCache }) => invalidateDataCache());
 }
 
 // Expose for other modules

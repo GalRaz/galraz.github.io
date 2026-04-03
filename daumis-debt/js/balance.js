@@ -2,6 +2,13 @@ import { db } from './firebase-config.js';
 import { getCurrentUser, getPartnerUid, getUserName, setPartnerInfo } from './app.js';
 import { getExchangeRate } from './exchange.js';
 
+// In-memory cache for Firestore snapshots — invalidated when data changes
+let _snapshotCache = null;
+
+export function invalidateDataCache() {
+  _snapshotCache = null;
+}
+
 const CURRENCY_SYMBOLS = {
   USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu ', TWD:'NT$', KRW:'₩',
   CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
@@ -132,17 +139,20 @@ function itemImpact(item, myUid) {
 /**
  * Load and render the dashboard.
  */
-export async function loadDashboard() {
+export async function loadDashboard(forceRefresh = false) {
   const user = getCurrentUser();
   const balanceEl = document.getElementById('balance-display');
 
   try {
-    // Fetch all data once
-    const [expSnap, paySnap, duelSnap] = await Promise.all([
-      db.collection('expenses').get(),
-      db.collection('payments').get(),
-      db.collection('duels').get()
-    ]);
+    if (forceRefresh || !_snapshotCache) {
+      const [expSnap, paySnap, duelSnap] = await Promise.all([
+        db.collection('expenses').get(),
+        db.collection('payments').get(),
+        db.collection('duels').get()
+      ]);
+      _snapshotCache = { expSnap, paySnap, duelSnap };
+    }
+    const { expSnap, paySnap, duelSnap } = _snapshotCache;
 
     // Build items list
     const items = [];
