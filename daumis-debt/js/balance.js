@@ -563,11 +563,15 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         } else {
           displayAmt = `${sign}${fmtDuelConsol(impact)}`;
         }
+        const playerName = item.playedBy
+          ? (item.playedBy === myUid ? getUserName(myUid) : getUserName(item.playedBy))
+          : null;
+        const duelMeta = `${dateStr} · Week ${item.week}${playerName ? ` · ${playerName} played` : ''}`;
         contentHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
             <div class="entry-desc">${item.game || 'Duel'}</div>
-            <div class="entry-meta">${dateStr} · Week ${item.week}</div>
+            <div class="entry-meta">${duelMeta}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       }

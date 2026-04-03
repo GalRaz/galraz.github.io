@@ -136,6 +136,7 @@ export async function startDuel() {
  * Called by individual game modules when the game completes.
  */
 export async function recordDuelResult({ game, result, balanceAdjust, favoredUser, seed, year, week }) {
+  const user = getCurrentUser();
   await db.collection('duels').add({
     year,
     week,
@@ -143,6 +144,7 @@ export async function recordDuelResult({ game, result, balanceAdjust, favoredUse
     result,
     balanceAdjust: Math.abs(balanceAdjust),
     favoredUser,
+    playedBy: user.uid,
     playedAt: firebase.firestore.FieldValue.serverTimestamp(),
     seed,
     submissions: null

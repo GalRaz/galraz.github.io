@@ -412,6 +412,8 @@ document.getElementById('fab-add').addEventListener('click', () => {
   if (deleteBtn) deleteBtn.style.display = 'none';
   const submitBtn = document.querySelector('#form-entry button[type="submit"]');
   submitBtn.textContent = 'Save';
+  // Auto-focus the amount field
+  setTimeout(() => document.getElementById('entry-amount').focus(), 100);
 });
 
 // --- Back buttons ---
