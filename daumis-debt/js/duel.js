@@ -1,6 +1,7 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, showScreen, getPartnerUid, getUserName } from './app.js';
 import { notifyPartner } from './notifications.js';
+import { invalidateDataCache, setDuelAvailableCache } from './balance.js';
 
 const GAMES = ['coin-flip', 'wheel', 'rps', 'lucky-number', 'scratch-card'];
 const GAME_NAMES = {
@@ -150,6 +151,9 @@ export async function recordDuelResult({ game, result, balanceAdjust, favoredUse
     type: 'duel',
     details: { game: GAME_NAMES[game] || game, balanceAdjust: Math.abs(balanceAdjust), favoredUser }
   });
+  // Duel is now played — clear banner cache and dashboard data cache
+  setDuelAvailableCache(false);
+  invalidateDataCache();
 }
 
 /** Render past duel history and score summary into the given container. */

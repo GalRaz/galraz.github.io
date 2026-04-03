@@ -4,9 +4,17 @@ import { getExchangeRate } from './exchange.js';
 
 // In-memory cache for Firestore snapshots — invalidated when data changes
 let _snapshotCache = null;
+// Cache duel availability so isDuelAvailable() doesn't re-query on every navigation
+// Invalidated when a duel is played (duel screen sets it to false) or cache is cleared
+let _duelAvailableCache = null;
 
 export function invalidateDataCache() {
   _snapshotCache = null;
+  _duelAvailableCache = null;
+}
+
+export function setDuelAvailableCache(value) {
+  _duelAvailableCache = value;
 }
 
 const CURRENCY_SYMBOLS = {
@@ -376,10 +384,13 @@ export async function loadDashboard(forceRefresh = false) {
     // On This Day card
     renderOnThisDay(items);
 
-    // Check for weekly duel availability
+    // Check for weekly duel availability (cached — re-queries only after invalidation)
     const { isDuelAvailable, startDuel } = await import('./duel.js');
     const duelBanner = document.getElementById('duel-banner');
-    if (await isDuelAvailable()) {
+    if (_duelAvailableCache === null) {
+      _duelAvailableCache = await isDuelAvailable();
+    }
+    if (_duelAvailableCache) {
       duelBanner.classList.remove('hidden');
       document.getElementById('btn-play-duel').onclick = startDuel;
     } else {
