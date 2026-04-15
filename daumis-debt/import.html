@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Splitwise Import — Daumi's Debt</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+      background: #1a1c18;
+      color: #e8e5de;
+      min-height: 100vh;
+      padding: 24px 20px;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #f2f0eb;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      color: #7c7b6f;
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+    }
+    .card {
+      background: #252721;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+      border: 1px solid #2e312a;
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #c8c5be;
+      margin-bottom: 12px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:not(:disabled):hover { opacity: 0.85; }
+    .btn-primary { background: #5c6b4f; color: #fff; }
+    .btn-google { background: #fff; color: #333; display: flex; align-items: center; gap: 10px; }
+    .btn-danger { background: #b5453a; color: #fff; }
+    #user-info {
+      font-size: 0.9rem;
+      color: #a0a096;
+      margin-top: 10px;
+    }
+    #user-info strong { color: #e8e5de; }
+    .progress-bar-track {
+      background: #2e312a;
+      border-radius: 8px;
+      height: 8px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: #5c6b4f;
+      height: 100%;
+      width: 0%;
+      transition: width 0.2s ease;
+      border-radius: 8px;
+    }
+    #progress-text {
+      font-size: 0.85rem;
+      color: #7c7b6f;
+      margin-top: 6px;
+    }
+    #log {
+      background: #0f1109;
+      border-radius: 12px;
+      padding: 14px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      max-height: 420px;
+      overflow-y: auto;
+      color: #a0a096;
+      border: 1px solid #1e211a;
+    }
+    .log-ok { color: #4a7c50; }
+    .log-warn { color: #8b6914; }
+    .log-err { color: #b5453a; }
+    .log-info { color: #5c8db8; }
+    .log-head { color: #c8c5be; font-weight: 600; }
+    .status-badge {
+      display: inline-block;
+      font-size: 0.8rem;
+      padding: 3px 10px;
+      border-radius: 8px;
+      background: #2e312a;
+      color: #7c7b6f;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .status-badge.ok { background: rgba(74,124,80,0.2); color: #4a7c50; }
+    .status-badge.err { background: rgba(181,69,58,0.2); color: #b5453a; }
+    .warning-box {
+      background: rgba(139,105,20,0.15);
+      border: 1px solid rgba(139,105,20,0.3);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #c4a840;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Splitwise Import</h1>
+<p class="subtitle">One-time import of Splitwise CSV data into Daumi's Debt</p>
+
+<div class="warning-box">
+  One-time use only. Running this twice will create duplicate entries.
+  This will delete the 5 "Splitwise balance" lump-sum entries (BTN, USD, THB, GBP, JPY)
+  and replace them with detailed rows. The EUR balance entry is kept as-is.
+  EUR expenses are imported with balanceExcluded: true (for On This Day only).
+  Existing app entries (duels, non-Splitwise expenses) are untouched.
+</div>
+
+<!-- Auth -->
+<div class="card" id="auth-card">
+  <h2>Step 1 — Sign in</h2>
+  <button class="btn btn-google" id="btn-signin">
+    <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 0 1 0-3.04V5.41H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.4L4.5 7.49a4.77 4.77 0 0 1 4.48-3.3z"/></svg>
+    Sign in with Google
+  </button>
+  <div id="user-info"></div>
+</div>
+
+<!-- Import -->
+<div class="card" id="import-card" style="display:none">
+  <h2>Step 2 — Import <span class="status-badge" id="import-badge">ready</span></h2>
+  <p style="font-size:0.85rem;color:#7c7b6f;margin-bottom:14px;">
+    Found <strong style="color:#e8e5de" id="row-count">—</strong> rows to import
+    (<strong style="color:#e8e5de" id="exp-count">—</strong> expenses,
+    <strong style="color:#e8e5de" id="pay-count">—</strong> payments).
+  </p>
+  <button class="btn btn-primary" id="btn-import">Run Import</button>
+  <div class="progress-bar-track" id="progress-track" style="display:none">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+  </div>
+  <div id="progress-text"></div>
+</div>
+
+<!-- Log -->
+<div class="card">
+  <h2>Log</h2>
+  <div id="log"><span class="log-info">Waiting for sign-in...</span></div>
+</div>
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ─── Firebase init ───────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCLdsk7GWR9C6juy_6IqBqaMymAhujm9pc",
+  authDomain: "daumis-debt.firebaseapp.com",
+  projectId: "daumis-debt",
+  storageBucket: "daumis-debt.firebasestorage.app",
+  messagingSenderId: "632130093638",
+  appId: "1:632130093638:web:31be5718f150d0eb0c8047"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ─── Embedded CSV data ───────────────────────────────────────────────────────
+const CSV_DATA = `Date,Description,Category,Cost,Currency,Daum,Gal
+2025-07-31,Merika,General,1092.00,BTN,-546.00,546.00
+2025-07-31,Dinner,Dining out,2570.00,BTN,-1285.00,1285.00
+2025-08-01,Grocery,Groceries,1465.00,BTN,-732.50,732.50
+2025-08-02,Taxi,Taxi,270.00,BTN,-135.00,135.00
+2025-08-02,Russian,General,2024.00,BTN,1012.00,-1012.00
+2025-08-02,Grocery,Groceries,550.00,BTN,275.00,-275.00
+2025-08-02, Grocery,Groceries,1020.00,BTN,-510.00,510.00
+2025-08-02,Grocery,Groceries,1294.00,BTN,-647.00,647.00
+2025-08-03,Salad,General,610.00,BTN,-610.00,610.00
+2025-08-04,Dinner,Dining out,1080.00,BTN,-540.00,540.00
+2025-08-05,Coffee Culture,Dining out,1585.00,BTN,-792.50,792.50
+2025-08-07,Olive oil and seaweed,Groceries,1330.00,BTN,665.00,-665.00
+2025-08-07,Grocery,Groceries,2615.00,BTN,-1307.50,1307.50
+2025-08-09,Takin,General,100.00,BTN,-50.00,50.00
+2025-08-09,Roast chicken,Groceries,1060.00,BTN,-530.00,530.00
+2025-08-09,Kimchi,General,600.00,BTN,-600.00,600.00
+2025-08-09,Imported veggies,Groceries,1000.00,BTN,-500.00,500.00
+2025-08-09,Other veggies,Groceries,300.00,BTN,150.00,-150.00
+2025-08-09,Grocery,Groceries,665.00,BTN,-332.50,332.50
+2025-08-10,Dawadada,General,850.00,BTN,-850.00,850.00
+2025-08-10,811,General,2082.00,BTN,-2082.00,2082.00
+2025-08-12,Linking ,General,1608.00,BTN,-804.00,804.00
+2025-08-13,Pema dinner,Dining out,1716.00,BTN,-858.00,858.00
+2025-08-14,Sourdough (forgot to put it last time),TV/Phone/Internet,500.00,BTN,250.00,-250.00
+2025-08-14,Ice creammmmmmm,General,640.00,BTN,320.00,-320.00
+2025-08-16,Csi,General,1360.00,BTN,-1360.00,1360.00
+2025-08-16,Ambient,General,1245.00,BTN,622.50,-622.50
+2025-08-18,Momomo,General,280.00,BTN,-140.00,140.00
+2025-08-18,Wokwok,General,1305.00,BTN,-652.50,652.50
+2025-08-21,Brekkie,General,1245.00,BTN,-622.50,622.50
+2025-08-22,Punakha shopping,General,500.00,BTN,-250.00,250.00
+2025-08-23,"Ice cream, cab, lunch",Groceries,850.00,BTN,-425.00,425.00
+2025-08-23,Taxi,Taxi,200.00,BTN,-100.00,100.00
+2025-08-24,Dhumra + tip,General,16360.00,BTN,8180.00,-8180.00
+2025-08-25,Meringma,General,1400.00,BTN,700.00,-700.00
+2025-08-25,Meraki Bowl + water,Water,550.00,BTN,550.00,-550.00
+2025-08-25,Lucky bicky 7 ,General,1960.00,BTN,980.00,-980.00
+2025-08-26,Russian,General,1840.00,BTN,-920.00,920.00
+2025-08-29,Ambient ,General,900.00,BTN,450.00,-450.00
+2025-08-31,Botanic,General,80.00,BTN,-40.00,40.00
+2025-08-31,Grocery,Groceries,1250.00,BTN,625.00,-625.00
+2025-08-31,Grocery etc,Groceries,2500.00,BTN,-1250.00,1250.00
+2025-08-31,Garuda,General,730.00,BTN,365.00,-365.00
+2025-09-03,No 7,General,3678.00,BTN,1839.00,-1839.00
+2025-09-03,Food express,General,315.00,BTN,-157.50,157.50
+2025-09-03,Dimsum,General,2485.00,BTN,-1242.50,1242.50
+2025-09-04,Momo,Dining out,320.00,BTN,160.00,-160.00
+2025-09-04,Fitlab,General,11990.00,BTN,-11990.00,11990.00
+2025-09-04,Wild cloud,General,1025.00,BTN,-512.50,512.50
+2025-09-05,Coldcuts,General,2350.00,BTN,-1175.00,1175.00
+2025-09-05,Grocery,Groceries,715.00,BTN,357.50,-357.50
+2025-09-06,Money exchange,General,200.00,USD,-200.00,200.00
+2025-09-06,Ambient,General,1200.00,BTN,600.00,-600.00
+2025-09-06,Thimphu deluxe,General,1839.00,BTN,-919.50,919.50
+2025-09-07,Jmart ,General,2430.00,BTN,1215.00,-1215.00
+2025-09-08,Shop no 7,Groceries,625.00,BTN,-312.50,312.50
+2025-09-08,Money exchange ,General,20000.00,BTN,-20000.00,20000.00
+2025-09-08,Deluxe,General,1950.00,BTN,-975.00,975.00
+2025-09-09,Dinner,Dining out,907.00,BTN,-453.50,453.50
+2025-09-09,Multi bread,Groceries,250.00,BTN,125.00,-125.00
+2025-09-09,Rent transfer,Rent,40000.00,BTN,-40000.00,40000.00
+2025-09-13,This is getting out of hand ,General,30000.00,BTN,-30000.00,30000.00
+2025-09-13,Bumthang trip,General,69576.00,BTN,-34788.00,34788.00
+2025-09-13,Massage,Life - Other,600.00,BTN,-600.00,600.00
+2025-09-13,Number 7,General,1025.00,BTN,-512.50,512.50
+2025-09-13,Groceries ,Groceries,1565.00,BTN,782.50,-782.50
+2025-09-13,Groceries,Groceries,550.00,BTN,-275.00,275.00
+2025-09-18,Mountain cafe,Dining out,1638.00,BTN,819.00,-819.00
+2025-09-19,Dinner,Dining out,1237.00,BTN,-618.50,618.50
+2025-09-20,Ambient ,General,950.00,BTN,475.00,-475.00
+2025-09-20,Shop 7,Groceries,1910.00,BTN,-955.00,955.00
+2025-09-21,Airport cafe la,Dining out,460.00,BTN,-230.00,230.00
+2025-09-21,Bathup kinley la ,General,690.00,BTN,345.00,-345.00
+2025-09-22,Derk la,General,780.00,BTN,-390.00,390.00
+2025-09-22,Beer la,Liquor,800.00,BTN,-400.00,400.00
+2025-09-23,Kuli la,General,400.00,BTN,-200.00,200.00
+2025-09-23,Mandala,General,1000.00,BTN,-1000.00,1000.00
+2025-09-23,Sonam driver ,General,10000.00,BTN,-5000.00,5000.00
+2025-09-24,Swiss la,General,20284.00,BTN,-10142.00,10142.00
+2025-09-24,Milk,Groceries,79.00,BTN,79.00,-79.00
+2025-09-24,Laya festival la,General,58000.00,BTN,-29000.00,29000.00
+2025-09-24,Cloud la,General,1100.00,BTN,-550.00,550.00
+2025-09-24,Deluxe la,General,1302.00,BTN,651.00,-651.00
+2025-09-25,Grocery la,Groceries,1240.00,BTN,620.00,-620.00
+2025-09-27,BB brunch ,Dining out,1115.00,BTN,557.50,-557.50
+2025-09-27,Massage,Life - Other,600.00,BTN,-600.00,600.00
+2025-09-29,Smoothie,General,300.00,BTN,300.00,-300.00
+2025-09-29,Bread,Groceries,250.00,BTN,125.00,-125.00
+2025-09-30,USD Pay off,General,97552.00,BTN,97552.00,-97552.00
+2025-09-30,CSI,General,2940.00,BTN,-2940.00,2940.00
+2025-10-09,Ambient,General,40000.00,BTN,-40000.00,40000.00
+2025-10-11,EW 1151,General,1679.99,AED,-1679.99,1679.99
+2025-10-20,The Pema,General,1537.00,BTN,-768.50,768.50
+2025-10-21,Laya transportation ,General,10000.00,BTN,5000.00,-5000.00
+2025-10-21,Amazon stuff ,General,3600.00,BTN,3600.00,-3600.00
+2025-10-21,Birbi,General,2002.00,BTN,-1001.00,1001.00
+2025-10-21,Data papito,General,599.00,BTN,-599.00,599.00
+2025-10-24,Springles,General,170.00,BTN,-85.00,85.00
+2025-10-25,Woah hot hot stone,General,8320.00,BTN,-4160.00,4160.00
+2025-10-25,Dinner,Dining out,1197.00,BTN,-598.50,598.50
+2025-10-25,7,General,840.00,BTN,420.00,-420.00
+2025-10-25,Cash 1k,General,87800.00,BTN,87800.00,-87800.00
+2025-10-28,Changyul,General,185.00,BTN,92.50,-92.50
+2025-11-01,Laya tips ,General,2000.00,BTN,-1000.00,1000.00
+2025-11-01,Punakha dinner ,Dining out,1440.00,BTN,-720.00,720.00
+2025-11-04,Sg taxi,Taxi,23.50,SGD,11.75,-11.75
+2025-11-05,Wadder,General,2.50,SGD,2.50,-2.50
+2025-11-05,Punch me,General,14.40,SGD,7.20,-7.20
+2025-11-05,Koi me,General,6.80,SGD,3.40,-3.40
+2025-11-05,Taxi,Taxi,29.50,SGD,14.75,-14.75
+2025-11-06,XO me,General,43.85,SGD,43.85,-43.85
+2025-11-06,Room upgrade,Rent,179.85,SGD,89.92,-89.92
+2025-11-06,Hotel to airport,Hotel,27.10,SGD,13.55,-13.55
+2025-11-06,Sing trip settlement,General,12685.34,BTN,12685.34,-12685.34
+2025-11-06,Eurowings,General,40530.00,BTN,-40530.00,40530.00
+2025-11-06,Dinner + agua ,Dining out,1750.00,BTN,-875.00,875.00
+2025-11-07,Link,General,2040.00,BTN,-1020.00,1020.00
+2025-11-08,Dont touch my butt,General,600.00,BTN,-600.00,600.00
+2025-11-09,Sole,General,2722.00,BTN,1361.00,-1361.00
+2025-11-09,Ommani,General,200.00,BTN,-100.00,100.00
+2025-11-10,Grocery,Groceries,810.00,BTN,-405.00,405.00
+2025-11-11,Gazom,General,1720.00,BTN,-860.00,860.00
+2025-11-12,7,General,420.00,BTN,210.00,-210.00
+2025-11-12,67 dinner,Dining out,1067.00,BTN,-533.50,533.50
+2025-11-14,Ambient,General,1290.00,BTN,645.00,-645.00
+2025-11-14,Laso parking,Parking,80.00,BTN,-80.00,80.00
+2025-11-29,Takin,General,100.00,BTN,-50.00,50.00
+2025-11-29,Fruits,Groceries,730.00,BTN,365.00,-365.00
+2025-11-29,Eggs,Groceries,530.00,BTN,265.00,-265.00
+2025-11-29,Food expresss,General,495.00,BTN,-247.50,247.50
+2025-11-29,Market + bread ,Groceries,775.00,BTN,-387.50,387.50
+2025-11-30,Russian ,General,1496.00,BTN,748.00,-748.00
+2025-12-01,Druk paneer,General,1938.00,BTN,-969.00,969.00
+2025-12-05,Grocery,Groceries,555.00,BTN,-277.50,277.50
+2025-12-05,Rocky,General,160.00,BTN,80.00,-80.00
+2025-12-06,Bubble tea,Dining out,300.00,BTN,-300.00,300.00
+2025-12-06,Boulangerie?,General,585.00,BTN,-292.50,292.50
+2025-12-06,7,General,2452.00,BTN,-1226.00,1226.00
+2025-12-06,Terma linca,General,7600.00,BTN,-3800.00,3800.00
+2025-12-06,Terma Linca dinner,Dining out,1800.00,BTN,900.00,-900.00
+2025-12-14,CsI,General,7400.00,BTN,-3700.00,3700.00
+2025-12-15,Transfer ,General,40000.00,BTN,-40000.00,40000.00
+2025-12-16,Cash,General,36273.00,BTN,36273.00,-36273.00
+2025-12-16,Transfer,General,10000.00,BTN,-10000.00,10000.00
+2025-12-21,Russian,General,1540.00,BTN,-770.00,770.00
+2025-12-22,Tip,General,1000.00,BTN,500.00,-500.00
+2025-12-22,Paneer chu,General,490.00,BTN,-245.00,245.00
+2025-12-23,Date ice creamu,General,730.00,BTN,365.00,-365.00
+2026-01-01,Climbing,General,27.50,EUR,-13.75,13.75
+2026-01-02,Agua,General,2.20,EUR,-1.10,1.10
+2026-01-02,La cuenta,General,61.45,EUR,30.72,-30.72
+2026-01-03,Quiche,General,20.90,EUR,10.45,-10.45
+2026-01-03,Paella,Dining out,91.55,EUR,45.77,-45.77
+2026-01-04,Sweatpants + jacket ,General,137.55,EUR,137.55,-137.55
+2026-01-05,Hotel,Hotel,483.45,EUR,241.73,-241.73
+2026-01-05,Rossmann,Household supplies,40.96,EUR,20.48,-20.48
+2026-01-05,Petrol,Gas/fuel,45.95,EUR,22.98,-22.98
+2026-01-05,Parking fee ,Parking,7.00,EUR,3.50,-3.50
+2026-01-05,PMI - Palma Centro,General,10.00,EUR,5.00,-5.00
+2026-01-06,Calamari,General,32.00,EUR,16.00,-16.00
+2026-01-06,Bike,Bicycle,50.00,EUR,-25.00,25.00
+2026-01-06,Vent,General,35.00,EUR,-17.50,17.50
+2026-01-06,Royal eta,General,19.08,EUR,19.08,-19.08
+2026-01-06,Honey,Groceries,12.00,EUR,-6.00,6.00
+2026-01-07,Letter gifts ,General,20.93,EUR,20.93,-20.93
+2026-01-07,Adrian Quetglas,General,191.93,EUR,-95.97,95.97
+2026-01-07,Train,Bus/train,30.20,GBP,15.10,-15.10
+2026-01-07,Black sheep coffee,Dining out,8.08,GBP,-4.04,4.04
+2026-01-07,M&s,General,12.00,GBP,6.00,-6.00
+2026-01-07,Dinner,Dining out,46.50,GBP,-46.50,46.50
+2026-01-08,Prufrock,General,9.11,GBP,-4.56,4.56
+2026-01-08,Spencer house,General,34.70,GBP,17.35,-17.35
+2026-01-08,Italian sandwiches,General,15.00,GBP,7.50,-7.50
+2026-01-31,Uniqlo heat ,Heat/gas,1880.00,JPY,1880.00,-1880.00
+2026-02-01,Spotify,Music,1480.00,JPY,740.00,-740.00
+2026-02-08,Spikes,General,4044.00,JPY,2022.00,-2022.00
+2026-02-08,Cost for not being gal's dependent,General,100.00,USD,-100.00,100.00
+2026-02-08,Suv sex to yosemite with pass,General,35.00,USD,-17.50,17.50
+2026-02-14,Parking,Parking,4.00,USD,-2.00,2.00
+2026-02-14,Animal style,General,13.40,USD,-6.70,6.70
+2026-02-14,Gas,Gas/fuel,33.60,USD,-16.80,16.80
+2026-02-14,Trader joes ,Groceries,49.50,USD,-24.75,24.75
+2026-02-15,Raileys ,General,48.21,USD,-24.11,24.11
+2026-02-15,Cafe,Dining out,9.20,USD,-4.60,4.60
+2026-02-15,Mcdo,Dining out,6.81,USD,-3.40,3.40
+2026-02-16,Gas,Gas/fuel,46.00,USD,-23.00,23.00
+2026-02-16,Uber,Taxi,17.00,USD,8.50,-8.50
+2026-02-16,Oakhurst Airbnb,Hotel,480.49,USD,-240.25,240.25
+2026-02-16,Car rental ,Car,265.00,USD,-132.50,132.50
+2026-02-16,machine and other stuff,General,1546.42,USD,-1546.42,1546.42
+2026-02-17,Chipotle with hot chicken and black beans no corn,Groceries,26.29,USD,-13.14,13.14
+2026-02-17,Bread,Groceries,12.00,USD,6.00,-6.00
+2026-02-17,Verve,General,18.48,USD,-9.24,9.24
+2026-02-17,Moma ticket,General,40.00,USD,-40.00,40.00
+2026-02-17,Cash,General,300.00,USD,300.00,-300.00
+2026-02-18,Hummus,General,15.58,USD,7.79,-7.79
+2026-02-23,Boba,General,7.35,USD,-3.67,3.67
+2026-02-23,"Whole Foods, 7/11, Trader Joes",Groceries,84.00,USD,-42.00,42.00
+2026-02-23,Natural lawson,General,1845.00,JPY,922.50,-922.50
+2026-02-24,Grocery,Groceries,5508.00,JPY,2754.00,-2754.00
+2026-02-24,Bday cuppa,Gifts,1950.00,JPY,1950.00,-1950.00
+2026-02-25,Taxi,Taxi,4400.00,JPY,2200.00,-2200.00
+2026-02-25,Shabu shabu ,General,9728.00,JPY,4864.00,-4864.00
+2026-02-26,Sim card,General,105.00,BTN,105.00,-105.00
+2026-03-01,Spotify,Music,1480.00,JPY,740.00,-740.00
+2026-03-03,Bubble tea,Dining out,310.00,THB,155.00,-155.00
+2026-03-03,Water,Water,1359.00,JPY,679.50,-679.50
+2026-03-04,Grocery and golden ricd,Groceries,8746.00,JPY,4373.00,-4373.00
+2026-03-04,Kebab sando,Dining out,700.00,JPY,350.00,-350.00
+2026-03-06,Detergent,Household supplies,2100.00,JPY,1050.00,-1050.00
+2026-03-06,Salad,General,1246.00,JPY,623.00,-623.00
+2026-03-06,Milku,General,195.00,JPY,97.50,-97.50
+2026-03-06,Chocolates,General,284.00,JPY,142.00,-142.00
+2026-03-07,Milk foam boba,Groceries,860.00,JPY,430.00,-430.00
+2026-03-07,Drugstore,General,6084.00,JPY,3042.00,-3042.00
+2026-03-08,Supermarket (lemon oil etc),Groceries,2355.00,JPY,-1177.50,1177.50
+2026-03-09,BTN Transfer,General,45880.00,BTN,-45880.00,45880.00
+2026-03-11,Ambient,General,840.00,BTN,-420.00,420.00
+2026-03-11,Capuccino,General,190.00,BTN,-190.00,190.00
+2026-03-11,Taxi,Taxi,300.00,BTN,-150.00,150.00
+2026-03-13,Flight change,Plane,6.00,USD,-3.00,3.00
+2026-03-13,Massage,Life - Other,6000.00,BTN,3000.00,-3000.00
+2026-03-14,House stuff,General,3345.00,BTN,-1672.50,1672.50
+2026-03-15,Laundry detergent for bhutan,Household supplies,3653.00,JPY,1826.50,-1826.50
+2026-03-17,Household stuff,Household supplies,6788.00,JPY,3394.00,-3394.00
+2026-03-17,Snacks food,Groceries,12001.00,JPY,6000.50,-6000.50
+2026-03-22,Dinner,Dining out,1720.00,BTN,-860.00,860.00
+2026-03-22,Toaster oven (no heating),Heat/gas,5661.00,BTN,-2830.50,2830.50
+2026-03-23,Dawa,General,3307.00,BTN,1653.50,-1653.50
+2026-03-23,No 7,General,667.00,BTN,333.50,-333.50
+2026-03-23,Thimphu deluxe,General,1779.00,BTN,-889.50,889.50
+2026-03-24,Transfer ,General,50000.00,BTN,-50000.00,50000.00
+2026-03-24,Ogop,General,640.00,BTN,320.00,-320.00
+2026-03-24,Grocery,Groceries,1120.00,BTN,560.00,-560.00
+2026-03-24,"Zeeling, russian",General,1668.00,BTN,834.00,-834.00
+2026-03-25,Ambient,General,390.00,BTN,-195.00,195.00
+2026-03-25,Dosa,Dining out,560.00,BTN,280.00,-280.00
+2026-03-25,Yogurt,Groceries,240.00,BTN,-120.00,120.00
+2026-03-25,Eva air,General,379.00,USD,-189.50,189.50
+2026-03-26,Sanmaru,General,2200.00,BTN,-1100.00,1100.00
+2026-03-26,Ambient ,General,495.00,BTN,-247.50,247.50
+2026-03-26,Confused cauliflower,General,1992.00,BTN,-996.00,996.00
+2026-03-27,Driver tip ,General,10.00,USD,-5.00,5.00
+2026-03-27,Grabme,General,410.00,THB,205.00,-205.00
+2026-03-27,Munch,General,814.00,THB,-407.00,407.00
+2026-03-27,Massage ,Life - Other,630.00,THB,315.00,-315.00
+2026-03-28,Grabme,General,587.00,THB,293.50,-293.50
+2026-03-28,Grabike all,General,270.00,THB,135.00,-135.00
+2026-03-28,Conbini,General,1286.00,JPY,643.00,-643.00
+2026-03-28,Garretts ,General,195.00,THB,-97.50,97.50
+2026-03-29,Matcha latte futatsu,General,1300.00,JPY,650.00,-650.00
+2026-03-29,Cow cookie ,General,500.00,JPY,500.00,-500.00
+2026-03-29,Garden entrance,Dining out,1000.00,JPY,500.00,-500.00
+2026-03-29,Bread,Groceries,860.00,JPY,430.00,-430.00
+2026-03-29,Ramen,General,1220.00,JPY,1220.00,-1220.00
+2026-03-29,Grocery,Groceries,4574.00,JPY,2287.00,-2287.00
+2025-09-06,Daum paid Gal,Payment,200.00,USD,200.00,-200.00
+2025-11-06,Gal paid Daum,Payment,186.92,SGD,-186.92,186.92
+2025-11-06,Daum paid Gal,Payment,1679.99,AED,1679.99,-1679.99`;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentUser = null;
+let galUid = null;
+let daumUid = null;
+
+// ─── Log helpers ─────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function log(msg, cls = '') {
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog() { logEl.innerHTML = ''; }
+
+// ─── CSV parser (handles quoted fields with commas) ───────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    // Handle quoted fields
+    const fields = [];
+    let cur = '';
+    let inQuote = false;
+    for (let j = 0; j < line.length; j++) {
+      const ch = line[j];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { fields.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    fields.push(cur.trim());
+    const row = {};
+    headers.forEach((h, idx) => { row[h] = fields[idx] !== undefined ? fields[idx] : ''; });
+    rows.push(row);
+  }
+  return rows;
+}
+
+// ─── Exchange rate cache ──────────────────────────────────────────────────────
+const rateCache = {};
+
+async function getRate(currency) {
+  if (currency === 'USD') return 1;
+  if (rateCache[currency]) return rateCache[currency];
+
+  // BTN is pegged 1:1 to INR
+  const queryCurrency = currency === 'BTN' ? 'INR' : currency;
+
+  // Try frankfurter first (doesn't support AED, TWD, THB reliably)
+  try {
+    const res = await fetch(`https://api.frankfurter.app/latest?from=${queryCurrency}&to=USD`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rates && data.rates.USD) {
+        rateCache[currency] = data.rates.USD;
+        log(`  Rate ${currency} → USD: ${data.rates.USD} (frankfurter)`, 'log-ok');
+        return data.rates.USD;
+      }
+    }
+  } catch (e) { /* fall through */ }
+
+  // Fallback: open.er-api.com
+  try {
+    const res = await fetch(`https://open.er-api.com/v6/latest/${queryCurrency}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.rates && data.rates.USD) {
+        rateCache[currency] = data.rates.USD;
+        log(`  Rate ${currency} → USD: ${data.rates.USD} (open.er-api fallback)`, 'log-ok');
+        return data.rates.USD;
+      }
+    }
+  } catch (e) { /* fall through */ }
+
+  throw new Error(`Could not fetch rate for ${currency}`);
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-signin').addEventListener('click', async () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  try {
+    await auth.signInWithPopup(provider);
+  } catch (e) {
+    log('Sign-in failed: ' + e.message, 'log-err');
+  }
+});
+
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    currentUser = user;
+    document.getElementById('user-info').innerHTML =
+      `Signed in as <strong>${user.displayName || user.email}</strong>`;
+    clearLog();
+    log('Signed in as ' + (user.displayName || user.email), 'log-info');
+    await lookupUsers();
+  } else {
+    currentUser = null;
+    document.getElementById('import-card').style.display = 'none';
+    document.getElementById('user-info').innerHTML = '';
+  }
+});
+
+async function lookupUsers() {
+  log('Looking up users collection...', 'log-info');
+  try {
+    const snap = await db.collection('users').get();
+    if (snap.empty) {
+      log('No users found in Firestore. Make sure both users have signed in to the main app first.', 'log-err');
+      return;
+    }
+
+    // Current user is Gal. The other user is Daum.
+    galUid = currentUser.uid;
+    snap.forEach(doc => {
+      if (doc.id !== galUid) daumUid = doc.id;
+    });
+
+    if (!daumUid) {
+      log('Could not find Daum\'s UID. Only one user in the users collection — make sure Daum has signed in.', 'log-warn');
+      // Still allow import with galUid only; daumUid will be null
+    }
+
+    log(`Gal UID:  ${galUid}`, 'log-ok');
+    log(`Daum UID: ${daumUid || '(not found)'}`, daumUid ? 'log-ok' : 'log-warn');
+
+    // Parse and show counts
+    const rows = parseCSV(CSV_DATA).filter(r => r.Description !== 'Total balance');
+    const payments = rows.filter(r => r.Category === 'Payment');
+    const expenses = rows.filter(r => r.Category !== 'Payment');
+    document.getElementById('row-count').textContent = rows.length;
+    document.getElementById('exp-count').textContent = expenses.length;
+    document.getElementById('pay-count').textContent = payments.length;
+
+    document.getElementById('import-card').style.display = '';
+    log(`Ready: ${expenses.length} expenses + ${payments.length} payments = ${rows.length} total`, 'log-info');
+  } catch (e) {
+    log('Error looking up users: ' + e.message, 'log-err');
+  }
+}
+
+// ─── Import ───────────────────────────────────────────────────────────────────
+document.getElementById('btn-import').addEventListener('click', runImport);
+
+async function runImport() {
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  const badge = document.getElementById('import-badge');
+  badge.textContent = 'running...';
+  badge.className = 'status-badge';
+
+  const progressTrack = document.getElementById('progress-track');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  progressTrack.style.display = '';
+
+  clearLog();
+  log('=== Splitwise Import Started ===', 'log-head');
+  log('', '');
+
+  try {
+    // ── Step 0: Delete lump-sum "Splitwise balance" entries (except EUR) ─────
+    log('--- Deleting lump-sum Splitwise balance entries ---', 'log-head');
+    const currenciesToDelete = ['BTN', 'USD', 'THB', 'GBP', 'JPY'];
+    const allExpenses = await db.collection('expenses').get();
+    let deleted = 0;
+    const deleteBatch = db.batch();
+    allExpenses.forEach(doc => {
+      const d = doc.data();
+      if (d.description && d.description.toLowerCase().includes('splitwise balance')) {
+        if (currenciesToDelete.includes(d.currency)) {
+          deleteBatch.delete(doc.ref);
+          log(`  Deleting: "${d.description}" ${d.amount} ${d.currency}`, 'log-warn');
+          deleted++;
+        } else {
+          log(`  Keeping: "${d.description}" ${d.amount} ${d.currency}`, 'log-info');
+        }
+      }
+    });
+    if (deleted > 0) {
+      await deleteBatch.commit();
+      log(`Deleted ${deleted} lump-sum entries`, 'log-ok');
+    } else {
+      log('No lump-sum entries found to delete', 'log-info');
+    }
+    log('', '');
+
+    const rows = parseCSV(CSV_DATA).filter(r => r.Description !== 'Total balance');
+    const paymentRows = rows.filter(r => r.Category === 'Payment');
+    const expenseRows = rows.filter(r => r.Category !== 'Payment');
+    log(`Parsed ${expenseRows.length} expenses, ${paymentRows.length} payments`, 'log-info');
+
+    // Collect unique currencies and fetch rates
+    const uniqueCurrencies = [...new Set(rows.map(r => r.Currency))];
+    log('', '');
+    log(`Fetching rates for: ${uniqueCurrencies.join(', ')}`, 'log-info');
+    for (const cur of uniqueCurrencies) {
+      try {
+        await getRate(cur);
+      } catch (e) {
+        log(`  Failed to get rate for ${cur}: ${e.message}`, 'log-err');
+      }
+    }
+
+    log('', '');
+    log('--- Building batch writes ---', 'log-head');
+
+    const batch = db.batch();
+    let count = 0;
+    const total = rows.length;
+    const now = firebase.firestore.Timestamp.now();
+
+    // ── Expenses ──────────────────────────────────────────────────────────────
+    for (const row of expenseRows) {
+      const desc = row.Description.trim();
+      const cost = parseFloat(row.Cost);
+      const currency = row.Currency.trim();
+      const daumVal = parseFloat(row.Daum);
+      const galVal = parseFloat(row.Gal);
+      const date = new Date(row.Date.trim());
+
+      // Determine who paid: positive value = owed money = paid
+      let paidBy, owedBy;
+      if (galVal > 0) {
+        paidBy = galUid;
+        owedBy = daumUid;
+      } else {
+        paidBy = daumUid;
+        owedBy = galUid;
+      }
+
+      // Determine split type
+      // The person with negative value owes. If |negative| ≈ cost → full. If ≈ cost/2 → even.
+      const negVal = Math.abs(Math.min(daumVal, galVal));
+      let splitType;
+      if (Math.abs(negVal - cost) <= 1.0) {
+        splitType = 'full';
+      } else if (Math.abs(negVal - cost / 2) <= 1.0) {
+        splitType = 'even';
+      } else {
+        // Default to even as a safe fallback
+        splitType = 'even';
+        log(`  WARN: ambiguous split for "${desc}" (cost=${cost}, neg=${negVal}) — defaulting to even`, 'log-warn');
+      }
+
+      const rate = rateCache[currency] || 1;
+      const usdAmount = Math.round(cost * rate * 100) / 100;
+
+      const isEur = currency === 'EUR';
+      const docData = {
+        description: desc,
+        amount: cost,
+        currency: currency,
+        usdAmount: usdAmount,
+        exchangeRate: rate,
+        paidBy: paidBy || null,
+        splitType: splitType,
+        owedBy: owedBy || null,
+        date: firebase.firestore.Timestamp.fromDate(date),
+        addedBy: galUid,
+        createdAt: now,
+        source: 'splitwise'
+      };
+      if (isEur) docData.balanceExcluded = true;
+
+      const docRef = db.collection('expenses').doc();
+      batch.set(docRef, docData);
+
+      count++;
+      const paidByName = paidBy === galUid ? 'Gal' : 'Daum';
+      const eurTag = isEur ? ' [balance excluded]' : '';
+      log(`[${count}/${total}] Expense: "${desc}" ${cost} ${currency} → $${usdAmount} | ${splitType} | paid by ${paidByName}${eurTag}`, 'log-ok');
+      progressFill.style.width = `${Math.round(count / total * 100)}%`;
+      progressText.textContent = `${count} of ${total} processed`;
+    }
+
+    // ── Payments ──────────────────────────────────────────────────────────────
+    for (const row of paymentRows) {
+      const desc = row.Description.trim();
+      const cost = parseFloat(row.Cost);
+      const currency = row.Currency.trim();
+      const daumVal = parseFloat(row.Daum);
+      const galVal = parseFloat(row.Gal);
+      const date = new Date(row.Date.trim());
+
+      // For payments: positive value = payer
+      let paidBy, paidTo;
+      if (daumVal > 0) {
+        paidBy = daumUid;
+        paidTo = galUid;
+      } else {
+        paidBy = galUid;
+        paidTo = daumUid;
+      }
+
+      const rate = rateCache[currency] || 1;
+      const usdAmount = Math.round(cost * rate * 100) / 100;
+
+      const docRef = db.collection('payments').doc();
+      batch.set(docRef, {
+        amount: cost,
+        currency: currency,
+        usdAmount: usdAmount,
+        exchangeRate: rate,
+        paidBy: paidBy || null,
+        paidTo: paidTo || null,
+        date: firebase.firestore.Timestamp.fromDate(date),
+        addedBy: galUid,
+        createdAt: now,
+        source: 'splitwise'
+      });
+
+      count++;
+      const paidByName = paidBy === galUid ? 'Gal' : 'Daum';
+      const paidToName = paidTo === galUid ? 'Gal' : 'Daum';
+      log(`[${count}/${total}] Payment: "${desc}" ${cost} ${currency} → $${usdAmount} | ${paidByName} → ${paidToName}`, 'log-ok');
+      progressFill.style.width = `${Math.round(count / total * 100)}%`;
+      progressText.textContent = `${count} of ${total} processed`;
+    }
+
+    log('', '');
+    log('Committing batch to Firestore...', 'log-info');
+    await batch.commit();
+
+    progressFill.style.width = '100%';
+    progressText.textContent = `Done! ${total} documents written.`;
+    badge.textContent = 'done';
+    badge.className = 'status-badge ok';
+
+    log('', '');
+    log(`=== Import Complete: ${total} documents written ===`, 'log-head');
+    log('You can now open the main app to see your history.', 'log-info');
+
+  } catch (e) {
+    badge.textContent = 'error';
+    badge.className = 'status-badge err';
+    log('', '');
+    log('ERROR: ' + e.message, 'log-err');
+    console.error(e);
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

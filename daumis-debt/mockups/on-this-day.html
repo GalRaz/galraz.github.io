@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>On This Day — Mockups</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #f2f0eb;
+      --surface: #e6e3da;
+      --surface-2: #dddad0;
+      --surface-3: #ccc9be;
+      --accent: #5c6b4f;
+      --accent-soft: rgba(92, 107, 79, 0.12);
+      --text: #33372c;
+      --text-muted: #7c7b6f;
+      --green: #4a7c50;
+      --red: #b5453a;
+      --gold: #8b6914;
+      --radius: 16px;
+      --radius-sm: 12px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px 20px;
+      max-width: 480px;
+      margin: 0 auto;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+    .mockup-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      margin: 40px 0 16px;
+      padding-top: 24px;
+      border-top: 1px solid var(--surface-3);
+    }
+    .mockup-label:first-of-type { margin-top: 0; border: none; padding-top: 0; }
+    .mockup-note {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    /* ========== OPTION A: Minimal inline ========== */
+    .otd-a {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .otd-a .otd-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .otd-a .otd-body { flex: 1; min-width: 0; }
+    .otd-a .otd-tag {
+      font-size: 0.65rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+    }
+    .otd-a .otd-text {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .otd-a .otd-amount {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .otd-a .otd-dismiss {
+      width: 24px; height: 24px;
+      background: none; border: none;
+      color: var(--text-muted);
+      font-size: 1rem;
+      cursor: pointer;
+      opacity: 0.5;
+    }
+
+    /* ========== OPTION B: Card with flair ========== */
+    .otd-b {
+      background: linear-gradient(135deg, var(--surface), var(--surface-2));
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .otd-b::before {
+      content: '';
+      position: absolute;
+      top: -20px; right: -20px;
+      width: 100px; height: 100px;
+      background: var(--accent-soft);
+      border-radius: 50%;
+    }
+    .otd-b .otd-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .otd-b .otd-badge {
+      font-size: 0.65rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      background: var(--accent-soft);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .otd-b .otd-year {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .otd-b .otd-dismiss {
+      position: absolute;
+      top: 0; right: 0;
+      background: none; border: none;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      cursor: pointer;
+      opacity: 0.4;
+    }
+    .otd-b .otd-main {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      position: relative;
+    }
+    .otd-b .otd-desc {
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+    .otd-b .otd-amount {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .otd-b .otd-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+      position: relative;
+    }
+
+    /* ========== OPTION C: Polaroid / nostalgic ========== */
+    .otd-c {
+      background: #fff;
+      border-radius: 4px;
+      padding: 16px 16px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+      transform: rotate(-0.8deg);
+      max-width: 320px;
+    }
+    .otd-c .otd-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .otd-c .otd-tag {
+      font-size: 0.6rem;
+      color: #b08840;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+    }
+    .otd-c .otd-dismiss {
+      background: none; border: none;
+      color: #ccc;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .otd-c .otd-desc {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #2a2a2a;
+      letter-spacing: -0.2px;
+    }
+    .otd-c .otd-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-top: 8px;
+    }
+    .otd-c .otd-date {
+      font-size: 0.8rem;
+      color: #999;
+      font-style: italic;
+    }
+    .otd-c .otd-amount {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #666;
+    }
+    .otd-c .otd-tape {
+      position: relative;
+    }
+    .otd-c .otd-tape::before {
+      content: '';
+      position: absolute;
+      top: -24px; left: 50%;
+      transform: translateX(-50%) rotate(2deg);
+      width: 60px; height: 18px;
+      background: rgba(200, 190, 150, 0.4);
+      border-radius: 1px;
+    }
+
+    /* ========== OPTION D: Conversation bubble ========== */
+    .otd-d {
+      margin-bottom: 12px;
+    }
+    .otd-d .otd-wrapper {
+      background: var(--accent);
+      color: #f2f0eb;
+      border-radius: 20px 20px 20px 6px;
+      padding: 14px 18px;
+      max-width: 85%;
+      position: relative;
+    }
+    .otd-d .otd-tag {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      opacity: 0.6;
+      margin-bottom: 4px;
+    }
+    .otd-d .otd-text {
+      font-size: 0.95rem;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .otd-d .otd-text strong {
+      font-weight: 700;
+    }
+    .otd-d .otd-meta {
+      font-size: 0.7rem;
+      opacity: 0.5;
+      margin-top: 6px;
+      text-align: right;
+    }
+
+    /* ========== Context: Dashboard preview ========== */
+    .dashboard-preview {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 2px solid var(--surface-3);
+    }
+    .balance-card-mini {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 24px 20px 18px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .balance-card-mini .label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .balance-card-mini .amount {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: -1px;
+      margin-top: 4px;
+    }
+    .history-header {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 600;
+      margin: 16px 0 12px;
+    }
+    .history-item {
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .history-item .h-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 700;
+      color: var(--text-muted);
+    }
+    .history-item .h-info { flex: 1; }
+    .history-item .h-desc { font-size: 0.9rem; font-weight: 500; }
+    .history-item .h-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .history-item .h-amount { font-size: 0.9rem; font-weight: 700; }
+    .history-item .h-amount.credit { color: var(--green); }
+    .history-item .h-amount.debit { color: var(--red); }
+  </style>
+</head>
+<body>
+
+  <p class="mockup-label" style="margin-top: 0; border: none; padding-top: 0;">Option A — Minimal inline</p>
+  <p class="mockup-note">Sits in the history list like a regular entry. Subtle, easy to dismiss. Doesn't interrupt.</p>
+  <div class="otd-a">
+    <div class="otd-icon">📸</div>
+    <div class="otd-body">
+      <div class="otd-tag">1 year ago today</div>
+      <div class="otd-text">Ramen in Shibuya</div>
+    </div>
+    <div class="otd-amount">$12.00</div>
+    <button class="otd-dismiss">×</button>
+  </div>
+
+  <p class="mockup-label">Option B — Accent card</p>
+  <p class="mockup-note">Sits between the balance card and history. Feels like a feature, not a footnote. Dismissible.</p>
+  <div class="otd-b">
+    <div class="otd-header">
+      <span class="otd-badge">On this day</span>
+      <span class="otd-year">March 30, 2025</span>
+      <button class="otd-dismiss">×</button>
+    </div>
+    <div class="otd-main">
+      <span class="otd-desc">Ramen in Shibuya</span>
+      <span class="otd-amount">$12.00</span>
+    </div>
+    <div class="otd-sub">You split this evenly · 1 year ago</div>
+  </div>
+
+  <p class="mockup-label">Option C — Polaroid</p>
+  <p class="mockup-note">Nostalgic, physical-feeling card. Slightly tilted. Stands apart from the rest of the UI. Feels like pulling a memory from a box.</p>
+  <div class="otd-c">
+    <div class="otd-tape"></div>
+    <div class="otd-top">
+      <span class="otd-tag">On this day · 1 year ago</span>
+      <button class="otd-dismiss">×</button>
+    </div>
+    <div class="otd-desc">Ramen in Shibuya</div>
+    <div class="otd-details">
+      <span class="otd-date">March 30, 2025</span>
+      <span class="otd-amount">$12.00</span>
+    </div>
+  </div>
+
+  <p class="mockup-label">Option D — Chat bubble</p>
+  <p class="mockup-note">Feels like the app is talking to you. Casual, personal tone. Fits the playful vibe of the duel system.</p>
+  <div class="otd-d">
+    <div class="otd-wrapper">
+      <div class="otd-tag">On this day</div>
+      <div class="otd-text">1 year ago you split <strong>Ramen in Shibuya</strong> for <strong>$12.00</strong></div>
+      <div class="otd-meta">March 30, 2025</div>
+    </div>
+  </div>
+
+  <!-- Dashboard context -->
+  <div class="dashboard-preview">
+    <p class="mockup-label" style="border: none; padding-top: 0; margin-top: 0;">In context — Option B on a dashboard</p>
+    <p class="mockup-note">How the card sits between the balance and history.</p>
+
+    <div class="balance-card-mini">
+      <div class="label">Daum owes you</div>
+      <div class="amount">$47.50</div>
+    </div>
+
+    <div class="otd-b" style="margin-bottom: 16px;">
+      <div class="otd-header">
+        <span class="otd-badge">On this day</span>
+        <span class="otd-year">March 30, 2025</span>
+        <button class="otd-dismiss">×</button>
+      </div>
+      <div class="otd-main">
+        <span class="otd-desc">Ramen in Shibuya</span>
+        <span class="otd-amount">$12.00</span>
+      </div>
+      <div class="otd-sub">You split this evenly · 1 year ago</div>
+    </div>
+
+    <div class="history-header">History</div>
+    <div class="history-item">
+      <div class="h-icon">$</div>
+      <div class="h-info">
+        <div class="h-desc">Groceries</div>
+        <div class="h-meta">Mar 30 · 45.00 USD · even</div>
+      </div>
+      <div class="h-amount credit">+$22.50</div>
+    </div>
+    <div class="history-item">
+      <div class="h-icon">↗</div>
+      <div class="h-info">
+        <div class="h-desc">Settle up</div>
+        <div class="h-meta">Mar 29 · 30.00 USD</div>
+      </div>
+      <div class="h-amount debit">-$30.00</div>
+    </div>
+    <div class="history-item">
+      <div class="h-icon" style="color: var(--gold);">⚔</div>
+      <div class="h-info">
+        <div class="h-desc">Wheel of Fortune</div>
+        <div class="h-meta">Mar 28 · Week 13</div>
+      </div>
+      <div class="h-amount credit">+$5.00</div>
+    </div>
+  </div>
+
+</body>
+</html>
