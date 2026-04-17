@@ -73,9 +73,8 @@ export async function play(container, { year, week, seed }) {
     const startAngle = currentAngle;
 
     // Pointer is at canvas top (-PI/2). For slice center to align with pointer:
-    // -currentAngle + targetSliceCenter = -PI/2 (mod 2PI)
-    // currentAngle = targetSliceCenter - PI/2
-    const targetFinal = -Math.PI / 2 + targetSliceCenter;
+    // -currentAngle + targetSliceCenter = -PI/2  →  currentAngle = targetSliceCenter + PI/2
+    const targetFinal = Math.PI / 2 + targetSliceCenter;
     const remainder = ((targetFinal - startAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const totalAngle = spins * 2 * Math.PI + remainder;
 

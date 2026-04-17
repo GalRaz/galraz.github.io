@@ -76,19 +76,18 @@ async function areDuelsEnabled() {
   } catch (e) { return true; }
 }
 
-/** Check if a duel is available this week (enabled, correct day, not yet played). */
+/** Check if a duel is available this week (enabled, correct day, current user hasn't played). */
 export async function isDuelAvailable() {
   if (!isDuelDay()) return false;
   if (!(await areDuelsEnabled())) return false;
   const { year, week } = getCurrentWeekInfo();
+  const user = getCurrentUser();
   const snapshot = await db.collection('duels')
     .where('year', '==', year)
     .where('week', '==', week)
     .get();
-  // Available if no duel doc exists, or if one exists but has no final result yet
   if (snapshot.empty) return true;
-  const data = snapshot.docs[0].data();
-  return !data.result;
+  return !snapshot.docs.some(doc => doc.data().playedBy === user.uid);
 }
 
 /** Start the weekly duel. */
@@ -101,8 +100,9 @@ export async function startDuel() {
     .where('week', '==', week)
     .get();
 
-  if (!existing.empty && existing.docs[0].data().result) {
-    alert('Duel already played this week!');
+  const user = getCurrentUser();
+  if (!existing.empty && existing.docs.some(doc => doc.data().playedBy === user.uid)) {
+    alert('You already played this week!');
     return;
   }
 
