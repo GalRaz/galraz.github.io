@@ -85,40 +85,83 @@ function categorize(description) {
   return { icon: '$', label: 'other' };
 }
 
-function getBalanceQuote(balance) {
-  const abs = Math.abs(balance);
-  const day = Math.floor(Date.now() / 86400000);
+// --- Daily taglines ---------------------------------------------------------
+// A scheduled agent refreshes daumis-debt/quotes/daily.json with new taglines
+// tied to current events. We read it lazily and fall back to the static bank
+// when it's missing, stale, or malformed.
 
-  const settledQuotes = [
+const STATIC_QUOTES = {
+  settled: [
     "Perfectly balanced, as all things should be.",
     "Zero debt. Suspicious. Who are you people?",
     "The rare moment where nobody can complain."
-  ];
-
-  // Negative balance = you owe
-  const youOweQuotes = [
+  ],
+  youOwe: [
     ["That's barely a kebab and a beer. Embarrassing to even track.", "You owe less than a parking ticket. Somehow that's worse.", "This debt is so small it has an inferiority complex."],
     ["You owe a nice dinner. One where you chew with your mouth closed.", "This is 'I'll grab the next one' except you've said that nine times.", "Your partner is not mad. Just disappointed. And keeping score."],
     ["Your debt just got a LinkedIn profile.", "That's enough to buy a goat in some countries. A NICE goat.", "You could pay this off or you could avoid eye contact forever. Your call."],
     ["You now owe a plane ticket. Economy. Middle seat. You deserve it.", "This is 'I will do literally any household chore without being asked' money.", "Your debt just applied for a mortgage."],
     ["Sell the guitar you don't play.", "Your debt has more life goals than you do.", "This amount of money could start a small cult. Just saying."],
     ["You don't have a relationship. You have a subprime loan with cuddling.", "Your debt is old enough to have opinions.", "Consider faking your own death. Financially speaking."]
-  ];
-
-  // Positive balance = they owe you
-  const theyOweQuotes = [
+  ],
+  theyOwe: [
     ["They owe you pocket change. Bring it up constantly anyway.", "Petty? No. Financially vigilant? Absolutely.", "It's the principle. The tiny, tiny principle."],
     ["Leave this app open on the toilet. They'll see it.", "That's a date night THEY'RE planning AND paying for.", "You're owed a massage. Don't let them use their elbows though."],
     ["You're not a partner, you're a patron of the arts of spending.", "That's a spa weekend. Robes included. FLUFFY robes.", "Start clearing your throat loudly whenever they buy something."],
     ["They owe you a vacation. You pick the hotel. They sleep on the floor.", "Charge interest in cooking. Specifically, THEIR cooking.", "You're basically a loan shark but with feelings."],
     ["You're a whole-ass philanthropist and nobody gave you a trophy.", "Their debt could buy you a very ugly boat. You deserve that boat.", "This relationship has a balance sheet and you are the asset."],
     ["You're not a partner. You're a venture capitalist with abandonment issues.", "Their debt has its own area code.", "At this point, just put your name on their birth certificate."]
-  ];
+  ]
+};
 
-  if (abs < 1) return settledQuotes[day % settledQuotes.length];
+const QUOTES_KEY = 'daumis-debt-daily-quotes-v1';
+let _dailyQuotes = null;
+
+// Hydrate from localStorage synchronously so the very first render can use
+// yesterday's dynamic quotes if today's haven't been fetched yet.
+try {
+  const raw = localStorage.getItem(QUOTES_KEY);
+  if (raw) _dailyQuotes = JSON.parse(raw);
+} catch (e) {}
+
+// Kick off a background fetch of today's quotes. No await — the first render
+// will use whatever's already in localStorage (or static); later renders pick
+// up today's fresh batch.
+(async () => {
+  try {
+    const today = todayUTC();
+    if (_dailyQuotes && _dailyQuotes.date === today) return;
+    const res = await fetch(`quotes/daily.json?d=${today}`, { cache: 'no-cache' });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!validateQuotes(data)) return;
+    _dailyQuotes = data;
+    try { localStorage.setItem(QUOTES_KEY, JSON.stringify(data)); } catch (e) {}
+  } catch (e) {}
+})();
+
+function todayUTC() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function validateQuotes(d) {
+  if (!d || typeof d.date !== 'string') return false;
+  if (!Array.isArray(d.settled) || d.settled.length < 1) return false;
+  if (!Array.isArray(d.youOwe) || d.youOwe.length !== 6) return false;
+  if (!Array.isArray(d.theyOwe) || d.theyOwe.length !== 6) return false;
+  return d.youOwe.every(t => Array.isArray(t) && t.length > 0)
+    && d.theyOwe.every(t => Array.isArray(t) && t.length > 0);
+}
+
+function getBalanceQuote(balance) {
+  const abs = Math.abs(balance);
+  const day = Math.floor(Date.now() / 86400000);
+  const quotes = (_dailyQuotes && _dailyQuotes.date === todayUTC()) ? _dailyQuotes : STATIC_QUOTES;
+
+  if (abs < 1) return quotes.settled[day % quotes.settled.length];
 
   const idx = abs < 50 ? 0 : abs < 200 ? 1 : abs < 500 ? 2 : abs < 1000 ? 3 : abs < 5000 ? 4 : 5;
-  const pool = balance < 0 ? youOweQuotes[idx] : theyOweQuotes[idx];
+  const pool = balance < 0 ? quotes.youOwe[idx] : quotes.theyOwe[idx];
   return pool[day % pool.length];
 }
 
