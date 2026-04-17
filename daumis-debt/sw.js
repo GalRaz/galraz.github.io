@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daumis-debt-v19';
+const CACHE_NAME = 'daumis-debt-v20';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -33,7 +33,7 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Let API calls go straight to network
+  // Let API calls go straight to network (no SW interference)
   if (e.request.url.includes('firestore.googleapis.com') ||
       e.request.url.includes('frankfurter.app') ||
       e.request.url.includes('open.er-api.com') ||
@@ -41,17 +41,23 @@ self.addEventListener('fetch', (e) => {
       e.request.url.includes('gstatic.com/firebasejs')) {
     return;
   }
-  // Network-first: try network, update cache, fall back to cache if offline
-  // Only cache GET requests (POST/PUT etc. can't be cached)
+  // Only cache GET requests
+  if (e.request.method !== 'GET') return;
+
+  // Stale-while-revalidate: return cache immediately, update in background.
+  // Dramatically improves repeat-load speed for the app shell.
   e.respondWith(
-    fetch(e.request)
-      .then((response) => {
-        if (e.request.method === 'GET') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(e.request))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(e.request);
+      const networkFetch = fetch(e.request)
+        .then((response) => {
+          if (response && response.ok) {
+            cache.put(e.request, response.clone());
+          }
+          return response;
+        })
+        .catch(() => cached);
+      return cached || networkFetch;
+    })
   );
 });
