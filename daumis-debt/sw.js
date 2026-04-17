@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daumis-debt-v18';
+const CACHE_NAME = 'daumis-debt-v19';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -7,7 +7,6 @@ const ASSETS = [
   '/daumis-debt/js/firebase-config.js',
   '/daumis-debt/js/exchange.js',
   '/daumis-debt/js/balance.js',
-  '/daumis-debt/js/notifications.js',
   '/daumis-debt/js/duel.js',
   '/daumis-debt/js/recurring.js',
   '/daumis-debt/js/games/coin-flip.js',
@@ -39,9 +38,7 @@ self.addEventListener('fetch', (e) => {
       e.request.url.includes('frankfurter.app') ||
       e.request.url.includes('open.er-api.com') ||
       e.request.url.includes('googleapis.com/identitytoolkit') ||
-      e.request.url.includes('gstatic.com/firebasejs') ||
-      e.request.url.includes('cdn.jsdelivr.net') ||
-      e.request.url.includes('api.emailjs.com')) {
+      e.request.url.includes('gstatic.com/firebasejs')) {
     return;
   }
   // Network-first: try network, update cache, fall back to cache if offline

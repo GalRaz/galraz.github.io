@@ -1,7 +1,30 @@
 import { auth, googleProvider } from './firebase-config.js';
 import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
-import { initNotifications, saveUserProfile, notifyPartner } from './notifications.js';
+
+/**
+ * Save or update the current user's profile in the `users` collection.
+ * Called on every login so partner lookups always have the latest email + name.
+ */
+async function saveUserProfile(user) {
+  try {
+    const existing = await db.collection('users').doc(user.uid).get();
+    if (existing.exists && existing.data().displayName) {
+      await db.collection('users').doc(user.uid).update({
+        email: user.email,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await db.collection('users').doc(user.uid).set({
+        email: user.email,
+        displayName: user.displayName || user.email,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.warn('Failed to save user profile:', err);
+  }
+}
 
 // --- Splash screen ---
 const SPLASH_MESSAGES = [
@@ -1297,10 +1320,6 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
           addedBy: currentUser.uid,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        notifyPartner({
-          type: 'expense',
-          details: { description, amount, currency, splitType, usdAmount }
-        });
       }
     } else {
       if (editingEntry && editingEntry.type === 'payment') {
@@ -1324,10 +1343,6 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
           date: new Date(date + 'T12:00:00'),
           addedBy: currentUser.uid,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        notifyPartner({
-          type: 'payment',
-          details: { amount, currency, usdAmount }
         });
       }
     }
@@ -1590,7 +1605,7 @@ async function loadInsights(period) {
 async function showApp() {
   showScreen('dashboard');
 
-  // Load user profiles and init notifications in parallel
+  // Load user profiles in parallel with balance module
   const [, { loadDashboard }] = await Promise.all([
     (async () => {
       // Load partner names
@@ -1608,8 +1623,7 @@ async function showApp() {
         });
       } catch (e) { console.warn('Could not load user profiles:', e); }
     })(),
-    import('./balance.js'),
-    initNotifications()
+    import('./balance.js')
   ]);
 
   // Load dashboard first, then hide splash
