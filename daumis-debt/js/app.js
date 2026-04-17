@@ -1605,17 +1605,19 @@ async function loadInsights(period) {
 async function showApp() {
   showScreen('dashboard');
 
-  // Paint last-known balance from localStorage so the dashboard shows
-  // real numbers instantly instead of "Loading...", then hide the splash.
-  // Firestore refresh happens below in the background.
   const balanceMod = await import('./balance.js');
+
+  // 1) Paint last-known balance string instantly (no Firestore).
   balanceMod.paintCachedBalance();
   hideSplash();
 
-  // Load user profiles in parallel with dashboard refresh
+  // 2) Load user profiles (cache-first from Firestore IndexedDB is fast enough
+  //    once persistence is warm; this is small data anyway).
   const userProfilesPromise = (async () => {
     try {
-      const usersSnap = await db.collection('users').get();
+      const usersSnap = await db.collection('users').get({ source: 'cache' })
+        .then(s => s.empty ? db.collection('users').get() : s)
+        .catch(() => db.collection('users').get());
       usersSnap.forEach((doc) => {
         const data = doc.data();
         if (data.displayName) {
@@ -1629,9 +1631,19 @@ async function showApp() {
     } catch (e) { console.warn('Could not load user profiles:', e); }
   })();
 
-  // Refresh dashboard from Firestore (updates the painted balance in place)
+  // 3) Populate the rest of the dashboard cache-first, then refresh from server.
   await userProfilesPromise;
-  await balanceMod.loadDashboard();
+  const cacheResult = await balanceMod.loadDashboard(false, { source: 'cache' });
+  if (cacheResult && cacheResult.cacheEmpty) {
+    // No local cache (first ever load) — wait on network.
+    await balanceMod.loadDashboard(true);
+  } else {
+    // Kick off a background refresh so data is eventually fresh.
+    setTimeout(() => {
+      balanceMod.invalidateDataCache();
+      balanceMod.loadDashboard(true);
+    }, 500);
+  }
 
   // Run backfill and recurring in background (don't block the UI)
   backfillPartnerUids().then(() => {

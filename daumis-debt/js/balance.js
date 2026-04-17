@@ -183,18 +183,35 @@ function itemImpact(item, myUid) {
 /**
  * Load and render the dashboard.
  */
-export async function loadDashboard(forceRefresh = false) {
+async function fetchCollections(source) {
+  const opts = source ? { source } : undefined;
+  const [expSnap, paySnap, duelSnap] = await Promise.all([
+    db.collection('expenses').get(opts),
+    db.collection('payments').get(opts),
+    db.collection('duels').get(opts)
+  ]);
+  return { expSnap, paySnap, duelSnap };
+}
+
+export async function loadDashboard(forceRefresh = false, opts = {}) {
+  const { source } = opts; // 'cache' = IndexedDB only (fast), 'server' = network, undefined = default (network with cache fallback when offline)
   const user = getCurrentUser();
   const balanceEl = document.getElementById('balance-display');
 
   try {
     if (forceRefresh || !_snapshotCache) {
-      const [expSnap, paySnap, duelSnap] = await Promise.all([
-        db.collection('expenses').get(),
-        db.collection('payments').get(),
-        db.collection('duels').get()
-      ]);
-      _snapshotCache = { expSnap, paySnap, duelSnap };
+      if (source === 'cache') {
+        // Cache-only read: instant if IndexedDB has data, empty snapshots if not.
+        // Caller is responsible for scheduling a follow-up network refresh.
+        const snaps = await fetchCollections('cache');
+        if (snaps.expSnap.empty && snaps.paySnap.empty && snaps.duelSnap.empty) {
+          // Nothing in cache — treat as a no-op so the caller falls back to a network load.
+          return { cacheEmpty: true };
+        }
+        _snapshotCache = snaps;
+      } else {
+        _snapshotCache = await fetchCollections(source);
+      }
     }
     const { expSnap, paySnap, duelSnap } = _snapshotCache;
 
