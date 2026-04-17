@@ -1605,30 +1605,33 @@ async function loadInsights(period) {
 async function showApp() {
   showScreen('dashboard');
 
-  // Load user profiles in parallel with balance module
-  const [, { loadDashboard }] = await Promise.all([
-    (async () => {
-      // Load partner names
-      try {
-        const usersSnap = await db.collection('users').get();
-        usersSnap.forEach((doc) => {
-          const data = doc.data();
-          if (data.displayName) {
-            userNames[doc.id] = data.displayName;
-          } else if (doc.id === currentUser.uid) {
-            userNames[doc.id] = currentUser.displayName || data.email || currentUser.email;
-          } else {
-            userNames[doc.id] = data.email || 'Partner';
-          }
-        });
-      } catch (e) { console.warn('Could not load user profiles:', e); }
-    })(),
-    import('./balance.js')
-  ]);
-
-  // Load dashboard first, then hide splash
-  await loadDashboard();
+  // Paint last-known balance from localStorage so the dashboard shows
+  // real numbers instantly instead of "Loading...", then hide the splash.
+  // Firestore refresh happens below in the background.
+  const balanceMod = await import('./balance.js');
+  balanceMod.paintCachedBalance();
   hideSplash();
+
+  // Load user profiles in parallel with dashboard refresh
+  const userProfilesPromise = (async () => {
+    try {
+      const usersSnap = await db.collection('users').get();
+      usersSnap.forEach((doc) => {
+        const data = doc.data();
+        if (data.displayName) {
+          userNames[doc.id] = data.displayName;
+        } else if (doc.id === currentUser.uid) {
+          userNames[doc.id] = currentUser.displayName || data.email || currentUser.email;
+        } else {
+          userNames[doc.id] = data.email || 'Partner';
+        }
+      });
+    } catch (e) { console.warn('Could not load user profiles:', e); }
+  })();
+
+  // Refresh dashboard from Firestore (updates the painted balance in place)
+  await userProfilesPromise;
+  await balanceMod.loadDashboard();
 
   // Run backfill and recurring in background (don't block the UI)
   backfillPartnerUids().then(() => {

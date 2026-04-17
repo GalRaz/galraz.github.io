@@ -17,6 +17,42 @@ export function setDuelAvailableCache(value) {
   _duelAvailableCache = value;
 }
 
+const BALANCE_SNAPSHOT_KEY = 'daumis-debt-balance-snapshot';
+
+/**
+ * Paint the last-rendered balance from localStorage into the DOM.
+ * Runs synchronously before any Firestore fetch so the user sees
+ * yesterday's balance instantly instead of a "Loading..." flash.
+ * Returns true if a snapshot was painted.
+ */
+export function paintCachedBalance() {
+  try {
+    const raw = localStorage.getItem(BALANCE_SNAPSHOT_KEY);
+    if (!raw) return false;
+    const snap = JSON.parse(raw);
+    const balanceEl = document.getElementById('balance-display');
+    if (!balanceEl) return false;
+    const label = balanceEl.querySelector('.balance-label');
+    const amount = balanceEl.querySelector('.balance-amount');
+    if (label && snap.label) label.textContent = snap.label;
+    if (amount) {
+      amount.textContent = snap.amountText || '';
+      amount.className = `balance-amount ${snap.amountClass || ''}`;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function saveBalanceSnapshot({ labelText, amountText, amountClass }) {
+  try {
+    localStorage.setItem(BALANCE_SNAPSHOT_KEY, JSON.stringify({
+      label: labelText, amountText, amountClass
+    }));
+  } catch (e) {}
+}
+
 const CURRENCY_SYMBOLS = {
   USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu ', TWD:'NT$', KRW:'₩',
   CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
@@ -380,6 +416,15 @@ export async function loadDashboard(forceRefresh = false) {
 
     // Apply mood theme
     applyMood(consolidatedBalance);
+
+    // Persist rendered balance for instant paint on next app open.
+    // Always save the consolidated view — if the user has toggled to
+    // per-currency breakdown, we still want a valid snapshot to paint.
+    saveBalanceSnapshot({
+      labelText: label.textContent,
+      amountText: consolidatedText,
+      amountClass: consolidatedClass
+    });
 
     // On This Day card
     renderOnThisDay(items);
