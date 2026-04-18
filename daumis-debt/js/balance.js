@@ -427,11 +427,23 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
 
     let breakdownHTML = '';
     for (const [cur, val] of sortedCurrencies) {
-      const rounded = Math.round(Math.abs(val) * 100) / 100;
+      const abs = Math.abs(val);
       const s = CURRENCY_SYMBOLS[cur] || cur;
       const sign = val >= 0 ? '+' : '-';
       const cls = val >= 0 ? 'positive' : 'negative';
-      breakdownHTML += `<span class="currency-line ${cls}">${sign}${s}${rounded.toLocaleString()}</span> `;
+      // Trim decimals as the number gets wider to keep the breakdown readable.
+      let formatted;
+      if (abs >= 10000) {
+        // 5+ integer digits: no decimals.
+        formatted = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      } else if (abs >= 1000) {
+        // 4 integer digits: exactly one decimal.
+        formatted = abs.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      } else {
+        // <1000: keep existing behavior (up to 2 decimals, trailing zeros dropped).
+        formatted = (Math.round(abs * 100) / 100).toLocaleString();
+      }
+      breakdownHTML += `<span class="currency-line ${cls}">${sign}${s}${formatted}</span> `;
     }
 
     // Render based on preference
