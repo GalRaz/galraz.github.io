@@ -1607,12 +1607,12 @@ async function showApp() {
 
   const balanceMod = await import('./balance.js');
 
-  // 1) Paint last-known balance string instantly (no Firestore).
+  // Paint last-known balance from localStorage while Firestore loads. This
+  // stamps real numbers into the DOM so they're already visible the moment
+  // the splash hides, regardless of how fast Firestore responds.
   balanceMod.paintCachedBalance();
-  hideSplash();
 
-  // 2) Load user profiles (cache-first from Firestore IndexedDB is fast enough
-  //    once persistence is warm; this is small data anyway).
+  // Load user profiles (cache-first).
   const userProfilesPromise = (async () => {
     try {
       const usersSnap = await db.collection('users').get({ source: 'cache' })
@@ -1631,14 +1631,21 @@ async function showApp() {
     } catch (e) { console.warn('Could not load user profiles:', e); }
   })();
 
-  // 3) Populate the rest of the dashboard cache-first, then refresh from server.
+  // Populate the dashboard cache-first BEFORE hiding the splash — otherwise
+  // the user sees an empty shell on first load / when localStorage is stale.
+  // On repeat loads IndexedDB is warm and this completes in <300ms; on a
+  // truly-first load we fall through to the network. The 10s safety
+  // timeout in app.js still bounds the splash.
   await userProfilesPromise;
   const cacheResult = await balanceMod.loadDashboard(false, { source: 'cache' });
   if (cacheResult && cacheResult.cacheEmpty) {
-    // No local cache (first ever load) — wait on network.
     await balanceMod.loadDashboard(true);
-  } else {
-    // Kick off a background refresh so data is eventually fresh.
+  }
+  hideSplash();
+
+  // Background refresh so server data eventually reconciles with the cache.
+  // Skipped when we just fetched from the network above.
+  if (!cacheResult || !cacheResult.cacheEmpty) {
     setTimeout(() => {
       balanceMod.invalidateDataCache();
       balanceMod.loadDashboard(true);
