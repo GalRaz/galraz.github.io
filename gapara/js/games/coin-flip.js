@@ -28,15 +28,15 @@ export async function play(container, { year, week, seed }) {
       const favoredUser = isHeads ? user.uid : partnerUid;
 
       if (isHeads) {
-        resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">앞면! +$10 획득!</div>`;
+        resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">앞면! +₩10,000 획득!</div>`;
       } else {
-        resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">뒷면! −$10.</div>`;
+        resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">뒷면! −₩10,000.</div>`;
       }
 
       await recordDuelResult({
         game: 'coin-flip',
         result: { side: isHeads ? 'heads' : 'tails' },
-        balanceAdjust: 10,
+        balanceAdjust: 10000,
         favoredUser,
         seed, year, week
       });

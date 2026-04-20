@@ -316,7 +316,7 @@ function buildCurrencySelect(extraCurrency) {
   if (lastUsed) prioritySet.add(lastUsed);
 
   // Always include consolidation currency
-  const consolCur = localStorage.getItem('gapara-consol-currency') || 'USD';
+  const consolCur = localStorage.getItem('gapara-consol-currency') || 'KRW';
   prioritySet.add(consolCur);
 
   select.innerHTML = '';
@@ -428,7 +428,7 @@ document.getElementById('fab-add').addEventListener('click', () => {
   );
   // Build smart currency dropdown and select last-used
   buildCurrencySelect();
-  const defaultCurrency = localStorage.getItem('gapara-last-currency') || 'USD';
+  const defaultCurrency = localStorage.getItem('gapara-last-currency') || 'KRW';
   document.getElementById('entry-currency').value = defaultCurrency;
   // Reset edit UI
   const deleteBtn = document.getElementById('btn-delete-entry');
@@ -489,7 +489,7 @@ async function loadSettings() {
   });
 
   // Load consolidation currency with smart sorting
-  const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'USD';
+  const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'KRW';
   buildConsolCurrencySelect(consolCurrency);
 
   // Load recurring expenses
@@ -675,7 +675,7 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
       const d = doc.data();
       const ts = d.playedAt?.toDate ? d.playedAt.toDate() : new Date(d.playedAt?.seconds ? d.playedAt.seconds * 1000 : 0);
       const date = ts.toISOString().split('T')[0];
-      rows.push({ ts, line: `${date},Duel,${d.game || ''},${d.balanceAdjust},USD,${d.balanceAdjust},,\n` });
+      rows.push({ ts, line: `${date},Duel,${d.game || ''},${d.balanceAdjust},KRW,${d.balanceAdjust},,\n` });
     });
 
     rows.sort((a, b) => b.ts - a.ts);
@@ -917,7 +917,7 @@ window.addEventListener('edit-entry', (e) => {
   document.getElementById('entry-desc').value = data.description || '';
   document.getElementById('entry-amount').value = data.amount || '';
   buildCurrencySelect(data.currency);
-  document.getElementById('entry-currency').value = data.currency || 'USD';
+  document.getElementById('entry-currency').value = data.currency || 'KRW';
 
   // Set the correct split option
   const paidBySelf = data.paidBy === currentUser.uid;
@@ -1086,7 +1086,7 @@ async function renderSettleUp() {
     html += '</div>';
 
     // Settle All section
-    const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'USD';
+    const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'KRW';
     const consolSym = getCurrencySymbol(consolCurrency);
 
     // Convert per-currency balances to consolCurrency via live rates (signed sum, same as dashboard)
@@ -1526,7 +1526,7 @@ async function loadInsights(period) {
     const partnerName = getUserName(getPartnerUid());
 
     // Get consolidation currency for display
-    const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'USD';
+    const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'KRW';
     let usdToConsol = 1;
     if (consolCurrency !== 'USD') {
       const { getExchangeRate } = await import('./exchange.js');

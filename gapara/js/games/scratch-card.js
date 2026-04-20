@@ -1,7 +1,7 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult, seededRandom } from '../duel.js';
 
-const VALUES = [-10, -5, 0, 5, 10];
+const VALUES = [-10000, -5000, 0, 5000, 10000];
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
@@ -13,7 +13,7 @@ export async function play(container, { year, week, seed }) {
     <p>복권을 긁어서 결과를 확인하세요!</p>
     <div class="scratch-card" id="scratch-card">
       <div class="scratch-value" id="scratch-value">
-        ${netAdjust >= 0 ? '+' : ''}$${netAdjust}
+        ${netAdjust >= 0 ? '+' : '-'}₩${Math.abs(netAdjust).toLocaleString()}
       </div>
       <canvas id="scratch-canvas" width="200" height="140"></canvas>
     </div>
@@ -82,12 +82,12 @@ export async function play(container, { year, week, seed }) {
     let favoredUser = null;
     if (netAdjust > 0) {
       favoredUser = user.uid;
-      resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">+$${netAdjust} — 승리!</div>`;
+      resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">+₩${netAdjust.toLocaleString()} — 승리!</div>`;
     } else if (netAdjust < 0) {
       favoredUser = partnerUid;
-      resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">-$${Math.abs(netAdjust)} — 패배!</div>`;
+      resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">-₩${Math.abs(netAdjust).toLocaleString()} — 패배!</div>`;
     } else {
-      resultEl.innerHTML = `<div class="duel-result">$0 — 무승부!</div>`;
+      resultEl.innerHTML = `<div class="duel-result">₩0 — 무승부!</div>`;
     }
 
     await recordDuelResult({

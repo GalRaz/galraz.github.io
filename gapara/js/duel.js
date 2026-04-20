@@ -179,10 +179,11 @@ async function renderDuelHistory(container) {
       else { partnerWins++; myBalance -= (d.balanceAdjust || 0); }
     }
 
+    const fmtKrw = (n) => `₩${Math.abs(n).toLocaleString()}`;
     const balanceNote = myBalance > 0
-      ? `+$${myBalance} 우세`
+      ? `+${fmtKrw(myBalance)} 우세`
       : myBalance < 0
-      ? `$${Math.abs(myBalance)} 열세`
+      ? `${fmtKrw(myBalance)} 열세`
       : '무승부';
 
     const rows = duels.map(d => {
@@ -190,7 +191,7 @@ async function renderDuelHistory(container) {
       const iWon = d.favoredUser === user.uid;
       const tie = !d.favoredUser;
       const resultClass = tie ? 'result-tie' : iWon ? 'result-win' : 'result-loss';
-      const resultText = tie ? '무' : iWon ? `+$${d.balanceAdjust}` : `−$${d.balanceAdjust}`;
+      const resultText = tie ? '무' : iWon ? `+${fmtKrw(d.balanceAdjust)}` : `−${fmtKrw(d.balanceAdjust)}`;
       const whoWon = tie ? '무승부' : iWon ? `${myName} 승` : `${partnerName} 승`;
       return `<div class="history-row">
         <div>
@@ -212,7 +213,7 @@ async function renderDuelHistory(container) {
         <div class="duel-score-player">
           <div class="duel-score-name">${partnerName}</div>
           <div class="duel-score-val${partnerWins > myWins ? ' winning' : ''}">${partnerWins}</div>
-          <div class="duel-score-note">${myBalance < 0 ? '$' + Math.abs(myBalance) + ' 우세' : ''}</div>
+          <div class="duel-score-note">${myBalance < 0 ? '+' + fmtKrw(myBalance) + ' 우세' : ''}</div>
         </div>
       </div>
       <div class="duel-history-section">

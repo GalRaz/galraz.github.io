@@ -1,10 +1,8 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult } from '../duel.js';
-import { getExchangeRate } from '../exchange.js';
 
-// Fixed round KRW amounts. Displayed as-is; converted to USD at spin time so
-// the Firestore balanceAdjust column (denominated in USD alongside other
-// duels across the app) stays consistent.
+// Fixed KRW amounts — this is the Korean instance of the app, so KRW is the
+// basis of balance math. balanceAdjust is stored directly in KRW.
 const SLICE_BASE = [
   { valueKrw: -10000, color: '#e94560' },
   { valueKrw: -5000, color: '#c73e54' },
@@ -16,14 +14,6 @@ const SLICE_BASE = [
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
-
-  // Current KRW/USD rate for on-the-fly conversion to USD at record time.
-  // Falls back to 1 USD ≈ 1350 KRW if the rate service is unreachable.
-  let krwToUsd = 1 / 1350;
-  try {
-    const rate = await getExchangeRate('KRW');
-    if (rate > 0.0001) krwToUsd = rate;
-  } catch (e) {}
 
   function krwLabel(krw) {
     if (krw === 0) return '₩0';
@@ -129,14 +119,10 @@ export async function play(container, { year, week, seed }) {
           resultEl.innerHTML = `<div class="duel-result">₩0 — 무승부!</div>`;
         }
 
-        // Convert KRW → USD for storage so it reconciles with all other
-        // duel balance adjustments (which live in USD).
-        const valueUsd = resultSlice.valueKrw * krwToUsd;
-
         recordDuelResult({
           game: 'wheel',
-          result: { valueKrw: resultSlice.valueKrw, valueUsd },
-          balanceAdjust: Math.abs(valueUsd),
+          result: { value: resultSlice.valueKrw },
+          balanceAdjust: Math.abs(resultSlice.valueKrw),
           favoredUser,
           seed, year, week
         });

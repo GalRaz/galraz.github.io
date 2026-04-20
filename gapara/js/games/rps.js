@@ -85,10 +85,10 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
           resultText = `무승부! 둘 다 ${CHOICES[myChoice]}. 변동 없음.`;
         } else if (BEATS[myChoice] === partnerSubmission) {
           favoredUser = user.uid;
-          resultText = `승리! ${CHOICES[myChoice]} > ${CHOICES[partnerSubmission]}. +$10!`;
+          resultText = `승리! ${CHOICES[myChoice]} > ${CHOICES[partnerSubmission]}. +₩10,000!`;
         } else {
           favoredUser = partnerUid;
-          resultText = `패배! ${CHOICES[partnerSubmission]} > ${CHOICES[myChoice]}. ${getUserName(partnerUid)}에게 $10.`;
+          resultText = `패배! ${CHOICES[partnerSubmission]} > ${CHOICES[myChoice]}. ${getUserName(partnerUid)}에게 ₩10,000.`;
         }
 
         const resultClass = favoredUser === user.uid ? 'win' : favoredUser ? 'loss' : 'tie';
@@ -98,7 +98,7 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
           await duelDocRef.update({
             submissions: { ...existingSubmissions, [user.uid]: myChoice },
             result: { [user.uid]: myChoice, [partnerUid]: partnerSubmission },
-            balanceAdjust: myChoice === partnerSubmission ? 0 : 10,
+            balanceAdjust: myChoice === partnerSubmission ? 0 : 10000,
             favoredUser: favoredUser || null,
             playedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
@@ -106,7 +106,7 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
           await recordDuelResult({
             game: 'rps',
             result: { [user.uid]: myChoice, [partnerUid]: partnerSubmission },
-            balanceAdjust: myChoice === partnerSubmission ? 0 : 10,
+            balanceAdjust: myChoice === partnerSubmission ? 0 : 10000,
             favoredUser: favoredUser || null,
             seed, year, week
           });

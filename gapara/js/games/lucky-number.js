@@ -74,10 +74,10 @@ export async function play(container, { year, week, seed }) {
 
         if (myDist < partnerDist) {
           favoredUser = user.uid;
-          resultText = `목표: ${targetNumber}. 내 선택 ${myPick}, ${getUserName(partnerUid)} 선택 ${partnerPick}. 승리! +$10!`;
+          resultText = `목표: ${targetNumber}. 내 선택 ${myPick}, ${getUserName(partnerUid)} 선택 ${partnerPick}. 승리! +₩10,000!`;
         } else if (partnerDist < myDist) {
           favoredUser = partnerUid;
-          resultText = `목표: ${targetNumber}. 내 선택 ${myPick}, ${getUserName(partnerUid)} 선택 ${partnerPick}. ${getUserName(partnerUid)} 승! $10 상실.`;
+          resultText = `목표: ${targetNumber}. 내 선택 ${myPick}, ${getUserName(partnerUid)} 선택 ${partnerPick}. ${getUserName(partnerUid)} 승! ₩10,000 상실.`;
         } else {
           resultText = `목표: ${targetNumber}. 둘 다 동점 (${myPick} vs ${partnerPick}). 변동 없음!`;
         }
@@ -89,7 +89,7 @@ export async function play(container, { year, week, seed }) {
           await duelDocRef.update({
             submissions: { ...existingSubmissions, [user.uid]: myPick },
             result: { target: targetNumber, [user.uid]: myPick, [partnerUid]: partnerPick },
-            balanceAdjust: favoredUser ? 10 : 0,
+            balanceAdjust: favoredUser ? 10000 : 0,
             favoredUser,
             playedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
@@ -97,7 +97,7 @@ export async function play(container, { year, week, seed }) {
           await recordDuelResult({
             game: 'lucky-number',
             result: { target: targetNumber, [user.uid]: myPick, [partnerUid]: partnerPick },
-            balanceAdjust: favoredUser ? 10 : 0,
+            balanceAdjust: favoredUser ? 10000 : 0,
             favoredUser,
             seed, year, week
           });

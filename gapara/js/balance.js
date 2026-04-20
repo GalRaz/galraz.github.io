@@ -328,7 +328,7 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
 
     // Get user preferences
     const balanceView = localStorage.getItem('gapara-balance-view') || 'consolidated';
-    const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'USD';
+    const consolCurrency = localStorage.getItem('gapara-consol-currency') || 'KRW';
     let symbol = CURRENCY_SYMBOLS[consolCurrency] || consolCurrency;
 
     // Compute per-currency balances (source of truth)
@@ -338,7 +338,7 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
       if (item.type === 'duel') {
         const impact = itemImpact(item, user.uid);
         if (impact !== 0) {
-          currencyBalances['USD'] = (currencyBalances['USD'] || 0) + impact;
+          currencyBalances['KRW'] = (currencyBalances['KRW'] || 0) + impact;
         }
       } else if (item.currency) {
         const impact = itemImpact(item, user.uid);
@@ -623,9 +623,9 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
     return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
   }
 
-  function fmtDuelConsol(usdAmount) {
-    const rate = rateCache['USD'] || 1;
-    const consolAmount = Math.abs(usdAmount) * rate;
+  function fmtDuelConsol(krwAmount) {
+    const rate = rateCache['KRW'] || 1;
+    const consolAmount = Math.abs(krwAmount) * rate;
     return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
   }
 
@@ -681,7 +681,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       } else if (item.type === 'duel') {
         let displayAmt;
         if (showOriginal) {
-          displayAmt = `${sign}$${Math.abs(item.balanceAdjust || 0).toFixed(2)}`;
+          displayAmt = `${sign}₩${Math.abs(item.balanceAdjust || 0).toLocaleString()}`;
         } else {
           displayAmt = `${sign}${fmtDuelConsol(impact)}`;
         }
@@ -900,7 +900,7 @@ export async function computeCurrencyBalances() {
     const impact = itemImpact(d, user.uid);
     balance += impact;
     if (impact !== 0) {
-      currencyBalances['USD'] = (currencyBalances['USD'] || 0) + impact;
+      currencyBalances['KRW'] = (currencyBalances['KRW'] || 0) + impact;
     }
   });
 
