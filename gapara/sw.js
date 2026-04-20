@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gapara-v3';
+const CACHE_NAME = 'gapara-v4';
 const ASSETS = [
   '/gapara/',
   '/gapara/index.html',
@@ -15,7 +15,7 @@ const ASSETS = [
   '/gapara/js/games/lucky-number.js',
   '/gapara/js/games/scratch-card.js',
   '/gapara/manifest.json',
-  '/gapara/assets/icons/icon.png'
+  '/gapara/assets/icons/icon-v2.png'
 ];
 
 self.addEventListener('install', (e) => {
