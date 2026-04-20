@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>갚아라 — screen preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 32px;
+      background: #141414; color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    h1 { margin: 0 0 8px; font-size: 1.2rem; letter-spacing: .02em; }
+    p.sub { margin: 0 0 24px; color: #888; font-size: .9rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(390px, 1fr));
+      gap: 28px;
+    }
+    .phone {
+      background: #202020;
+      border-radius: 18px;
+      padding: 14px;
+      border: 1px solid #2c2c2c;
+    }
+    .phone h2 {
+      margin: 0 0 10px;
+      font-size: .95rem;
+      letter-spacing: .02em;
+      color: #f5f5f5;
+    }
+    .phone .label { font-size: .7rem; color: #888; text-transform: uppercase; letter-spacing: .05em; }
+    .phone-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 390 / 700;
+      border-radius: 28px;
+      overflow: hidden;
+      border: 8px solid #0a0a0a;
+      background: #f2f0eb;
+      box-shadow: 0 12px 32px rgba(0,0,0,.5);
+    }
+    iframe {
+      width: 100%; height: 100%; border: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>갚아라 — screen preview</h1>
+  <p class="sub">Live iframes loading <code>http://localhost:8080/gapara/</code>. Mock state injected after the app boots. Browser-native scrolling within each frame; click around to poke at individual screens.</p>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const SCREENS = [
+      { id: 'auth', label: '로그인 / Auth', setup: null },
+      { id: 'dashboard', label: '대시보드 / Dashboard', setup: setupDashboard },
+      { id: 'add', label: '지출 추가 / Add Expense', setup: setupAddExpense },
+      { id: 'add-settle', label: '정산 / Settle Up', setup: setupSettleUp },
+      { id: 'insights', label: '분석 / Insights', setup: setupInsights },
+      { id: 'settings', label: '설정 / Settings', setup: setupSettings },
+      { id: 'duel', label: '주간 결투 / Weekly Duel', setup: setupDuel },
+    ];
+
+    const grid = document.getElementById('grid');
+    SCREENS.forEach((s, i) => {
+      const phone = document.createElement('div');
+      phone.className = 'phone';
+      phone.innerHTML = `
+        <h2>${s.label}</h2>
+        <div class="phone-frame"><iframe src="./gapara/index.html?mock=${s.id}" id="frame-${s.id}"></iframe></div>`;
+      grid.appendChild(phone);
+
+      const iframe = phone.querySelector('iframe');
+      iframe.addEventListener('load', () => {
+        // Wait for app JS to finish its auth-flow bookkeeping, then override.
+        setTimeout(() => {
+          try {
+            const w = iframe.contentWindow;
+            const d = iframe.contentDocument;
+            if (s.id === 'auth') return;              // auth is default, nothing to do
+            hideSplash(d);
+            showScreen(d, s.id.startsWith('add') ? 'add' : s.id);
+            if (s.setup) s.setup(d, w);
+          } catch (e) { console.warn('frame setup failed for', s.id, e); }
+        }, 1200);
+      });
+    });
+
+    function hideSplash(d) {
+      const splash = d.getElementById('splash');
+      if (splash) splash.remove();
+      const app = d.getElementById('app');
+      if (app) app.style.display = '';
+    }
+    function showScreen(d, id) {
+      d.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const target = d.getElementById(`screen-${id}`);
+      if (target) target.classList.add('active');
+    }
+
+    // --- Mock data injections -----------------------------------------------
+
+    function setupDashboard(d) {
+      const bal = d.getElementById('balance-display');
+      bal.querySelector('.balance-label').textContent = '브라더케이비제이에게 받을 돈';
+      bal.querySelector('.balance-amount').textContent = '₩127,500';
+      bal.querySelector('.balance-amount').className = 'balance-amount positive';
+      let quote = bal.querySelector('.balance-quote');
+      if (!quote) {
+        quote = d.createElement('p');
+        quote.className = 'balance-quote';
+        bal.appendChild(quote);
+      }
+      quote.textContent = '넌 연인이 아니라, 상대 씀씀이의 후원자다.';
+
+      d.getElementById('duel-banner').classList.remove('hidden');
+
+      const historyList = d.getElementById('history-list');
+      historyList.innerHTML = [
+        mkHist('🍽️', 'expense', '삼겹살', '오늘 · 서로룽이 결제 ₩64,000 · 반반', '-₩32,000', false),
+        mkHist('🛒', 'expense', '이마트', '어제 · 브라더케이비제이가 결제 ₩49,000 · 반반', '+₩24,500', true),
+        mkHist('🎬', 'expense', '영화', '그저께 · 서로룽이 결제 ₩28,000 · 반반', '-₩14,000', false),
+        mkHist('☕', 'expense', '스타벅스', '4월 17일 · 브라더케이비제이가 결제 ₩18,400 · 반반', '+₩9,200', true),
+        mkHist('🏨', 'expense', '호텔 강릉', '4월 14일 · 서로룽이 결제 ₩290,000 · 반반', '-₩145,000', false),
+        mkHist('⚔', 'duel', '운명의 수레바퀴', '4월 13일 · 17주차 · 브라더케이비제이 플레이', '-₩13,500', false),
+      ].join('');
+    }
+
+    function mkHist(icon, kind, desc, meta, amt, credit) {
+      return `<li>
+        <div class="swipe-delete"><span class="swipe-delete-text">삭제</span></div>
+        <div class="swipe-content">
+          <div class="entry-icon ${kind}">${icon}</div>
+          <div class="entry-info">
+            <div class="entry-desc">${desc}</div>
+            <div class="entry-meta">${meta}</div>
+          </div>
+          <div class="entry-amount ${credit ? 'credit' : 'debit'}">${amt}</div>
+        </div>
+      </li>`;
+    }
+
+    function setupAddExpense(d) {
+      d.getElementById('entry-amount').value = '45000';
+      d.getElementById('entry-desc').value = '삼겹살 저녁';
+      d.getElementById('entry-date').value = '2026-04-20';
+      d.querySelectorAll('.partner-name').forEach(el => el.textContent = '브라더케이비제이');
+      // Default to KRW
+      const cur = d.getElementById('entry-currency');
+      if (cur) cur.value = 'KRW';
+    }
+
+    function setupSettleUp(d) {
+      // Switch to payment toggle + render fake settle-up panel
+      d.querySelectorAll('#entry-type .toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.value === 'payment'));
+      d.getElementById('add-title').textContent = '정산';
+      d.getElementById('form-entry').style.display = 'none';
+
+      let container = d.getElementById('settle-container');
+      if (!container) {
+        container = d.createElement('div');
+        container.id = 'settle-container';
+        d.getElementById('form-entry').parentNode.insertBefore(container, d.getElementById('form-entry'));
+      }
+      container.innerHTML = `
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px">브라더케이비제이에게 받을 돈</p>
+        <div class="settle-list">
+          <div class="settle-row">
+            <div class="settle-currency">
+              <span class="settle-amount-text">₩127,500</span>
+              <span class="settle-cur-code">KRW</span>
+            </div>
+            <button class="btn btn-small settle-btn">받기</button>
+          </div>
+          <div class="settle-row">
+            <div class="settle-currency">
+              <span class="settle-amount-text">$18.40</span>
+              <span class="settle-cur-code">USD</span>
+            </div>
+            <button class="btn btn-small settle-btn">받기</button>
+          </div>
+        </div>
+        <div class="settle-divider"></div>
+        <div class="settle-all-section">
+          <p class="settle-all-label">한 번에 모두 정산</p>
+          <p class="settle-all-total">₩153,960.00 KRW</p>
+          <p class="settle-all-hint">통화별로 정확한 금액의 정산 건을 하나씩 생성합니다</p>
+          <button class="btn btn-primary settle-all-btn">모두 정산</button>
+        </div>`;
+    }
+
+    function setupInsights(d) {
+      d.getElementById('insights-content').innerHTML = `
+        <div class="insight-card"><h3>카테고리별 지출</h3>
+          <div class="cat-row"><span class="cat-icon">🍽️</span><span class="cat-name">외식</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:100%"></div></div><span class="cat-amount">₩312,000</span></div>
+          <div class="cat-row"><span class="cat-icon">🏨</span><span class="cat-name">숙박</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:70%"></div></div><span class="cat-amount">₩220,000</span></div>
+          <div class="cat-row"><span class="cat-icon">🛒</span><span class="cat-name">식료품</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:47%"></div></div><span class="cat-amount">₩145,500</span></div>
+          <div class="cat-row"><span class="cat-icon">🎬</span><span class="cat-name">엔터테인먼트</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:26%"></div></div><span class="cat-amount">₩82,000</span></div>
+          <div class="cat-row"><span class="cat-icon">🚕</span><span class="cat-name">교통</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:17%"></div></div><span class="cat-amount">₩51,500</span></div>
+          <div class="cat-row"><span class="cat-icon">☕</span><span class="cat-name">카페</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:12%"></div></div><span class="cat-amount">₩36,200</span></div>
+        </div>
+        <div class="insight-card"><h3>어디서 썼나</h3>
+          <div class="country-row"><span class="country-flag">🇰🇷</span><span class="country-name">한국</span><span class="country-amount">₩620,000</span></div>
+          <div class="country-row"><span class="country-flag">🇯🇵</span><span class="country-name">일본</span><span class="country-amount">₩180,000</span></div>
+          <div class="country-row"><span class="country-flag">🇹🇼</span><span class="country-name">대만</span><span class="country-amount">₩47,200</span></div>
+        </div>
+        <div class="insight-card"><h3>재미있는 통계</h3>
+          <div class="stat-row"><span class="stat-label">최고 지출</span><span class="stat-value">₩290,000 🤯</span></div>
+          <div class="stat-row"><span class="stat-label">최저 지출</span><span class="stat-value">₩3.50 🔍</span></div>
+          <div class="stat-row"><span class="stat-label">최다 카테고리</span><span class="stat-value">🍽️ 외식 (12회)</span></div>
+          <div class="stat-row"><span class="stat-label">총 지출 건수</span><span class="stat-value">23건</span></div>
+          <div class="stat-row"><span class="stat-label">결투 전적</span><span class="stat-value">서로룽 3 — 5 브라더케이비제이</span></div>
+          <div class="stat-row"><span class="stat-label">일평균 지출</span><span class="stat-value">₩28,240.00/일</span></div>
+        </div>`;
+    }
+
+    function setupSettings(d) {
+      const sel = d.getElementById('settings-consolidation-currency');
+      sel.innerHTML = '<option value="KRW">₩ KRW</option><option value="USD">$ USD</option><option value="EUR">€ EUR</option>';
+      sel.value = 'KRW';
+      d.getElementById('settings-nickname').value = '서로룽';
+      d.getElementById('duel-status-hint').textContent = '결투가 활성화되어 있습니다. 누구든 끌 수 있어요.';
+      d.getElementById('btn-toggle-duel').textContent = '결투 끄기';
+      d.getElementById('btn-toggle-duel').className = 'btn btn-logout';
+      d.getElementById('recurring-list').innerHTML = `
+        <div style="background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:6px">
+          <div style="font-size:0.9rem;font-weight:500">넷플릭스</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">₩17,000 · 매월 · 다음: 5월 1일</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:12px 14px;margin-bottom:6px">
+          <div style="font-size:0.9rem;font-weight:500">청소 서비스</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">₩80,000 · 매주 · 다음: 4월 23일</div>
+        </div>`;
+    }
+
+    function setupDuel(d) {
+      d.getElementById('duel-content').innerHTML = `
+        <div class="duel-game">
+          <h2>주간 결투</h2>
+          <p class="subtitle">17주차 · 운명의 수레바퀴</p>
+          <p>수레바퀴를 돌려라! 양수면 네가 이긴다.</p>
+          <div class="wheel-container">
+            <div class="wheel-pointer"></div>
+            <canvas id="wheel-canvas" width="260" height="260" style="display:block;margin:10px auto"></canvas>
+          </div>
+          <button class="btn btn-primary" style="max-width:200px;margin:0 auto">시작!</button>
+        </div>
+        <div class="duel-score-card" style="margin-top:24px">
+          <div class="duel-score-player">
+            <div class="duel-score-name">서로룽</div>
+            <div class="duel-score-val">3</div>
+          </div>
+          <div class="duel-score-vs">vs</div>
+          <div class="duel-score-player">
+            <div class="duel-score-name">브라더케이비제이</div>
+            <div class="duel-score-val winning">5</div>
+            <div class="duel-score-note">+$20 우세</div>
+          </div>
+        </div>
+        <div class="duel-history-section" style="margin-top:20px">
+          <div class="duel-history-label">지난 결투</div>
+          <div class="history-row"><div><div class="history-game">운명의 수레바퀴</div><div class="history-date">16주차 · 브라더케이비제이 승</div></div><div class="result-loss">−$10</div></div>
+          <div class="history-row"><div><div class="history-game">동전 던지기</div><div class="history-date">15주차 · 서로룽 승</div></div><div class="result-win">+$10</div></div>
+          <div class="history-row"><div><div class="history-game">가위바위보</div><div class="history-date">14주차 · 무승부</div></div><div class="result-tie">무</div></div>
+        </div>`;
+
+      // Draw the wheel
+      const canvas = d.getElementById('wheel-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const slices = [
+        { label: '-$10', color: '#e94560' },
+        { label: '-$5', color: '#c73e54' },
+        { label: '$0', color: '#16213e' },
+        { label: '$0', color: '#0f3460' },
+        { label: '+$5', color: '#3a8a6a' },
+        { label: '+$10', color: '#4ecca3' },
+      ];
+      const cx = 130, cy = 130, r = 120;
+      const sliceAngle = (2 * Math.PI) / slices.length;
+      slices.forEach((slice, i) => {
+        const start = i * sliceAngle - Math.PI / 2;
+        const end = start + sliceAngle;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, start, end); ctx.closePath();
+        ctx.fillStyle = slice.color; ctx.fill();
+        ctx.strokeStyle = '#1a1a2e'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'center'; ctx.fillStyle = '#eee'; ctx.font = 'bold 13px sans-serif';
+        ctx.fillText(slice.label, r * 0.6, 5); ctx.restore();
+      });
+    }
+  </script>
+</body>
+</html>
