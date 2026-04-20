@@ -2,36 +2,39 @@ import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult } from '../duel.js';
 import { getExchangeRate } from '../exchange.js';
 
-// Underlying values stay in USD so the balance math matches the rest of the
-// duels across the app. Only the display labels are Korean won.
+// Fixed round KRW amounts. Displayed as-is; converted to USD at spin time so
+// the Firestore balanceAdjust column (denominated in USD alongside other
+// duels across the app) stays consistent.
 const SLICE_BASE = [
-  { value: -10, color: '#e94560' },
-  { value: -5, color: '#c73e54' },
-  { value: 0, color: '#16213e' },
-  { value: 0, color: '#0f3460' },
-  { value: 5, color: '#3a8a6a' },
-  { value: 10, color: '#4ecca3' }
+  { valueKrw: -10000, color: '#e94560' },
+  { valueKrw: -5000, color: '#c73e54' },
+  { valueKrw: 0, color: '#16213e' },
+  { valueKrw: 0, color: '#0f3460' },
+  { valueKrw: 5000, color: '#3a8a6a' },
+  { valueKrw: 10000, color: '#4ecca3' }
 ];
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
 
-  // Convert USD → KRW at current rate for the display labels. Falls back to
-  // a sensible constant if the rate service is unreachable.
-  let usdToKrw = 1350;
+  // Current KRW/USD rate for on-the-fly conversion to USD at record time.
+  // Falls back to 1 USD ≈ 1350 KRW if the rate service is unreachable.
+  let krwToUsd = 1 / 1350;
   try {
-    const krwToUsd = await getExchangeRate('KRW');
-    if (krwToUsd > 0.0001) usdToKrw = 1 / krwToUsd;
+    const rate = await getExchangeRate('KRW');
+    if (rate > 0.0001) krwToUsd = rate;
   } catch (e) {}
 
-  function krwLabel(usd) {
-    if (usd === 0) return '₩0';
-    // Round to the nearest 500 KRW so the labels stay tidy.
-    const krw = Math.round(Math.abs(usd) * usdToKrw / 500) * 500;
-    return `${usd > 0 ? '+' : '-'}₩${krw.toLocaleString()}`;
+  function krwLabel(krw) {
+    if (krw === 0) return '₩0';
+    return `${krw > 0 ? '+' : '-'}₩${Math.abs(krw).toLocaleString()}`;
   }
 
-  const SLICES = SLICE_BASE.map(s => ({ ...s, label: krwLabel(s.value) }));
+  const SLICES = SLICE_BASE.map(s => ({
+    valueKrw: s.valueKrw,
+    label: krwLabel(s.valueKrw),
+    color: s.color
+  }));
 
   container.innerHTML = `
     <p>수레바퀴를 돌려라! 양수면 네가 이긴다.</p>
@@ -112,24 +115,28 @@ export async function play(container, { year, week, seed }) {
         const partnerUid = getPartnerUid() || 'partner';
 
         let favoredUser = null;
-        if (resultSlice.value > 0) {
+        if (resultSlice.valueKrw > 0) {
           favoredUser = user.uid;
-        } else if (resultSlice.value < 0) {
+        } else if (resultSlice.valueKrw < 0) {
           favoredUser = partnerUid;
         }
 
-        if (resultSlice.value > 0) {
+        if (resultSlice.valueKrw > 0) {
           resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">${resultSlice.label} — 승리!</div>`;
-        } else if (resultSlice.value < 0) {
+        } else if (resultSlice.valueKrw < 0) {
           resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">${resultSlice.label} — 패배!</div>`;
         } else {
           resultEl.innerHTML = `<div class="duel-result">₩0 — 무승부!</div>`;
         }
 
+        // Convert KRW → USD for storage so it reconciles with all other
+        // duel balance adjustments (which live in USD).
+        const valueUsd = resultSlice.valueKrw * krwToUsd;
+
         recordDuelResult({
           game: 'wheel',
-          result: { value: resultSlice.value },
-          balanceAdjust: Math.abs(resultSlice.value),
+          result: { valueKrw: resultSlice.valueKrw, valueUsd },
+          balanceAdjust: Math.abs(valueUsd),
           favoredUser,
           seed, year, week
         });
