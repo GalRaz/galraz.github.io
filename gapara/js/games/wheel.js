@@ -1,17 +1,37 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
 import { recordDuelResult } from '../duel.js';
+import { getExchangeRate } from '../exchange.js';
 
-const SLICES = [
-  { value: -10, label: '-$10', color: '#e94560' },
-  { value: -5, label: '-$5', color: '#c73e54' },
-  { value: 0, label: '$0', color: '#16213e' },
-  { value: 0, label: '$0', color: '#0f3460' },
-  { value: 5, label: '+$5', color: '#3a8a6a' },
-  { value: 10, label: '+$10', color: '#4ecca3' }
+// Underlying values stay in USD so the balance math matches the rest of the
+// duels across the app. Only the display labels are Korean won.
+const SLICE_BASE = [
+  { value: -10, color: '#e94560' },
+  { value: -5, color: '#c73e54' },
+  { value: 0, color: '#16213e' },
+  { value: 0, color: '#0f3460' },
+  { value: 5, color: '#3a8a6a' },
+  { value: 10, color: '#4ecca3' }
 ];
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
+
+  // Convert USD → KRW at current rate for the display labels. Falls back to
+  // a sensible constant if the rate service is unreachable.
+  let usdToKrw = 1350;
+  try {
+    const krwToUsd = await getExchangeRate('KRW');
+    if (krwToUsd > 0.0001) usdToKrw = 1 / krwToUsd;
+  } catch (e) {}
+
+  function krwLabel(usd) {
+    if (usd === 0) return '₩0';
+    // Round to the nearest 500 KRW so the labels stay tidy.
+    const krw = Math.round(Math.abs(usd) * usdToKrw / 500) * 500;
+    return `${usd > 0 ? '+' : '-'}₩${krw.toLocaleString()}`;
+  }
+
+  const SLICES = SLICE_BASE.map(s => ({ ...s, label: krwLabel(s.value) }));
 
   container.innerHTML = `
     <p>수레바퀴를 돌려라! 양수면 네가 이긴다.</p>
@@ -103,7 +123,7 @@ export async function play(container, { year, week, seed }) {
         } else if (resultSlice.value < 0) {
           resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">${resultSlice.label} — 패배!</div>`;
         } else {
-          resultEl.innerHTML = `<div class="duel-result">$0 — 무승부!</div>`;
+          resultEl.innerHTML = `<div class="duel-result">₩0 — 무승부!</div>`;
         }
 
         recordDuelResult({

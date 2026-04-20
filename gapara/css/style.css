@@ -93,10 +93,10 @@ body {
   justify-content: center; min-height: 80dvh; text-align: center;
 }
 .auth-icon {
-  width: 112px; height: 112px;
-  border-radius: 28px;
-  margin-bottom: 24px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  width: 80px; height: 80px;
+  border-radius: 20px;
+  margin-bottom: 40px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   object-fit: cover;
 }
 .auth-container h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }

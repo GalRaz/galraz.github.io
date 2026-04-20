@@ -894,7 +894,7 @@ window.addEventListener('edit-entry', (e) => {
         editingEntry = null;
         showScreen('dashboard');
         const { loadDashboard } = await import('./balance.js');
-        invalidateAllCaches(); loadDashboard();
+        invalidateAllCaches(); loadDashboard(true);
       } catch (err) {
         console.error('Delete failed:', err);
         alert('삭제에 실패했습니다.');
@@ -957,7 +957,7 @@ window.addEventListener('edit-entry', (e) => {
       editingEntry = null;
       showScreen('dashboard', 'slide-back');
       const { loadDashboard } = await import('./balance.js');
-      invalidateAllCaches(); loadDashboard();
+      invalidateAllCaches(); loadDashboard(true);
     } catch (err) {
       console.error('Delete failed:', err);
       alert('삭제에 실패했습니다.');
@@ -1034,7 +1034,7 @@ async function renderSettleUp() {
 
   try {
     // Compute per-currency balances
-    const { computeCurrencyBalances } = await import('./balance.js');
+    const { computeCurrencyBalances, formatAmountByDigits } = await import('./balance.js');
     const { currencyBalances, balance: totalUsdBalance } = await computeCurrencyBalances();
 
     // Get exchange rates for "settle all"
@@ -1076,7 +1076,7 @@ async function renderSettleUp() {
       html += `
         <div class="settle-row">
           <div class="settle-currency">
-            <span class="settle-amount-text">${sym}${abs.toLocaleString(undefined, { minimumFractionDigits: abs % 1 ? 2 : 0, maximumFractionDigits: 2 })}</span>
+            <span class="settle-amount-text">${sym}${formatAmountByDigits(abs)}</span>
             <span class="settle-cur-code">${currency}</span>
           </div>
           <button class="btn btn-small settle-btn" data-currency="${currency}" data-amount="${abs}">${label}</button>
@@ -1112,7 +1112,7 @@ async function renderSettleUp() {
       <div class="settle-divider"></div>
       <div class="settle-all-section">
         <p class="settle-all-label">한 번에 모두 정산</p>
-        <p class="settle-all-total">${consolSym}${totalConsol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${consolCurrency}</p>
+        <p class="settle-all-total">${consolSym}${formatAmountByDigits(totalConsol)} ${consolCurrency}</p>
         <p class="settle-all-hint">통화별로 정확한 금액의 정산 건을 하나씩 생성합니다</p>
         <button class="btn btn-primary settle-all-btn" id="btn-settle-all">모두 정산</button>
       </div>`;
@@ -1205,7 +1205,7 @@ async function renderSettleUp() {
         setTimeout(async () => {
           showScreen('dashboard');
           const { loadDashboard } = await import('./balance.js');
-          invalidateAllCaches(); loadDashboard();
+          invalidateAllCaches(); loadDashboard(true);
         }, 1000);
       } catch (err) {
         console.error('Settle all failed:', err);
@@ -1377,7 +1377,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     editingEntry = null;
     showScreen('dashboard', 'slide-back');
     const { loadDashboard } = await import('./balance.js');
-    invalidateAllCaches(); loadDashboard();
+    invalidateAllCaches(); loadDashboard(true);
   } catch (err) {
     console.error('Error saving entry:', err);
     alert('저장에 실패했습니다. 연결 상태를 확인하세요.');
@@ -1656,7 +1656,7 @@ async function showApp() {
   backfillPartnerUids().then(() => {
     import('./recurring.js').then(({ processRecurring }) => {
       processRecurring(currentUser).then(count => {
-        if (count > 0) { invalidateAllCaches(); import('./balance.js').then(({ loadDashboard }) => loadDashboard()); }
+        if (count > 0) { invalidateAllCaches(); import('./balance.js').then(({ loadDashboard }) => loadDashboard(true)); }
       });
     });
   });

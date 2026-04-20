@@ -60,6 +60,27 @@ const CURRENCY_SYMBOLS = {
   ILS:'₪', TRY:'₺', ZAR:'R', PHP:'₱', MYR:'RM', IDR:'Rp'
 };
 
+/**
+ * Format a number following the graduated-decimals rule:
+ *   - 7+ integer digits (>= 1,000,000): no decimals
+ *   - 5-6 integer digits (10,000 - 999,999): one decimal
+ *   - ≤4 integer digits: two decimals
+ * Used for the consolidated total, per-currency breakdown, history rows,
+ * and settle-up amounts so large numbers don't overflow the layout.
+ */
+export function formatAmountByDigits(amount) {
+  const abs = Math.abs(amount);
+  const intPart = Math.floor(abs);
+  const digits = intPart === 0 ? 1 : String(intPart).length;
+  if (digits >= 7) {
+    return abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+  if (digits >= 5) {
+    return abs.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+  return abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function categorize(description) {
   if (!description) return { icon: '$', label: 'other' };
   const d = description.toLowerCase();
@@ -416,7 +437,7 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
     // Build consolidated view
     const consolidatedText = Math.abs(consolidatedBalance) < 0.005
       ? `${symbol}0.00`
-      : `${symbol}${Math.abs(consolidatedBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      : `${symbol}${formatAmountByDigits(consolidatedBalance)}`;
     const consolidatedClass = consolidatedBalance > 0.005 ? 'positive' : consolidatedBalance < -0.005 ? 'negative' : '';
 
     // Build breakdown view (reuse nonZeroCurrencies, sort by abs value for display)
@@ -427,23 +448,10 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
 
     let breakdownHTML = '';
     for (const [cur, val] of sortedCurrencies) {
-      const abs = Math.abs(val);
       const s = CURRENCY_SYMBOLS[cur] || cur;
       const sign = val >= 0 ? '+' : '-';
       const cls = val >= 0 ? 'positive' : 'negative';
-      // Trim decimals as the number gets wider to keep the breakdown readable.
-      let formatted;
-      if (abs >= 10000) {
-        // 5+ integer digits: no decimals.
-        formatted = abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
-      } else if (abs >= 1000) {
-        // 4 integer digits: exactly one decimal.
-        formatted = abs.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-      } else {
-        // <1000: keep existing behavior (up to 2 decimals, trailing zeros dropped).
-        formatted = (Math.round(abs * 100) / 100).toLocaleString();
-      }
-      breakdownHTML += `<span class="currency-line ${cls}">${sign}${s}${formatted}</span> `;
+      breakdownHTML += `<span class="currency-line ${cls}">${sign}${s}${formatAmountByDigits(val)}</span> `;
     }
 
     // Render based on preference
@@ -602,8 +610,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
 
   function fmtCurrency(amount, currency) {
     const sym = CURRENCY_SYMBOLS[currency] || currency + ' ';
-    const rounded = Math.round(Math.abs(amount) * 100) / 100;
-    return `${sym}${rounded.toLocaleString(undefined, { minimumFractionDigits: rounded % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+    return `${sym}${formatAmountByDigits(amount)}`;
   }
 
   function fmtConsol(item, impact) {
@@ -613,15 +620,13 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       ? item.amount
       : (item.splitType === 'even' ? item.amount / 2 : item.amount);
     const consolAmount = Math.abs(origAmount) * rate;
-    const rounded = Math.round(consolAmount * 100) / 100;
-    return `${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
   }
 
   function fmtDuelConsol(usdAmount) {
     const rate = rateCache['USD'] || 1;
     const consolAmount = Math.abs(usdAmount) * rate;
-    const rounded = Math.round(consolAmount * 100) / 100;
-    return `${consolSymbol}${rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
   }
 
   items.forEach((item) => {
