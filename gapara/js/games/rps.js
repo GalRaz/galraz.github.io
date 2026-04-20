@@ -25,7 +25,7 @@ export async function play(container, { year, week, seed }) {
       duelDocRef = doc.ref;
     }
     if (data.result) {
-      container.innerHTML = `<p>Duel already played this week!</p>`;
+      container.innerHTML = `<p>이번 주 결투는 이미 끝났어요!</p>`;
       return;
     }
   }
@@ -35,15 +35,15 @@ export async function play(container, { year, week, seed }) {
 
   if (mySubmission && !partnerSubmission) {
     container.innerHTML = `
-      <p>You picked ${CHOICES[mySubmission]}. Waiting for ${getUserName(partnerUid)} to play...</p>
-      <button class="btn btn-primary" id="btn-refresh" style="max-width:200px;margin:0 auto">Refresh</button>`;
+      <p>${CHOICES[mySubmission]} 선택. ${getUserName(partnerUid)}의 플레이를 기다리는 중...</p>
+      <button class="btn btn-primary" id="btn-refresh" style="max-width:200px;margin:0 auto">새로고침</button>`;
     document.getElementById('btn-refresh').addEventListener('click', () => play(container, { year, week, seed }));
     return;
   }
 
   if (partnerSubmission && !mySubmission) {
     container.innerHTML = `
-      <p>${getUserName(partnerUid)} has played! Your turn.</p>
+      <p>${getUserName(partnerUid)}이(가) 먼저 냈어요! 네 차례.</p>
       ${renderChoices()}
       <div id="rps-result"></div>`;
     setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerSubmission, existingSubmissions });
@@ -51,7 +51,7 @@ export async function play(container, { year, week, seed }) {
   }
 
   container.innerHTML = `
-    <p>Pick your weapon! Your choice is hidden until ${getUserName(partnerUid) || 'your partner'} plays.</p>
+    <p>선택해! ${getUserName(partnerUid) || '상대'}가 낼 때까지 비공개로 보관됩니다.</p>
     ${renderChoices()}
     <div id="rps-result"></div>`;
   setupChoiceHandlers(container, { year, week, seed, duelDocRef: null, partnerSubmission: null, existingSubmissions });
@@ -82,13 +82,13 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
         let resultText = '';
 
         if (myChoice === partnerSubmission) {
-          resultText = `Tie! Both picked ${CHOICES[myChoice]}. No change.`;
+          resultText = `무승부! 둘 다 ${CHOICES[myChoice]}. 변동 없음.`;
         } else if (BEATS[myChoice] === partnerSubmission) {
           favoredUser = user.uid;
-          resultText = `You win! ${CHOICES[myChoice]} beats ${CHOICES[partnerSubmission]}. $10 in your favor!`;
+          resultText = `승리! ${CHOICES[myChoice]} > ${CHOICES[partnerSubmission]}. +$10!`;
         } else {
           favoredUser = partnerUid;
-          resultText = `You lose! ${CHOICES[partnerSubmission]} beats ${CHOICES[myChoice]}. $10 to ${getUserName(partnerUid)}.`;
+          resultText = `패배! ${CHOICES[partnerSubmission]} > ${CHOICES[myChoice]}. ${getUserName(partnerUid)}에게 $10.`;
         }
 
         const resultClass = favoredUser === user.uid ? 'win' : favoredUser ? 'loss' : 'tie';
@@ -123,7 +123,7 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
         } else {
           await db.collection('duels').add({
             year, week, seed,
-            game: 'Rock Paper Scissors',
+            game: '가위바위보',
             submissions: { [user.uid]: myChoice },
             result: null,
             balanceAdjust: 0,
@@ -133,7 +133,7 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
         }
 
         const resultEl = document.getElementById('rps-result');
-        resultEl.innerHTML = `<div class="duel-result">You picked ${CHOICES[myChoice]}. Waiting for ${getUserName(partnerUid) || 'partner'}...</div>`;
+        resultEl.innerHTML = `<div class="duel-result">${CHOICES[myChoice]} 선택. ${getUserName(partnerUid) || '상대'}를 기다리는 중...</div>`;
         container.querySelectorAll('.rps-choice').forEach((c) => {
           c.style.pointerEvents = 'none';
         });

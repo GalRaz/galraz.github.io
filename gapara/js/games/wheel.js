@@ -14,12 +14,12 @@ export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
 
   container.innerHTML = `
-    <p>Spin the wheel! Positive values are in your favor.</p>
+    <p>수레바퀴를 돌려라! 양수면 네가 이긴다.</p>
     <div class="wheel-container">
       <div class="wheel-pointer"></div>
       <canvas id="wheel-canvas" width="280" height="280"></canvas>
     </div>
-    <button class="btn btn-primary" id="btn-spin" style="max-width:200px;margin:0 auto">Spin!</button>
+    <button class="btn btn-primary" id="btn-spin" style="max-width:200px;margin:0 auto">시작!</button>
     <div id="spin-result"></div>`;
 
   const canvas = document.getElementById('wheel-canvas');
@@ -99,11 +99,11 @@ export async function play(container, { year, week, seed }) {
         }
 
         if (resultSlice.value > 0) {
-          resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">${resultSlice.label} — you win!</div>`;
+          resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">${resultSlice.label} — 승리!</div>`;
         } else if (resultSlice.value < 0) {
-          resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">${resultSlice.label} — you lose!</div>`;
+          resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">${resultSlice.label} — 패배!</div>`;
         } else {
-          resultEl.innerHTML = `<div class="duel-result">$0 — no change!</div>`;
+          resultEl.innerHTML = `<div class="duel-result">$0 — 무승부!</div>`;
         }
 
         recordDuelResult({
@@ -114,7 +114,7 @@ export async function play(container, { year, week, seed }) {
           seed, year, week
         });
 
-        btn.textContent = 'Done!';
+        btn.textContent = '완료!';
       }
     }
 

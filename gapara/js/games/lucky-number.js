@@ -21,7 +21,7 @@ export async function play(container, { year, week, seed }) {
     const doc = pendingSnap.docs[0];
     const data = doc.data();
     if (data.result) {
-      container.innerHTML = `<p>Duel already played this week!</p>`;
+      container.innerHTML = `<p>이번 주 결투는 이미 끝났어요!</p>`;
       return;
     }
     if (data.submissions) {
@@ -35,15 +35,15 @@ export async function play(container, { year, week, seed }) {
 
   if (mySubmission && !partnerSubmission) {
     container.innerHTML = `
-      <p>You picked ${mySubmission}. Waiting for ${getUserName(partnerUid)} to pick...</p>
-      <button class="btn btn-primary" id="btn-refresh" style="max-width:200px;margin:0 auto">Refresh</button>`;
+      <p>${mySubmission} 선택. ${getUserName(partnerUid)}의 선택을 기다리는 중...</p>
+      <button class="btn btn-primary" id="btn-refresh" style="max-width:200px;margin:0 auto">새로고침</button>`;
     document.getElementById('btn-refresh').addEventListener('click', () => play(container, { year, week, seed }));
     return;
   }
 
   const preamble = partnerSubmission && !mySubmission
-    ? `<p>${getUserName(partnerUid)} has picked! Your turn.</p>`
-    : `<p>Pick a number 1-10. Closest to the target wins $10!</p>`;
+    ? `<p>${getUserName(partnerUid)}이(가) 먼저 골랐어요! 네 차례.</p>`
+    : `<p>1-10 중 하나를 고르세요. 목표 숫자에 가장 가까운 사람이 $10 획득!</p>`;
 
   container.innerHTML = `
     ${preamble}
@@ -74,12 +74,12 @@ export async function play(container, { year, week, seed }) {
 
         if (myDist < partnerDist) {
           favoredUser = user.uid;
-          resultText = `Target: ${targetNumber}. You picked ${myPick}, ${getUserName(partnerUid)} picked ${partnerPick}. You win! $10 in your favor!`;
+          resultText = `목표: ${targetNumber}. 내 선택 ${myPick}, ${getUserName(partnerUid)} 선택 ${partnerPick}. 승리! +$10!`;
         } else if (partnerDist < myDist) {
           favoredUser = partnerUid;
-          resultText = `Target: ${targetNumber}. You picked ${myPick}, ${getUserName(partnerUid)} picked ${partnerPick}. ${getUserName(partnerUid)} wins! $10 to them.`;
+          resultText = `목표: ${targetNumber}. 내 선택 ${myPick}, ${getUserName(partnerUid)} 선택 ${partnerPick}. ${getUserName(partnerUid)} 승! $10 상실.`;
         } else {
-          resultText = `Target: ${targetNumber}. Both equally close (${myPick} vs ${partnerPick}). No change!`;
+          resultText = `목표: ${targetNumber}. 둘 다 동점 (${myPick} vs ${partnerPick}). 변동 없음!`;
         }
 
         const color = favoredUser === user.uid ? 'var(--green)' : favoredUser ? 'var(--red)' : 'var(--text)';
@@ -110,7 +110,7 @@ export async function play(container, { year, week, seed }) {
         } else {
           await db.collection('duels').add({
             year, week, seed,
-            game: 'Lucky Number',
+            game: '행운의 숫자',
             submissions: { [user.uid]: myPick },
             result: null,
             balanceAdjust: 0,
@@ -119,7 +119,7 @@ export async function play(container, { year, week, seed }) {
           });
         }
         document.getElementById('lucky-result').innerHTML =
-          `<div class="duel-result">You picked ${myPick}. Waiting for ${getUserName(partnerUid)}...</div>`;
+          `<div class="duel-result">${myPick} 선택. ${getUserName(partnerUid)}을(를) 기다리는 중...</div>`;
       }
     });
   });

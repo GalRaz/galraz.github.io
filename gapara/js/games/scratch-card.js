@@ -10,7 +10,7 @@ export async function play(container, { year, week, seed }) {
   const netAdjust = VALUES[Math.floor(rng() * VALUES.length)];
 
   container.innerHTML = `
-    <p>Scratch your card to reveal the result!</p>
+    <p>복권을 긁어서 결과를 확인하세요!</p>
     <div class="scratch-card" id="scratch-card">
       <div class="scratch-value" id="scratch-value">
         ${netAdjust >= 0 ? '+' : ''}$${netAdjust}
@@ -18,7 +18,7 @@ export async function play(container, { year, week, seed }) {
       <canvas id="scratch-canvas" width="200" height="140"></canvas>
     </div>
     <p id="scratch-hint" style="color:var(--text-muted);font-size:0.85rem;margin-top:8px">
-      Drag or tap to scratch
+      드래그하거나 탭해서 긁으세요
     </p>
     <div id="scratch-result"></div>`;
 
@@ -30,7 +30,7 @@ export async function play(container, { year, week, seed }) {
   ctx.fillStyle = '#eee';
   ctx.font = 'bold 16px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('SCRATCH ME', 100, 75);
+  ctx.fillText('긁어보세요', 100, 75);
 
   let isScratching = false;
   let scratchedPixels = 0;
@@ -82,12 +82,12 @@ export async function play(container, { year, week, seed }) {
     let favoredUser = null;
     if (netAdjust > 0) {
       favoredUser = user.uid;
-      resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">+$${netAdjust} — you win!</div>`;
+      resultEl.innerHTML = `<div class="duel-result" style="color:var(--green)">+$${netAdjust} — 승리!</div>`;
     } else if (netAdjust < 0) {
       favoredUser = partnerUid;
-      resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">-$${Math.abs(netAdjust)} — you lose!</div>`;
+      resultEl.innerHTML = `<div class="duel-result" style="color:var(--red)">-$${Math.abs(netAdjust)} — 패배!</div>`;
     } else {
-      resultEl.innerHTML = `<div class="duel-result">$0 — no change!</div>`;
+      resultEl.innerHTML = `<div class="duel-result">$0 — 무승부!</div>`;
     }
 
     await recordDuelResult({

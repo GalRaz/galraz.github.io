@@ -75,7 +75,7 @@ let editingEntry = null; // { id, type } when editing, null when creating
 document.getElementById('btn-google-login').addEventListener('click', () => {
   auth.signInWithPopup(googleProvider).catch((err) => {
     console.error('Auth error:', err);
-    alert('Sign-in failed. Make sure you use an authorized Google account.');
+    alert('로그인에 실패했습니다. 허용된 Google 계정인지 확인하세요.');
   });
 });
 
@@ -227,7 +227,7 @@ if (dashboardContent) {
     if (dy > 80 && dashboardContent.scrollTop <= 0) {
       indicator.classList.remove('pulling');
       indicator.classList.add('refreshing');
-      document.getElementById('pull-text').textContent = 'Refreshing...';
+      document.getElementById('pull-text').textContent = '새로고침 중...';
 
       try {
         const { loadDashboard } = await import('./balance.js');
@@ -349,7 +349,7 @@ function buildCurrencySelect(extraCurrency) {
   if (priorityCurrencies.length > 0 && otherCurrencies.length > 0) {
     const sep = document.createElement('option');
     sep.disabled = true;
-    sep.textContent = '── Other ──';
+    sep.textContent = '── 기타 ──';
     select.appendChild(sep);
   }
 
@@ -397,7 +397,7 @@ function buildConsolCurrencySelect(currentValue) {
   if (priorityCurrencies.length > 0 && otherCurrencies.length > 0) {
     const sep = document.createElement('option');
     sep.disabled = true;
-    sep.textContent = '── Other ──';
+    sep.textContent = '── 기타 ──';
     select.appendChild(sep);
   }
   otherCurrencies.forEach(c => {
@@ -434,7 +434,7 @@ document.getElementById('fab-add').addEventListener('click', () => {
   const deleteBtn = document.getElementById('btn-delete-entry');
   if (deleteBtn) deleteBtn.style.display = 'none';
   const submitBtn = document.querySelector('#form-entry button[type="submit"]');
-  submitBtn.textContent = 'Save';
+  submitBtn.textContent = '저장';
   // Auto-focus the amount field
   setTimeout(() => document.getElementById('entry-amount').focus(), 100);
 });
@@ -508,7 +508,7 @@ async function loadRecurringList() {
     const items = await getRecurring();
 
     if (items.length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">No recurring expenses</p>';
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">반복 지출이 없습니다</p>';
       return;
     }
 
@@ -517,13 +517,13 @@ async function loadRecurringList() {
       const sym = getCurrencySymbol(item.currency);
       const nextDue = item.nextDue?.toDate ? item.nextDue.toDate() : new Date(item.nextDue);
       const dateStr = nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const freqLabel = item.frequency === 'weekly' ? 'Weekly' : 'Monthly';
+      const freqLabel = item.frequency === 'weekly' ? '매주' : '매월';
       const div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;cursor:pointer;';
       div.innerHTML = `
         <div>
           <div style="font-size:0.9rem;font-weight:500">${item.description}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted)">${sym}${item.amount.toLocaleString()} · ${freqLabel} · next: ${dateStr}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">${sym}${item.amount.toLocaleString()} · ${freqLabel} · 다음: ${dateStr}</div>
         </div>
         <span style="color:var(--text-muted);font-size:1rem">›</span>`;
       div.addEventListener('click', () => {
@@ -535,7 +535,7 @@ async function loadRecurringList() {
     });
   } catch (err) {
     console.error('Failed to load recurring:', err);
-    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Could not load</p>';
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">불러오지 못했습니다</p>';
   }
 }
 
@@ -552,18 +552,18 @@ async function loadDuelSettings() {
     const iRequested = optInRequests.includes(user.uid);
 
     if (isActive) {
-      hint.textContent = 'Duels are active. Either player can opt out.';
-      btn.textContent = 'Turn Off Duels';
+      hint.textContent = '결투가 활성화되어 있습니다. 누구든 끌 수 있어요.';
+      btn.textContent = '결투 끄기';
       btn.className = 'btn btn-logout'; // red style
       btn.onclick = async () => {
-        if (!confirm('This will disable weekly duels for both of you. Continue?')) return;
+        if (!confirm('두 사람 모두의 주간 결투를 비활성화합니다. 계속하시겠습니까?')) return;
         await db.collection('settings').doc('duel').set({ active: false, optInRequests: [], disabledBy: user.uid }, { merge: true });
         await loadDuelSettings();
       };
     } else {
       if (iRequested) {
-        hint.textContent = 'You voted to turn duels back on. Waiting for your partner to agree.';
-        btn.textContent = 'Cancel Request';
+        hint.textContent = '결투 재시작에 찬성했습니다. 상대방의 동의를 기다리는 중.';
+        btn.textContent = '요청 취소';
         btn.className = 'btn btn-secondary';
         btn.onclick = async () => {
           const updated = optInRequests.filter(uid => uid !== user.uid);
@@ -571,16 +571,16 @@ async function loadDuelSettings() {
           await loadDuelSettings();
         };
       } else if (optInRequests.length > 0) {
-        hint.textContent = 'Your partner wants to turn duels back on. Agree to reactivate.';
-        btn.textContent = 'Agree — Turn On Duels';
+        hint.textContent = '상대방이 결투를 다시 켜고 싶어합니다. 동의하면 재활성화됩니다.';
+        btn.textContent = '동의 — 결투 켜기';
         btn.className = 'btn btn-primary';
         btn.onclick = async () => {
           await db.collection('settings').doc('duel').set({ active: true, optInRequests: [] }, { merge: true });
           await loadDuelSettings();
         };
       } else {
-        hint.textContent = 'Duels are off. Both players must agree to turn them back on.';
-        btn.textContent = 'Request to Turn On';
+        hint.textContent = '결투가 꺼져 있습니다. 두 사람 모두 동의해야 다시 켤 수 있어요.';
+        btn.textContent = '켜기 요청';
         btn.className = 'btn btn-secondary';
         btn.onclick = async () => {
           await db.collection('settings').doc('duel').set({
@@ -593,18 +593,18 @@ async function loadDuelSettings() {
     }
   } catch (err) {
     console.error('Failed to load duel settings:', err);
-    hint.textContent = 'Could not load duel settings.';
+    hint.textContent = '결투 설정을 불러오지 못했습니다.';
     btn.style.display = 'none';
   }
 }
 
 document.getElementById('btn-save-nickname').addEventListener('click', async () => {
   const nickname = document.getElementById('settings-nickname').value.trim();
-  if (!nickname) { alert('Please enter a nickname.'); return; }
+  if (!nickname) { alert('별명을 입력하세요.'); return; }
 
   const btn = document.getElementById('btn-save-nickname');
   btn.disabled = true;
-  btn.textContent = 'Saving...';
+  btn.textContent = '저장 중...';
 
   try {
     const user = getCurrentUser();
@@ -616,12 +616,12 @@ document.getElementById('btn-save-nickname').addEventListener('click', async () 
 
     // Update local state
     userNames[user.uid] = nickname;
-    btn.textContent = 'Saved!';
-    setTimeout(() => { btn.textContent = 'Save'; btn.disabled = false; }, 1500);
+    btn.textContent = '저장됨!';
+    setTimeout(() => { btn.textContent = '저장'; btn.disabled = false; }, 1500);
   } catch (err) {
     console.error('Failed to save nickname:', err);
-    alert('Failed to save. Try again.');
-    btn.textContent = 'Save';
+    alert('저장에 실패했습니다. 다시 시도하세요.');
+    btn.textContent = '저장';
     btn.disabled = false;
   }
 });
@@ -642,7 +642,7 @@ document.getElementById('settings-consolidation-currency').addEventListener('cha
 document.getElementById('btn-export-csv').addEventListener('click', async () => {
   const btn = document.getElementById('btn-export-csv');
   btn.disabled = true;
-  btn.textContent = 'Exporting...';
+  btn.textContent = '내보내는 중...';
 
   try {
     const [expSnap, paySnap, duelSnap] = await Promise.all([
@@ -659,7 +659,7 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
       const d = doc.data();
       const ts = d.date?.toDate ? d.date.toDate() : new Date(d.date?.seconds ? d.date.seconds * 1000 : d.date);
       const date = ts.toISOString().split('T')[0];
-      const whoPaid = d.paidBy === getCurrentUser().uid ? 'Me' : 'Partner';
+      const whoPaid = d.paidBy === getCurrentUser().uid ? '나' : '상대';
       rows.push({ ts, line: `${date},Expense,"${(d.description || '').replace(/"/g, '""')}",${d.amount},${d.currency},${d.usdAmount},${d.splitType},${whoPaid}\n` });
     });
 
@@ -667,7 +667,7 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
       const d = doc.data();
       const ts = d.date?.toDate ? d.date.toDate() : new Date(d.date?.seconds ? d.date.seconds * 1000 : d.date);
       const date = ts.toISOString().split('T')[0];
-      const whoPaid = d.paidBy === getCurrentUser().uid ? 'Me' : 'Partner';
+      const whoPaid = d.paidBy === getCurrentUser().uid ? '나' : '상대';
       rows.push({ ts, line: `${date},Payment,,${d.amount},${d.currency},${d.usdAmount},,${whoPaid}\n` });
     });
 
@@ -690,18 +690,18 @@ document.getElementById('btn-export-csv').addEventListener('click', async () => 
     a.click();
     URL.revokeObjectURL(url);
 
-    btn.textContent = 'Export CSV';
+    btn.textContent = 'CSV 내보내기';
     btn.disabled = false;
   } catch (err) {
     console.error('Export failed:', err);
-    alert('Export failed.');
-    btn.textContent = 'Export CSV';
+    alert('내보내기에 실패했습니다.');
+    btn.textContent = 'CSV 내보내기';
     btn.disabled = false;
   }
 });
 
 document.getElementById('btn-logout').addEventListener('click', async () => {
-  if (!confirm('Log out?')) return;
+  if (!confirm('로그아웃하시겠습니까?')) return;
   try {
     await auth.signOut();
     showScreen('auth');
@@ -716,7 +716,7 @@ window.addEventListener('edit-recurring', (e) => {
 
   showScreen('add', 'slide-forward');
   const title = document.getElementById('add-title');
-  title.textContent = 'Edit Recurring';
+  title.textContent = '반복 지출 수정';
 
   // Hide entry type toggle and form
   document.querySelector('#screen-add > .toggle-group').style.display = 'none';
@@ -739,11 +739,11 @@ window.addEventListener('edit-recurring', (e) => {
     </div>
     <div class="form" style="gap:14px">
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Description</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">설명</label>
         <input type="text" id="recur-desc" class="settings-input" value="${data.description || ''}">
       </div>
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Amount</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">금액</label>
         <div style="display:flex;gap:8px">
           <input type="number" id="recur-amount" class="settings-input" style="flex:1" value="${data.amount}" step="0.01" inputmode="decimal">
           <select id="recur-currency" class="settings-input" style="width:110px;text-align:center">
@@ -752,32 +752,32 @@ window.addEventListener('edit-recurring', (e) => {
         </div>
       </div>
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Frequency</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">주기</label>
         <div class="toggle" id="recur-frequency">
-          <button type="button" class="toggle-btn ${data.frequency === 'weekly' ? 'active' : ''}" data-value="weekly">Weekly</button>
-          <button type="button" class="toggle-btn ${data.frequency === 'monthly' ? 'active' : ''}" data-value="monthly">Monthly</button>
+          <button type="button" class="toggle-btn ${data.frequency === 'weekly' ? 'active' : ''}" data-value="weekly">매주</button>
+          <button type="button" class="toggle-btn ${data.frequency === 'monthly' ? 'active' : ''}" data-value="monthly">매월</button>
         </div>
       </div>
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Who is paying</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">결제자</label>
         <div class="toggle" id="recur-paid-by">
-          <button type="button" class="toggle-btn ${data.paidBy === currentUser.uid ? 'active' : ''}" data-value="self">Me</button>
+          <button type="button" class="toggle-btn ${data.paidBy === currentUser.uid ? 'active' : ''}" data-value="self">내가</button>
           <button type="button" class="toggle-btn ${data.paidBy !== currentUser.uid ? 'active' : ''}" data-value="partner">${partnerName}</button>
         </div>
       </div>
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Split</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">분할</label>
         <div class="toggle" id="recur-split">
-          <button type="button" class="toggle-btn ${data.splitType === 'even' ? 'active' : ''}" data-value="even">Split evenly</button>
-          <button type="button" class="toggle-btn ${data.splitType === 'full' ? 'active' : ''}" data-value="full">Owed fully</button>
+          <button type="button" class="toggle-btn ${data.splitType === 'even' ? 'active' : ''}" data-value="even">반반</button>
+          <button type="button" class="toggle-btn ${data.splitType === 'full' ? 'active' : ''}" data-value="full">전액</button>
         </div>
       </div>
       <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Next charge</label>
+        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">다음 결제</label>
         <input type="date" id="recur-next-date" class="settings-input" value="${nextDate.toISOString().split('T')[0]}">
       </div>
-      <button class="btn btn-primary" id="btn-save-recurring">Save Changes</button>
-      <button class="btn btn-delete" id="btn-cancel-recurring">Cancel Recurring</button>
+      <button class="btn btn-primary" id="btn-save-recurring">변경 저장</button>
+      <button class="btn btn-delete" id="btn-cancel-recurring">반복 지출 해지</button>
     </div>`;
   container.style.display = '';
 
@@ -796,10 +796,10 @@ window.addEventListener('edit-recurring', (e) => {
     const btn = document.getElementById('btn-save-recurring');
     const desc = document.getElementById('recur-desc').value.trim();
     const amount = parseFloat(document.getElementById('recur-amount').value);
-    if (!desc || !amount || amount <= 0) { alert('Please fill in all fields.'); return; }
+    if (!desc || !amount || amount <= 0) { alert('모든 항목을 입력하세요.'); return; }
 
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.textContent = '저장 중...';
 
     try {
       const paidByVal = document.querySelector('#recur-paid-by .toggle-btn.active').dataset.value;
@@ -813,7 +813,7 @@ window.addEventListener('edit-recurring', (e) => {
         splitType: document.querySelector('#recur-split .toggle-btn.active').dataset.value,
         nextDue: new Date(document.getElementById('recur-next-date').value + 'T12:00:00')
       });
-      btn.textContent = 'Saved!';
+      btn.textContent = '저장됨!';
       setTimeout(() => {
         if (fromSettings) {
           showScreen('settings');
@@ -824,15 +824,15 @@ window.addEventListener('edit-recurring', (e) => {
       }, 500);
     } catch (err) {
       console.error('Save recurring failed:', err);
-      alert('Failed to save.');
-      btn.textContent = 'Save Changes';
+      alert('저장에 실패했습니다.');
+      btn.textContent = '변경 저장';
       btn.disabled = false;
     }
   });
 
   // Cancel
   document.getElementById('btn-cancel-recurring').addEventListener('click', async () => {
-    if (!confirm(`Cancel recurring "${data.description}"? Future charges will stop.`)) return;
+    if (!confirm(`반복 지출 "${data.description}"을(를) 해지하시겠습니까? 향후 결제가 중단됩니다.`)) return;
     try {
       const { deactivateRecurring } = await import('./recurring.js');
       await deactivateRecurring(data.id);
@@ -844,7 +844,7 @@ window.addEventListener('edit-recurring', (e) => {
       }
     } catch (err) {
       console.error('Cancel recurring failed:', err);
-      alert('Failed to cancel.');
+      alert('해지에 실패했습니다.');
     }
   });
 });
@@ -858,7 +858,7 @@ window.addEventListener('edit-entry', (e) => {
   if (type === 'payment') {
     showScreen('add', 'slide-forward');
     const title = document.getElementById('add-title');
-    title.textContent = 'Settlement Details';
+    title.textContent = '정산 내역';
 
     // Hide the entry type toggle and form
     document.querySelector('#screen-add > .toggle-group').style.display = 'none';
@@ -874,7 +874,7 @@ window.addEventListener('edit-entry', (e) => {
 
     const sym = getCurrencySymbol(data.currency);
     const dateObj = data.date instanceof Date ? data.date : (data.date?.toDate ? data.date.toDate() : new Date(data.date));
-    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const dateStr = dateObj.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
     const paidByName = data.paidBy === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidBy);
     const paidToName = data.paidTo === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidTo);
 
@@ -882,13 +882,13 @@ window.addEventListener('edit-entry', (e) => {
       <div style="text-align:center;padding:30px 0 20px">
         <div style="font-size:2rem;font-weight:700;color:var(--text);margin-bottom:8px">${sym}${data.amount.toLocaleString()}</div>
         <div style="font-size:0.85rem;color:var(--text-muted)">${data.currency} · ${dateStr}</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${paidByName} paid ${paidToName}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${paidByName} → ${paidToName}</div>
       </div>
-      <button class="btn btn-delete" id="btn-delete-payment">Delete Settlement</button>`;
+      <button class="btn btn-delete" id="btn-delete-payment">정산 삭제</button>`;
     container.style.display = '';
 
     document.getElementById('btn-delete-payment').addEventListener('click', async () => {
-      if (!confirm('Delete this settlement? The debt will be restored.')) return;
+      if (!confirm('이 정산을 삭제하시겠습니까? 빚이 복원됩니다.')) return;
       try {
         await db.collection('payments').doc(editingEntry.id).delete();
         editingEntry = null;
@@ -897,7 +897,7 @@ window.addEventListener('edit-entry', (e) => {
         invalidateAllCaches(); loadDashboard();
       } catch (err) {
         console.error('Delete failed:', err);
-        alert('Failed to delete.');
+        alert('삭제에 실패했습니다.');
       }
     });
     return;
@@ -936,7 +936,7 @@ window.addEventListener('edit-entry', (e) => {
 
   // Update UI for edit mode
   const submitBtn = document.querySelector('#form-entry button[type="submit"]');
-  submitBtn.textContent = 'Save Changes';
+  submitBtn.textContent = '변경 저장';
 
   // Show delete button
   let deleteBtn = document.getElementById('btn-delete-entry');
@@ -945,12 +945,12 @@ window.addEventListener('edit-entry', (e) => {
     deleteBtn.id = 'btn-delete-entry';
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn btn-delete';
-    deleteBtn.textContent = 'Delete';
+    deleteBtn.textContent = '삭제';
     submitBtn.parentNode.insertBefore(deleteBtn, submitBtn.nextSibling);
   }
   deleteBtn.style.display = '';
   deleteBtn.onclick = async () => {
-    if (!confirm('Delete this entry?')) return;
+    if (!confirm('이 항목을 삭제하시겠습니까?')) return;
     try {
       const collection = editingEntry.type === 'expense' ? 'expenses' : 'payments';
       await db.collection(collection).doc(editingEntry.id).delete();
@@ -960,7 +960,7 @@ window.addEventListener('edit-entry', (e) => {
       invalidateAllCaches(); loadDashboard();
     } catch (err) {
       console.error('Delete failed:', err);
-      alert('Failed to delete.');
+      alert('삭제에 실패했습니다.');
     }
   };
 });
@@ -993,7 +993,7 @@ function updateFormForType(type) {
 
   if (type === 'payment') {
     form.style.display = 'none';
-    title.textContent = 'Settle Up';
+    title.textContent = '정산';
     renderSettleUp();
   } else {
     if (settleContainer) settleContainer.style.display = 'none';
@@ -1002,7 +1002,7 @@ function updateFormForType(type) {
     expenseOptions.style.display = '';
     paymentDirection.style.display = 'none';
     recurringGroup.style.display = '';
-    title.textContent = 'Add Expense';
+    title.textContent = '지출 추가';
   }
   updatePartnerNames();
 }
@@ -1026,7 +1026,7 @@ async function renderSettleUp() {
     const form = document.getElementById('form-entry');
     form.parentNode.insertBefore(container, form);
   }
-  container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center">Loading balances...</p>';
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center">잔액 불러오는 중...</p>';
   container.style.display = '';
 
   // Hide the regular form
@@ -1056,14 +1056,14 @@ async function renderSettleUp() {
     debts.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
     if (debts.length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px 0">All settled up! Nothing to pay.</p>';
+      container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px 0">정산 완료! 갚을 게 없어요.</p>';
       return;
     }
 
     // Determine who owes whom overall
     const partnerName = getUserName(getPartnerUid());
     const iOwe = totalUsdBalance < 0;
-    const directionLabel = iOwe ? `You owe ${partnerName}` : `${partnerName} owes you`;
+    const directionLabel = iOwe ? `${partnerName}에게 갚을 돈` : `${partnerName}에게 받을 돈`;
 
     let html = `<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px">${directionLabel}</p>`;
     html += '<div class="settle-list">';
@@ -1072,7 +1072,7 @@ async function renderSettleUp() {
       const abs = Math.round(Math.abs(amount) * 100) / 100;
       const sym = getCurrencySymbol(currency);
       const isOwed = amount > 0; // positive = they owe me
-      const label = isOwed ? 'Collect' : 'Pay';
+      const label = isOwed ? '받기' : '갚기';
       html += `
         <div class="settle-row">
           <div class="settle-currency">
@@ -1111,10 +1111,10 @@ async function renderSettleUp() {
     html += `
       <div class="settle-divider"></div>
       <div class="settle-all-section">
-        <p class="settle-all-label">Settle everything at once</p>
+        <p class="settle-all-label">한 번에 모두 정산</p>
         <p class="settle-all-total">${consolSym}${totalConsol.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${consolCurrency}</p>
-        <p class="settle-all-hint">Creates one settlement per currency at exact amounts</p>
-        <button class="btn btn-primary settle-all-btn" id="btn-settle-all">Settle All</button>
+        <p class="settle-all-hint">통화별로 정확한 금액의 정산 건을 하나씩 생성합니다</p>
+        <button class="btn btn-primary settle-all-btn" id="btn-settle-all">모두 정산</button>
       </div>`;
 
     container.innerHTML = html;
@@ -1125,9 +1125,9 @@ async function renderSettleUp() {
         const currency = btn.dataset.currency;
         const amount = parseFloat(btn.dataset.amount);
         const sym = getCurrencySymbol(currency);
-        if (!confirm(`Settle ${sym}${amount.toLocaleString()} ${currency}?`)) return;
+        if (!confirm(`${sym}${amount.toLocaleString()} ${currency} 정산하시겠습니까?`)) return;
         btn.disabled = true;
-        btn.textContent = 'Settling...';
+        btn.textContent = '정산 중...';
 
         try {
           const { convertToUSD } = await import('./exchange.js');
@@ -1158,14 +1158,14 @@ async function renderSettleUp() {
             localStorage.setItem('gapara-used-currencies', JSON.stringify(usedCurrencies));
           }
 
-          btn.textContent = 'Done!';
+          btn.textContent = '완료!';
           btn.style.background = 'var(--green)';
 
           // Refresh the settle screen after a moment
           setTimeout(() => renderSettleUp(), 800);
         } catch (err) {
           console.error('Settle failed:', err);
-          btn.textContent = 'Failed';
+          btn.textContent = '실패';
           btn.disabled = false;
         }
       });
@@ -1174,9 +1174,9 @@ async function renderSettleUp() {
     // Wire up Settle All button
     document.getElementById('btn-settle-all')?.addEventListener('click', async () => {
       const btn = document.getElementById('btn-settle-all');
-      if (!confirm('Settle all outstanding debts?')) return;
+      if (!confirm('남은 모든 빚을 정산하시겠습니까?')) return;
       btn.disabled = true;
-      btn.textContent = 'Settling...';
+      btn.textContent = '정산 중...';
 
       try {
         const { convertToUSD } = await import('./exchange.js');
@@ -1200,7 +1200,7 @@ async function renderSettleUp() {
           });
         }
 
-        btn.textContent = 'All settled!';
+        btn.textContent = '모두 정산됨!';
         btn.style.background = 'var(--green)';
         setTimeout(async () => {
           showScreen('dashboard');
@@ -1209,14 +1209,14 @@ async function renderSettleUp() {
         }, 1000);
       } catch (err) {
         console.error('Settle all failed:', err);
-        btn.textContent = 'Failed';
+        btn.textContent = '실패';
         btn.disabled = false;
       }
     });
 
   } catch (err) {
     console.error('Failed to load settle-up:', err);
-    container.innerHTML = '<p style="color:var(--red);text-align:center">Failed to load balances.</p>';
+    container.innerHTML = '<p style="color:var(--red);text-align:center">잔액을 불러오지 못했습니다.</p>';
   }
 }
 
@@ -1266,28 +1266,28 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
   if (entryType === 'expense') {
     const desc = document.getElementById('entry-desc').value.trim();
     if (!desc) {
-      alert('Please add a description.');
+      alert('설명을 입력하세요.');
       return;
     }
     if (desc.length > 200) {
-      alert('Description is too long (max 200 characters).');
+      alert('설명이 너무 깁니다 (최대 200자).');
       return;
     }
   }
 
   if (!amount || isNaN(amount) || amount <= 0) {
-    alert('Please enter a valid positive amount.');
+    alert('유효한 양수 금액을 입력하세요.');
     return;
   }
 
   if (amount > 1000000) {
-    alert('Amount seems too large. Please check and try again.');
+    alert('금액이 너무 큽니다. 확인 후 다시 시도하세요.');
     return;
   }
 
   const submitBtn = document.querySelector('#form-entry button[type="submit"]');
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Saving...';
+  submitBtn.textContent = '저장 중...';
 
   try {
     const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
@@ -1380,10 +1380,10 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     invalidateAllCaches(); loadDashboard();
   } catch (err) {
     console.error('Error saving entry:', err);
-    alert('Failed to save. Check your connection.');
+    alert('저장에 실패했습니다. 연결 상태를 확인하세요.');
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = editingEntry ? 'Save Changes' : 'Save';
+    submitBtn.textContent = editingEntry ? '변경 저장' : '저장';
   }
 });
 
@@ -1392,7 +1392,7 @@ let _insightsCache = null; // { expenses, duelSnap } — reused across period sw
 
 async function loadInsights(period) {
   const container = document.getElementById('insights-content');
-  container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">Loading...</p>';
+  container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:20px">불러오는 중...</p>';
 
   try {
     if (!_insightsCache) {
@@ -1425,26 +1425,26 @@ async function loadInsights(period) {
       : expenses;
 
     function categorizeLocal(desc) {
-      if (!desc) return { icon: '$', label: 'other' };
+      if (!desc) return { icon: '$', label: '기타' };
       const d = desc.toLowerCase();
       const cats = [
-        { keywords: ['grocery','groceries','supermarket','market','produce','trader joe','whole foods','lawson','conbini','7/11','7-11','jmart','vegg','fruit','egg','milk','bread','rice','olive oil','seaweed','detergent','snack'], icon: '🛒', label: 'groceries' },
-        { keywords: ['restaurant','dinner','lunch','breakfast','cafe','coffee','eat','sushi','pizza','burger','ramen','noodle','brunch','bistro','datshi','thai','korean','japanese','indian','chinese','mexican','italian','pastry','bakery','bar','pub','beer','wine','drink','cocktail','boba','bubble tea','tea','matcha','latte','cappuccino','capuccino','falafel','kebab','hummus','salad','momo','dosa','paneer','shabu','chipotle','mcdo','ice cream','cookie','chocolate','yogurt','smoothie','soho','munch','dimsum','wok'], icon: '🍽️', label: 'dining' },
-        { keywords: ['flight','flights','airline','airport','plane','boarding','eurowings','eva air','air'], icon: '✈️', label: 'flights' },
-        { keywords: ['hotel','hostel','airbnb','accommodation','stay','booking','resort','room upgrade'], icon: '🏨', label: 'lodging' },
-        { keywords: ['uber','lyft','taxi','cab','bus','train','metro','subway','transport','transit','grab','bolt','driver','sim card','data'], icon: '🚕', label: 'transport' },
-        { keywords: ['gas','fuel','petrol','parking','car','rental','toll','suv'], icon: '⛽', label: 'auto' },
-        { keywords: ['movie','cinema','ticket','concert','show','museum','park','tour','attraction','entertainment','game','entrance','festival','spa','massage','hot stone','spotify'], icon: '🎬', label: 'entertainment' },
-        { keywords: ['rent','electric','electricity','water','internet','wifi','utility','utilities','bill','phone','laundry','household','house stuff','machine','fitlab'], icon: '🏠', label: 'housing' },
-        { keywords: ['doctor','hospital','medicine','pharmacy','health','medical','dental','drugstore'], icon: '💊', label: 'health' },
-        { keywords: ['clothes','clothing','shoes','shirt','dress','shopping','mall','store','shop','uniqlo'], icon: '🛍️', label: 'shopping' },
-        { keywords: ['gift','present','birthday','anniversary','bday','tip'], icon: '🎁', label: 'gifts' },
-        { keywords: ['splitwise','balance','transfer','settle','cash','money exchange','pay off'], icon: '📊', label: 'balance' },
+        { keywords: ['grocery','groceries','supermarket','market','produce','trader joe','whole foods','lawson','conbini','7/11','7-11','jmart','vegg','fruit','egg','milk','bread','rice','olive oil','seaweed','detergent','snack','이마트','홈플러스','롯데마트'], icon: '🛒', label: '식료품' },
+        { keywords: ['restaurant','dinner','lunch','breakfast','cafe','coffee','eat','sushi','pizza','burger','ramen','noodle','brunch','bistro','datshi','thai','korean','japanese','indian','chinese','mexican','italian','pastry','bakery','bar','pub','beer','wine','drink','cocktail','boba','bubble tea','tea','matcha','latte','cappuccino','capuccino','falafel','kebab','hummus','salad','momo','dosa','paneer','shabu','chipotle','mcdo','ice cream','cookie','chocolate','yogurt','smoothie','soho','munch','dimsum','wok','삼겹살','치킨','소주','맥주','커피','카페','식당','저녁','점심','아침','브런치','라면','국밥','회','초밥'], icon: '🍽️', label: '외식' },
+        { keywords: ['flight','flights','airline','airport','plane','boarding','eurowings','eva air','air','비행기','항공','공항'], icon: '✈️', label: '항공' },
+        { keywords: ['hotel','hostel','airbnb','accommodation','stay','booking','resort','room upgrade','호텔','숙박','에어비앤비'], icon: '🏨', label: '숙박' },
+        { keywords: ['uber','lyft','taxi','cab','bus','train','metro','subway','transport','transit','grab','bolt','driver','sim card','data','택시','버스','지하철','기차','교통'], icon: '🚕', label: '교통' },
+        { keywords: ['gas','fuel','petrol','parking','car','rental','toll','suv','주유','주차','렌터카'], icon: '⛽', label: '자동차' },
+        { keywords: ['movie','cinema','ticket','concert','show','museum','park','tour','attraction','entertainment','game','entrance','festival','spa','massage','hot stone','spotify','영화','콘서트','공연','박물관','스파','마사지'], icon: '🎬', label: '엔터테인먼트' },
+        { keywords: ['rent','electric','electricity','water','internet','wifi','utility','utilities','bill','phone','laundry','household','house stuff','machine','fitlab','월세','전기','수도','인터넷','공과금','세탁'], icon: '🏠', label: '주거' },
+        { keywords: ['doctor','hospital','medicine','pharmacy','health','medical','dental','drugstore','병원','약국','의원','치과'], icon: '💊', label: '의료' },
+        { keywords: ['clothes','clothing','shoes','shirt','dress','shopping','mall','store','shop','uniqlo','쇼핑','옷','신발','유니클로','자라'], icon: '🛍️', label: '쇼핑' },
+        { keywords: ['gift','present','birthday','anniversary','bday','tip','선물','생일','기념일'], icon: '🎁', label: '선물' },
+        { keywords: ['splitwise','balance','transfer','settle','cash','money exchange','pay off','정산','송금'], icon: '📊', label: '정산' },
       ];
       for (const cat of cats) {
         if (cat.keywords.some(kw => d.includes(kw))) return cat;
       }
-      return { icon: '$', label: 'other' };
+      return { icon: '$', label: '기타' };
     }
 
     // --- Category breakdown ---
@@ -1468,17 +1468,17 @@ async function loadInsights(period) {
     const monthKeys = Object.keys(monthlyTotals).sort();
     const recentMonths = monthKeys.slice(-6);
     const maxMonth = Math.max(...recentMonths.map(k => monthlyTotals[k]), 1);
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
 
     // --- Country breakdown ---
     const CURRENCY_COUNTRY = {
-      BTN: { flag: '🇧🇹', name: 'Bhutan' }, INR: { flag: '🇮🇳', name: 'India' },
-      JPY: { flag: '🇯🇵', name: 'Japan' }, USD: { flag: '🇺🇸', name: 'United States' },
-      GBP: { flag: '🇬🇧', name: 'United Kingdom' }, EUR: { flag: '🇪🇺', name: 'Europe' },
-      THB: { flag: '🇹🇭', name: 'Thailand' }, SGD: { flag: '🇸🇬', name: 'Singapore' },
-      KRW: { flag: '🇰🇷', name: 'South Korea' }, TWD: { flag: '🇹🇼', name: 'Taiwan' },
-      AUD: { flag: '🇦🇺', name: 'Australia' }, CAD: { flag: '🇨🇦', name: 'Canada' },
-      AED: { flag: '🇦🇪', name: 'UAE' }, CNY: { flag: '🇨🇳', name: 'China' },
+      BTN: { flag: '🇧🇹', name: '부탄' }, INR: { flag: '🇮🇳', name: '인도' },
+      JPY: { flag: '🇯🇵', name: '일본' }, USD: { flag: '🇺🇸', name: '미국' },
+      GBP: { flag: '🇬🇧', name: '영국' }, EUR: { flag: '🇪🇺', name: '유럽' },
+      THB: { flag: '🇹🇭', name: '태국' }, SGD: { flag: '🇸🇬', name: '싱가포르' },
+      KRW: { flag: '🇰🇷', name: '한국' }, TWD: { flag: '🇹🇼', name: '대만' },
+      AUD: { flag: '🇦🇺', name: '호주' }, CAD: { flag: '🇨🇦', name: '캐나다' },
+      AED: { flag: '🇦🇪', name: 'UAE' }, CNY: { flag: '🇨🇳', name: '중국' },
     };
     const countryTotals = {};
     filtered.forEach(e => {
@@ -1495,8 +1495,8 @@ async function loadInsights(period) {
     let smallest = { desc: '-', amount: Infinity };
     filtered.forEach(e => {
       const usd = e.usdAmount || e.amount || 0;
-      if (usd > biggest.amount) biggest = { desc: e.description || 'Unknown', amount: usd };
-      if (usd < smallest.amount && usd > 0) smallest = { desc: e.description || 'Unknown', amount: usd };
+      if (usd > biggest.amount) biggest = { desc: e.description || '알 수 없음', amount: usd };
+      if (usd < smallest.amount && usd > 0) smallest = { desc: e.description || '알 수 없음', amount: usd };
     });
     if (smallest.amount === Infinity) smallest = { desc: '-', amount: 0 };
 
@@ -1541,7 +1541,7 @@ async function loadInsights(period) {
     let html = '';
 
     // Category breakdown
-    html += '<div class="insight-card"><h3>Spending by Category</h3>';
+    html += '<div class="insight-card"><h3>카테고리별 지출</h3>';
     catSorted.slice(0, 8).forEach(([label, total]) => {
       const pct = (total / maxCat * 100).toFixed(0);
       html += `<div class="cat-row">
@@ -1555,7 +1555,7 @@ async function loadInsights(period) {
 
     // Monthly trend (only for "all time")
     if (period === 'all' && recentMonths.length > 1) {
-      html += '<div class="insight-card"><h3>Monthly Spending</h3><div class="trend-chart">';
+      html += '<div class="insight-card"><h3>월별 지출</h3><div class="trend-chart">';
       recentMonths.forEach(k => {
         const val = monthlyTotals[k];
         const pct = (val / maxMonth * 100).toFixed(0);
@@ -1571,7 +1571,7 @@ async function loadInsights(period) {
 
     // Country breakdown
     if (countrySorted.length > 0) {
-      html += '<div class="insight-card"><h3>Where You Spend</h3>';
+      html += '<div class="insight-card"><h3>어디서 썼나</h3>';
       countrySorted.forEach(([name, { flag, total }]) => {
         html += `<div class="country-row">
           <span class="country-flag">${flag}</span>
@@ -1583,21 +1583,21 @@ async function loadInsights(period) {
     }
 
     // Fun stats
-    html += '<div class="insight-card"><h3>Fun Stats</h3>';
-    html += `<div class="stat-row"><span class="stat-label">Biggest expense</span><span class="stat-value">${fmt(biggest.amount)} 🤯</span></div>`;
-    html += `<div class="stat-row"><span class="stat-label">Smallest expense</span><span class="stat-value">${fmtDec(smallest.amount)} 🔍</span></div>`;
-    if (topCat) html += `<div class="stat-row"><span class="stat-label">Top category</span><span class="stat-value">${catIcons[topCat[0]]} ${topCat[0]} (${topCat[1]}x)</span></div>`;
-    html += `<div class="stat-row"><span class="stat-label">Total expenses</span><span class="stat-value">${filtered.length}</span></div>`;
+    html += '<div class="insight-card"><h3>재미있는 통계</h3>';
+    html += `<div class="stat-row"><span class="stat-label">최고 지출</span><span class="stat-value">${fmt(biggest.amount)} 🤯</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">최저 지출</span><span class="stat-value">${fmtDec(smallest.amount)} 🔍</span></div>`;
+    if (topCat) html += `<div class="stat-row"><span class="stat-label">최다 카테고리</span><span class="stat-value">${catIcons[topCat[0]]} ${topCat[0]} (${topCat[1]}회)</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">총 지출 건수</span><span class="stat-value">${filtered.length}건</span></div>`;
     const myName = getUserName(currentUser.uid);
-    html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">${myName} ${galWins} — ${daumWins} ${partnerName}</span></div>`;
-    html += `<div class="stat-row"><span class="stat-label">Avg daily spend</span><span class="stat-value">${fmtDec(avgDaily)}/day</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">결투 전적</span><span class="stat-value">${myName} ${galWins} — ${daumWins} ${partnerName}</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">일평균 지출</span><span class="stat-value">${fmtDec(avgDaily)}/일</span></div>`;
     html += '</div>';
 
     container.innerHTML = html;
 
   } catch (err) {
     console.error('Insights error:', err);
-    container.innerHTML = '<p style="text-align:center;color:var(--red)">Failed to load insights.</p>';
+    container.innerHTML = '<p style="text-align:center;color:var(--red)">분석을 불러오지 못했습니다.</p>';
   }
 }
 

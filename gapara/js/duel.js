@@ -101,7 +101,7 @@ export async function startDuel() {
 
   const user = getCurrentUser();
   if (!existing.empty && existing.docs.some(doc => doc.data().playedBy === user.uid)) {
-    alert('You already played this week!');
+    alert('이번 주는 이미 플레이했어요!');
     return;
   }
 
@@ -119,8 +119,8 @@ export async function startDuel() {
   const content = document.getElementById('duel-content');
   content.innerHTML = `
     <div class="duel-game">
-      <h2>Weekly Duel</h2>
-      <p class="subtitle">Week ${week} · ${GAME_NAMES[game]}</p>
+      <h2>주간 결투</h2>
+      <p class="subtitle">${week}주차 · ${GAME_NAMES[game]}</p>
       <div id="game-area"></div>
     </div>
     <div id="duel-history-area"></div>`;
@@ -157,8 +157,8 @@ export async function recordDuelResult({ game, result, balanceAdjust, favoredUse
 async function renderDuelHistory(container) {
   const user = getCurrentUser();
   const partnerUid = getPartnerUid();
-  const myName = getUserName(user.uid) || 'You';
-  const partnerName = getUserName(partnerUid) || 'Partner';
+  const myName = getUserName(user.uid) || '나';
+  const partnerName = getUserName(partnerUid) || '상대';
 
   try {
     const snap = await db.collection('duels')
@@ -180,22 +180,22 @@ async function renderDuelHistory(container) {
     }
 
     const balanceNote = myBalance > 0
-      ? `+$${myBalance} ahead`
+      ? `+$${myBalance} 우세`
       : myBalance < 0
-      ? `$${Math.abs(myBalance)} behind`
-      : 'Even';
+      ? `$${Math.abs(myBalance)} 열세`
+      : '무승부';
 
     const rows = duels.map(d => {
       if (!d.result) return '';
       const iWon = d.favoredUser === user.uid;
       const tie = !d.favoredUser;
       const resultClass = tie ? 'result-tie' : iWon ? 'result-win' : 'result-loss';
-      const resultText = tie ? 'Tie' : iWon ? `+$${d.balanceAdjust}` : `−$${d.balanceAdjust}`;
-      const whoWon = tie ? 'Tie' : iWon ? `${myName} wins` : `${partnerName} wins`;
+      const resultText = tie ? '무' : iWon ? `+$${d.balanceAdjust}` : `−$${d.balanceAdjust}`;
+      const whoWon = tie ? '무승부' : iWon ? `${myName} 승` : `${partnerName} 승`;
       return `<div class="history-row">
         <div>
-          <div class="history-game">${d.game || 'Duel'}</div>
-          <div class="history-date">Week ${d.week} · ${whoWon}</div>
+          <div class="history-game">${d.game || '결투'}</div>
+          <div class="history-date">${d.week}주차 · ${whoWon}</div>
         </div>
         <div class="${resultClass}">${resultText}</div>
       </div>`;
@@ -212,11 +212,11 @@ async function renderDuelHistory(container) {
         <div class="duel-score-player">
           <div class="duel-score-name">${partnerName}</div>
           <div class="duel-score-val${partnerWins > myWins ? ' winning' : ''}">${partnerWins}</div>
-          <div class="duel-score-note">${myBalance < 0 ? balanceNote.replace('-', '') + ' ahead' : ''}</div>
+          <div class="duel-score-note">${myBalance < 0 ? '$' + Math.abs(myBalance) + ' 우세' : ''}</div>
         </div>
       </div>
       <div class="duel-history-section">
-        <div class="duel-history-label">Past Duels</div>
+        <div class="duel-history-label">지난 결투</div>
         ${rows}
       </div>`;
   } catch (e) {

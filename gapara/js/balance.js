@@ -596,7 +596,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
   list.innerHTML = '';
 
   if (items.length === 0) {
-    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No history yet. Tap + to add an expense.</li>';
+    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">아직 기록이 없습니다. +를 눌러 지출을 추가하세요.</li>';
     return;
   }
 
@@ -639,8 +639,8 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
 
       if (item.type === 'expense') {
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const splitLabel = item.splitType === 'even' ? 'split' : 'full';
-        const metaLine = `${dateStr} · ${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
+        const splitLabel = item.splitType === 'even' ? '반반' : '전액';
+        const metaLine = `${dateStr} · ${paidByName} 결제 ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
@@ -650,7 +650,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
-            <div class="entry-desc">${item.description || 'Expense'}</div>
+            <div class="entry-desc">${item.description || '지출'}</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -658,7 +658,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       } else if (item.type === 'payment') {
         const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const metaLine = `${dateStr} · ${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
+        const metaLine = `${dateStr} · ${paidByName} → ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
@@ -668,7 +668,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         contentHTML = `
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
-            <div class="entry-desc">Settle up</div>
+            <div class="entry-desc">정산</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -683,11 +683,11 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
         const playerName = item.playedBy
           ? (item.playedBy === myUid ? getUserName(myUid) : getUserName(item.playedBy))
           : null;
-        const duelMeta = `${dateStr} · Week ${item.week}${playerName ? ` · ${playerName} played` : ''}`;
+        const duelMeta = `${dateStr} · ${item.week}주차${playerName ? ` · ${playerName} 플레이` : ''}`;
         contentHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
-            <div class="entry-desc">${item.game || 'Duel'}</div>
+            <div class="entry-desc">${item.game || '결투'}</div>
             <div class="entry-meta">${duelMeta}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -697,7 +697,7 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
       const canDelete = item.type === 'expense' || item.type === 'payment';
       if (canDelete) {
         li.innerHTML = `
-          <div class="swipe-delete"><span class="swipe-delete-text">Delete</span></div>
+          <div class="swipe-delete"><span class="swipe-delete-text">삭제</span></div>
           <div class="swipe-content">${contentHTML}</div>`;
 
         const content = li.querySelector('.swipe-content');
@@ -843,7 +843,7 @@ function toJSDate(d) {
 function formatDate(d) {
   try {
     const jsDate = d instanceof Date ? d : toJSDate(d);
-    return jsDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return jsDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
   } catch (e) { return ''; }
 }
 
@@ -967,16 +967,16 @@ function renderOnThisDay(items) {
   const diffMonths = Math.round(diffDays / 30);
   const yearsAgo = todayYear - memory.date.getFullYear();
   const timeLabel = yearsAgo >= 1 && memory.date.getMonth() === todayMonth
-    ? `${yearsAgo} year${yearsAgo > 1 ? 's' : ''} ago`
-    : `${diffMonths} month${diffMonths > 1 ? 's' : ''} ago`;
-  const dateStr = memory.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    ? `${yearsAgo}년 전`
+    : `${diffMonths}개월 전`;
+  const dateStr = memory.date.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
   const symbol = CURRENCY_SYMBOLS[memory.currency] || memory.currency + ' ';
   const amount = `${symbol}${memory.amount.toLocaleString()}`;
 
   container.innerHTML = `
     <div class="otd-polaroid">
       <div class="otd-top">
-        <span class="otd-tag">On this day · ${timeLabel}</span>
+        <span class="otd-tag">오늘의 기억 · ${timeLabel}</span>
         <button class="otd-dismiss" id="otd-dismiss">×</button>
       </div>
       <div class="otd-desc">${memory.description}</div>
