@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f2f0eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>갚아라</title>
+  <link rel="icon" href="assets/icons/icon.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Splash screen -->
+  <div id="splash" class="splash">
+    <div class="splash-content">
+      <img class="splash-icon" src="assets/icons/icon.png" alt="갚아라">
+      <h1 class="splash-title">갚아라</h1>
+      <p class="splash-sub" id="splash-sub">손익 계산 중...</p>
+    </div>
+  </div>
+
+  <div id="app" style="display:none">
+    <!-- Auth screen -->
+    <div id="screen-auth" class="screen">
+      <div class="auth-container">
+        <h1>갚아라</h1>
+        <p class="subtitle">둘이서 쓰는 가계부</p>
+        <button id="btn-google-login" class="btn btn-primary">Google로 로그인</button>
+      </div>
+    </div>
+
+    <!-- Home screen -->
+    <div id="screen-dashboard" class="screen">
+      <div class="dashboard-content">
+        <div class="dashboard-header">
+          <h1 class="app-title">갚아라</h1>
+          <div class="header-actions">
+            <button id="btn-insights" class="btn-icon">📈</button>
+            <button id="btn-settings" class="btn-icon">⚙</button>
+          </div>
+        </div>
+        <div id="pull-indicator" class="pull-indicator">
+          <span id="pull-text">↓ 당겨서 새로고침</span>
+        </div>
+        <div id="balance-display" class="balance-card" style="cursor:pointer">
+          <p class="balance-label">불러오는 중...</p>
+          <p class="balance-amount"></p>
+          <div id="balance-breakdown" class="balance-breakdown hidden"></div>
+          <p class="balance-hint hidden" id="balance-hint">탭해서 통화 전환</p>
+        </div>
+        <div id="otd-card" class="hidden"></div>
+        <div id="duel-banner" class="duel-banner hidden">
+          <p>이번 주 결투 대기 중!</p>
+          <button id="btn-play-duel" class="btn btn-accent">시작</button>
+        </div>
+        <h3>기록</h3>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+      <button id="fab-add" class="fab">+</button>
+    </div>
+
+    <!-- Add entry screen -->
+    <div id="screen-add" class="screen">
+      <div class="screen-header">
+        <button id="btn-back" class="btn-icon">&larr;</button>
+        <h2 id="add-title">지출 추가</h2>
+      </div>
+      <div class="toggle-group" style="margin-bottom:16px">
+        <div class="toggle" id="entry-type">
+          <button type="button" class="toggle-btn active" data-value="expense">지출</button>
+          <button type="button" class="toggle-btn" data-value="payment">정산</button>
+        </div>
+      </div>
+      <form id="form-entry" class="form">
+        <div class="row">
+          <input type="number" id="entry-amount" placeholder="금액" step="0.01" inputmode="decimal" required>
+          <select id="entry-currency">
+            <option value="KRW">₩ KRW</option>
+            <option value="USD">$ USD</option>
+            <option value="EUR">€ EUR</option>
+            <option value="GBP">£ GBP</option>
+            <option value="JPY">¥ JPY</option>
+            <option value="THB">฿ THB</option>
+            <option value="BTN">Nu BTN</option>
+            <option value="TWD">NT$ TWD</option>
+            <option value="CNY">¥ CNY</option>
+            <option value="INR">₹ INR</option>
+            <option value="AUD">A$ AUD</option>
+            <option value="CAD">C$ CAD</option>
+            <option value="CHF">Fr CHF</option>
+            <option value="SGD">S$ SGD</option>
+            <option value="HKD">HK$ HKD</option>
+            <option value="NZD">NZ$ NZD</option>
+            <option value="SEK">kr SEK</option>
+            <option value="NOK">kr NOK</option>
+            <option value="DKK">kr DKK</option>
+            <option value="MXN">$ MXN</option>
+            <option value="BRL">R$ BRL</option>
+            <option value="PLN">zł PLN</option>
+            <option value="CZK">Kč CZK</option>
+            <option value="HUF">Ft HUF</option>
+            <option value="ILS">₪ ILS</option>
+            <option value="TRY">₺ TRY</option>
+            <option value="ZAR">R ZAR</option>
+            <option value="PHP">₱ PHP</option>
+            <option value="MYR">RM MYR</option>
+            <option value="IDR">Rp IDR</option>
+          </select>
+        </div>
+        <input type="text" id="entry-desc" placeholder="무엇에 썼나요?">
+        <div id="expense-options" class="toggle-group">
+          <label>분할 방식</label>
+          <div class="split-options" id="entry-split-options">
+            <button type="button" class="split-option active" data-paid="self" data-split="even">내가 결제 · 반반</button>
+            <button type="button" class="split-option" data-paid="self" data-split="full">내가 결제 · 상대가 전액</button>
+            <button type="button" class="split-option" data-paid="partner" data-split="even"><span class="partner-name">상대</span> 결제 · 반반</button>
+            <button type="button" class="split-option" data-paid="partner" data-split="full"><span class="partner-name">상대</span> 결제 · 내가 전액</button>
+          </div>
+        </div>
+        <div id="payment-direction" class="toggle-group" style="display:none">
+          <label>결제자</label>
+          <div class="toggle" id="entry-paid-by">
+            <button type="button" class="toggle-btn active" data-value="self">내가</button>
+            <button type="button" class="toggle-btn" data-value="partner"><span class="partner-name">상대</span></button>
+          </div>
+        </div>
+        <input type="date" id="entry-date">
+        <div id="recurring-group" class="toggle-group">
+          <label>반복</label>
+          <div class="toggle" id="entry-recurring">
+            <button type="button" class="toggle-btn active" data-value="none">일회성</button>
+            <button type="button" class="toggle-btn" data-value="weekly">매주</button>
+            <button type="button" class="toggle-btn" data-value="monthly">매월</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">저장</button>
+      </form>
+    </div>
+
+    <!-- Insights screen -->
+    <div id="screen-insights" class="screen">
+      <div class="screen-header">
+        <button id="btn-back-insights" class="btn-icon">&larr;</button>
+        <h2>분석</h2>
+      </div>
+      <div class="time-filter">
+        <button class="time-btn active" data-period="month">최근 한 달</button>
+        <button class="time-btn" data-period="all">전체 기간</button>
+      </div>
+      <div id="insights-content"></div>
+    </div>
+
+    <!-- Settings screen -->
+    <div id="screen-settings" class="screen">
+      <div class="screen-header">
+        <button id="btn-back-settings" class="btn-icon">&larr;</button>
+        <h2>설정</h2>
+      </div>
+      <div class="form" style="gap:20px">
+        <div class="settings-group">
+          <label class="settings-label">별명</label>
+          <p class="settings-hint">상대가 보는 내 이름</p>
+          <input type="text" id="settings-nickname" class="settings-input" placeholder="내 이름">
+          <button id="btn-save-nickname" class="btn btn-small">저장</button>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">잔액 표시</label>
+          <p class="settings-hint">합산 총액 또는 통화별 내역</p>
+          <div class="toggle" id="settings-balance-view">
+            <button type="button" class="toggle-btn active" data-value="consolidated">합산</button>
+            <button type="button" class="toggle-btn" data-value="breakdown">통화별</button>
+          </div>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">합산 통화</label>
+          <p class="settings-hint">총 잔액에 사용할 통화</p>
+          <select id="settings-consolidation-currency" class="settings-input"></select>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">반복 지출</label>
+          <p class="settings-hint">현재 반복 중인 지출</p>
+          <div id="recurring-list"></div>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">내보내기</label>
+          <p class="settings-hint">기록을 CSV로 다운로드</p>
+          <button id="btn-export-csv" class="btn btn-secondary">CSV 내보내기</button>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">주간 결투</label>
+          <p class="settings-hint" id="duel-status-hint">불러오는 중...</p>
+          <button id="btn-toggle-duel" class="btn btn-secondary">...</button>
+        </div>
+        <div class="settings-group" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--surface-2)">
+          <button id="btn-logout" class="btn btn-logout">로그아웃</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Duel screen -->
+    <div id="screen-duel" class="screen">
+      <div class="screen-header">
+        <button id="btn-back-duel" class="btn-icon">&larr;</button>
+        <h2>주간 결투</h2>
+      </div>
+      <div id="duel-content"></div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (compat for no-build-step usage).
+       defer: don't block HTML parse; module script below runs after these. -->
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

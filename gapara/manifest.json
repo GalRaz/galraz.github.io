@@ -1,0 +1,16 @@
+{
+  "name": "갚아라",
+  "short_name": "갚아라",
+  "start_url": "/gapara/",
+  "display": "standalone",
+  "background_color": "#f2f0eb",
+  "theme_color": "#f2f0eb",
+  "icons": [
+    {
+      "src": "assets/icons/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
