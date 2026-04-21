@@ -1222,8 +1222,9 @@ function onAmountInput() {
 function updateSaveEnabled() {
   const btn = document.getElementById('btn-save-entry');
   const amt = parseFloat(document.getElementById('entry-amount').value);
-  const desc = document.getElementById('entry-desc').value.trim();
-  const ok = !isNaN(amt) && amt > 0 && desc.length > 0;
+  // Design spec: enable the moment amount > 0. Description is still required
+  // at submit time (existing validation there), no need to gate the button too.
+  const ok = !isNaN(amt) && amt > 0;
   btn.disabled = !ok;
   btn.classList.toggle('disabled', !ok);
 }
@@ -1655,9 +1656,10 @@ async function renderSettleUp() {
     }
 
     const partnerName = getUserName(getPartnerUid());
-    const myName = getUserName(currentUser.uid);
+    // Use "you" for the viewer (matches the design) so the hero reads naturally
+    // no matter what the current user's display name is.
     const iOwe = totalUsdBalance < 0;
-    const label = iOwe ? `${myName} owes ${partnerName}, all in` : `${partnerName} owes ${myName}, all in`;
+    const label = iOwe ? `You owe ${partnerName}, all in` : `${partnerName} owes you, all in`;
 
     const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
     const consolSym = getCurrencySymbol(consol).trim() || consol;
@@ -1684,12 +1686,14 @@ async function renderSettleUp() {
     debts.forEach(([cur, amount, usd]) => {
       const abs = Math.abs(amount);
       const sym = getCurrencySymbol(cur).trim() || cur;
-      const pct = totalUsdAbs > 0 ? Math.round((usd / totalUsdAbs) * 100) : 0;
+      const share = totalUsdAbs > 0 ? (usd / totalUsdAbs) * 100 : 0;
+      // Nudge tiny shares to "<1%" so rows don't read as "0%".
+      const pctStr = share >= 1 ? `${Math.round(share)}%` : '<1%';
       rowsHtml += `
         <div class="settle-row" data-cur="${cur}">
           <div>
             <div class="settle-amt">${sym}${formatAmountByDigits(abs)}</div>
-            <div class="settle-meta">${cur} · ${pct}% of ${iOwe ? 'what you owe' : "what's owed you"}</div>
+            <div class="settle-meta">${cur} · ${pctStr} of the total</div>
           </div>
           <button class="settle-btn" data-cur="${cur}">Mark paid</button>
         </div>`;
