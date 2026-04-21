@@ -909,18 +909,13 @@ window.addEventListener('edit-entry', (e) => {
   setActiveCurrency(data.currency || 'USD');
   renderCurrencyPills();
 
-  // Map paidBy + splitType back onto the sentence state
+  // Map paidBy + splitType back onto the sentence state.
+  // Only two type keys now: 'even' (split evenly) or 'full' (whoever-didn't-pay owes full).
   const paidBySelf = data.paidBy === currentUser.uid;
-  const owedBySelf = data.owedBy === currentUser.uid;
-  let typeKey = 'even';
-  if (data.splitType === 'full') {
-    if (paidBySelf && owedBySelf) typeKey = 'full-covered';
-    else if (paidBySelf) typeKey = 'full-partner';
-    else typeKey = 'full-me';
-  }
+  const typeKey = data.splitType === 'full' ? 'full' : 'even';
   splitState = {
     payer: paidBySelf ? 'self' : 'partner',
-    splitType: data.splitType === 'full' ? 'full' : 'even',
+    splitType: typeKey,
     typeKey,
   };
   renderSplitSentence();
@@ -1244,26 +1239,24 @@ async function renderSplitSentence() {
   payerChip.textContent = splitState.payer === 'self' ? 'You' : partnerName;
   payerChip.dataset.val = splitState.payer;
 
-  const typeLabels = {
-    even: 'equally',
-    'full-partner': `for ${partnerName} only`,
-    'full-me': 'for you only',
-    'full-covered': 'you covered it',
-  };
-  // Use a composite key for full to preserve the three variants visually
-  // Internally we still only store 'even' or 'full' in splitType.
-  // We reuse dataset.val to pick the label.
-  const typeKey = splitState.typeKey || (splitState.splitType === 'even' ? 'even' : 'full-partner');
+  // Only two options: 'even' (split half/half) or 'full' (whoever didn't pay owes full).
+  const typeKey = splitState.typeKey === 'full' ? 'full' : 'even';
   splitState.typeKey = typeKey;
-  typeChip.textContent = typeLabels[typeKey] || 'equally';
+  splitState.splitType = typeKey;
+  typeChip.textContent = typeKey === 'even' ? 'equally' : 'in full';
   typeChip.dataset.val = typeKey;
+
+  // Connector text changes so the sentence stays grammatical:
+  //   "<payer> paid, splitting <equally>."  (even)
+  //   "<payer> paid <in full>."             (full)
+  const connector = document.getElementById('split-connector');
+  if (connector) connector.textContent = typeKey === 'even' ? ' paid, splitting ' : ' paid ';
 
   // Compute outcome text
   const amt = parseFloat(document.getElementById('entry-amount').value);
   if (!amt || isNaN(amt) || amt <= 0) {
     outcome.textContent = '';
     hint.style.display = '';
-    // Put partnerName into hint
     hint.innerHTML = `Enter an amount to see what <span class="partner-name">${partnerName}</span> owes.`;
     return;
   }
@@ -1271,25 +1264,9 @@ async function renderSplitSentence() {
 
   const sym = getCurrencySymbol(activeCurrency).trim() || activeCurrency;
 
-  // Calculate owed amount + who owes
-  let owedBy = null;
-  let owedAmount = 0;
-  if (typeKey === 'even') {
-    owedAmount = amt / 2;
-    owedBy = splitState.payer === 'self' ? partnerName : 'You';
-  } else if (typeKey === 'full-partner') {
-    // You paid for partner only
-    owedAmount = amt;
-    owedBy = partnerName;
-  } else if (typeKey === 'full-me') {
-    // Partner paid for you
-    owedAmount = amt;
-    owedBy = 'You';
-  } else if (typeKey === 'full-covered') {
-    // You covered, no one owes
-    outcome.textContent = 'No one owes anything.';
-    return;
-  }
+  // Whoever didn't pay is the one who owes.
+  const owedBy = splitState.payer === 'self' ? partnerName : 'You';
+  const owedAmount = typeKey === 'even' ? amt / 2 : amt;
 
   const owedStr = `${sym}${formatAmt(owedAmount)}`;
 
@@ -1407,17 +1384,7 @@ document.getElementById('split-payer-chip').addEventListener('click', (e) => {
     ],
     onPick: (it) => {
       splitState.payer = it.value;
-      // Keep typeKey consistent with payer
-      if (splitState.typeKey === 'full-covered' && it.value !== 'self') {
-        splitState.typeKey = 'full-partner';
-      }
-      if (splitState.typeKey === 'full-me' && it.value === 'self') {
-        splitState.typeKey = 'full-partner';
-      }
-      if (splitState.typeKey === 'full-partner' && it.value === 'partner') {
-        splitState.typeKey = 'full-me';
-      }
-      splitState.splitType = splitState.typeKey === 'even' ? 'even' : 'full';
+      // typeKey is now payer-agnostic ('even' or 'full') — no remapping needed.
       renderSplitSentence();
     },
   });
@@ -1427,28 +1394,20 @@ document.getElementById('split-type-chip').addEventListener('click', async (e) =
   const partnerName = getUserName(getPartnerUid());
   const amt = parseFloat(document.getElementById('entry-amount').value) || 0;
   const sym = getCurrencySymbol(activeCurrency).trim() || activeCurrency;
-  const half = amt / 2;
-
-  const previewEqually = amt > 0 ? `${partnerName} owes ${sym}${formatAmt(half)}` : '';
-  const previewFullPartner = amt > 0 ? `${partnerName} owes ${sym}${formatAmt(amt)}` : '';
-  const previewFullMe = amt > 0 ? `You owe ${sym}${formatAmt(amt)}` : '';
-
-  const items = [
-    { label: 'equally', value: 'even', sub: previewEqually, on: splitState.typeKey === 'even' },
-  ];
-  if (splitState.payer === 'self') {
-    items.push({ label: `for ${partnerName} only`, value: 'full-partner', sub: previewFullPartner, on: splitState.typeKey === 'full-partner' });
-    items.push({ label: 'you covered it', value: 'full-covered', sub: 'No one owes anything', on: splitState.typeKey === 'full-covered' });
-  } else {
-    items.push({ label: 'for you only', value: 'full-me', sub: previewFullMe, on: splitState.typeKey === 'full-me' });
-  }
+  // Whoever didn't pay is the one who owes.
+  const owesName = splitState.payer === 'self' ? partnerName : 'You';
+  const previewEqually = amt > 0 ? `${owesName} owes ${sym}${formatAmt(amt / 2)}` : '';
+  const previewFull = amt > 0 ? `${owesName} owes ${sym}${formatAmt(amt)}` : '';
 
   openPopover({
     anchor: e.currentTarget,
-    items,
+    items: [
+      { label: 'equally', value: 'even', sub: previewEqually, on: splitState.typeKey === 'even' },
+      { label: 'in full', value: 'full', sub: previewFull, on: splitState.typeKey === 'full' },
+    ],
     onPick: (it) => {
       splitState.typeKey = it.value;
-      splitState.splitType = it.value === 'even' ? 'even' : 'full';
+      splitState.splitType = it.value;
       renderSplitSentence();
     },
   });
@@ -2006,30 +1965,13 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
   const date = document.getElementById('entry-date').value;
   const description = document.getElementById('entry-desc').value.trim();
 
-  // Derive paidBy + splitType + owedBy from split sentence state
-  // typeKey semantics:
-  //   'even'         — both owe half (paidBy is who paid)
-  //   'full-partner' — you paid, partner owes full
-  //   'full-me'      — partner paid, you owe full
-  //   'full-covered' — you paid, nobody owes (store as even+balanceExcluded? No —
-  //                    simplest: store as 'full' with owedBy=paidBy so itemImpact returns 0)
-  const typeKey = splitState.typeKey || 'even';
-  let paidByValue = splitState.payer; // 'self' | 'partner'
-  let splitType = typeKey === 'even' ? 'even' : 'full';
-  let owedByValue;
-  if (typeKey === 'even') {
-    owedByValue = paidByValue === 'self' ? 'partner' : 'self';
-  } else if (typeKey === 'full-partner') {
-    paidByValue = 'self';
-    owedByValue = 'partner';
-  } else if (typeKey === 'full-me') {
-    paidByValue = 'partner';
-    owedByValue = 'self';
-  } else if (typeKey === 'full-covered') {
-    // Encode as self-to-self so itemImpact returns 0 (paidByMe && owedByMe in full split)
-    paidByValue = 'self';
-    owedByValue = 'self';
-  }
+  // Two split types:
+  //   'even' — both owe half (paidBy is who paid, owedBy is the other party)
+  //   'full' — whoever paid is owed in full (owedBy is the other party)
+  const typeKey = splitState.typeKey === 'full' ? 'full' : 'even';
+  const paidByValue = splitState.payer; // 'self' | 'partner'
+  const owedByValue = paidByValue === 'self' ? 'partner' : 'self';
+  const splitType = typeKey;
 
   // Validation
   if (!description) { alert('Please add a description.'); return; }
