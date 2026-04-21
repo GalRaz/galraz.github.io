@@ -81,7 +81,7 @@ export function formatAmountByDigits(amount) {
   return abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function categorize(description) {
+export function categorize(description) {
   if (!description) return { icon: '$', label: 'other' };
   const d = description.toLowerCase();
 

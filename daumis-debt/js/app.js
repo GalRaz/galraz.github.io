@@ -1,6 +1,7 @@
 import { auth, googleProvider } from './firebase-config.js';
 import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
+import { categorize } from './balance.js';
 
 /**
  * Save or update the current user's profile in the `users` collection.
@@ -293,31 +294,7 @@ const ALL_CURRENCIES = [
   { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' }
 ];
 
-// --- Categorize (mirror of balance.js#categorize, used here for the auto-detect chip) ---
-function categorize(description) {
-  if (!description) return { icon: '$', label: 'other' };
-  const d = description.toLowerCase();
-  const cats = [
-    { keywords: ['grocery','groceries','supermarket','market','produce','trader joe','whole foods','lawson','conbini','7/11','7-11','jmart','vegg','fruit','egg','milk','bread','rice','olive oil','seaweed','detergent','snack'], icon: '🛒', label: 'groceries' },
-    { keywords: ['restaurant','dinner','lunch','breakfast','cafe','coffee','eat','sushi','pizza','burger','ramen','noodle','brunch','bistro','datshi','thai','korean','japanese','indian','chinese','mexican','italian','pastry','bakery','bar','pub','beer','wine','drink','cocktail','boba','bubble tea','tea','matcha','latte','cappuccino','capuccino','falafel','kebab','hummus','salad','momo','dosa','paneer','shabu','chipotle','mcdo','ice cream','cookie','chocolate','yogurt','smoothie','soho','munch','dimsum','wok'], icon: '🍽️', label: 'dining' },
-    { keywords: ['flight','flights','airline','airport','plane','boarding','eurowings','eva air','air'], icon: '✈️', label: 'flights' },
-    { keywords: ['hotel','hostel','airbnb','accommodation','stay','booking','resort','room upgrade'], icon: '🏨', label: 'lodging' },
-    { keywords: ['uber','lyft','taxi','cab','bus','train','metro','subway','transport','transit','grab','bolt','driver','sim card','data'], icon: '🚕', label: 'transport' },
-    { keywords: ['gas','fuel','petrol','parking','car','rental','toll','suv'], icon: '⛽', label: 'auto' },
-    { keywords: ['movie','cinema','ticket','concert','show','museum','park','tour','attraction','entertainment','game','entrance','festival','spa','massage','hot stone'], icon: '🎬', label: 'entertainment' },
-    { keywords: ['rent','electric','electricity','water','internet','wifi','utility','utilities','bill','phone','spotify','laundry','household','house stuff','machine','fitlab'], icon: '🏠', label: 'housing' },
-    { keywords: ['doctor','hospital','medicine','pharmacy','health','medical','dental','drugstore'], icon: '💊', label: 'health' },
-    { keywords: ['clothes','clothing','shoes','shirt','dress','shopping','mall','store','shop','uniqlo'], icon: '🛍️', label: 'shopping' },
-    { keywords: ['gift','present','birthday','anniversary','bday','tip'], icon: '🎁', label: 'gifts' },
-    { keywords: ['splitwise','balance','transfer','settle','cash','money exchange','pay off'], icon: '📊', label: 'balance' },
-  ];
-  for (const cat of cats) {
-    if (cat.keywords.some(kw => d.includes(kw))) return cat;
-  }
-  return { icon: '$', label: 'other' };
-}
-
-// All categories — used to populate the override sheet
+// All categories — used to populate the override sheet (categorize is imported from balance.js)
 const ALL_CATEGORIES = [
   { label: 'groceries', icon: '🛒', display: 'Groceries' },
   { label: 'dining', icon: '🍽️', display: 'Dining' },
@@ -2064,14 +2041,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
   saveBtn.disabled = true;
   saveBtn.classList.add('loading');
   const prevLabel = saveBtn.textContent;
-  saveBtn.innerHTML = `<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px"></span> Saving…`;
-  // Inject keyframes once
-  if (!document.getElementById('__spinner_kf')) {
-    const s = document.createElement('style');
-    s.id = '__spinner_kf';
-    s.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-    document.head.appendChild(s);
-  }
+  saveBtn.innerHTML = `<span class="spinner"></span> Saving…`;
 
   try {
     const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
@@ -2141,41 +2111,33 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 });
 
 /**
- * Fade a subtle accent-soft background onto the most recent history row for 3s.
- * Uses inline styles since the redesign CSS doesn't define `.new-entry`.
+ * Flag the topmost history row so its CSS animation runs.
+ * The `.new-entry` rule in style.css handles the fade.
  */
 function glowMostRecentHistoryRow() {
-  const first = document.querySelector('#history-list li .swipe-content');
+  const first = document.querySelector('#history-list li');
   if (!first) return;
-  const prevBg = first.style.background;
-  const prevTrans = first.style.transition;
-  first.style.transition = 'background 2.4s ease-out';
-  first.style.background = 'var(--accent-soft)';
-  setTimeout(() => {
-    first.style.background = prevBg || '';
-    setTimeout(() => { first.style.transition = prevTrans || ''; }, 400);
-  }, 600);
+  first.classList.add('new-entry');
+  setTimeout(() => first.classList.remove('new-entry'), 3200);
 }
 
 /**
- * Show a dashboard-level toast by borrowing the #entry-toast node and
- * re-parenting it to the dashboard, then restoring it afterwards.
- * Simpler alternative: use a lightweight floating element.
+ * Show the app-wide toast (sibling of all screens — works on any screen).
  */
 function showDashboardToast(text) {
-  // Build or reuse a transient toast element on the dashboard
-  let t = document.getElementById('__dash_toast');
-  if (!t) {
-    t = document.createElement('div');
-    t.id = '__dash_toast';
-    t.style.cssText = 'position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#2a2e24;color:#f2f0eb;padding:10px 16px;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px rgba(0,0,0,0.25);z-index:9999;opacity:0;transition:opacity 220ms ease-out,transform 220ms ease-out;pointer-events:none';
-    t.innerHTML = '<span style="width:6px;height:6px;background:var(--green);border-radius:50%"></span><span></span>';
-    document.body.appendChild(t);
-  }
-  t.querySelector('span:last-child').textContent = text;
-  t.style.opacity = '1';
-  clearTimeout(t._t);
-  t._t = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+  const toast = document.getElementById('entry-toast');
+  if (!toast) return;
+  const label = document.getElementById('entry-toast-text');
+  if (label) label.textContent = text;
+  toast.classList.remove('hidden');
+  // Force reflow so the transition runs when we add .visible.
+  void toast.offsetWidth;
+  toast.classList.add('visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.classList.add('hidden'), 260);
+  }, 2500);
 }
 
 // --- Insights ---

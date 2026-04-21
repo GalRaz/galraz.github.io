@@ -1007,9 +1007,9 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   cursor: not-allowed;
 }
 
-/* Toast */
-#screen-add .toast {
-  position: absolute;
+/* Toast — app-wide; sibling of screens so it can float over any of them. */
+.toast {
+  position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: -60px;
@@ -1026,19 +1026,43 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   align-items: center;
   gap: 8px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  z-index: 40;
+  z-index: 9999;
   pointer-events: none;
 }
-#screen-add .toast.visible {
-  bottom: 20px;
+.toast.visible {
+  bottom: 80px;
   opacity: 1;
   pointer-events: auto;
 }
-#screen-add .toast .dot {
+.toast .dot {
   width: 6px;
   height: 6px;
   background: var(--green);
   border-radius: 50%;
+}
+
+/* "Just-added" glow on the topmost history row after a save — fades over ~3s. */
+.history-list li.new-entry .swipe-content {
+  animation: newEntryGlow 3s ease-out forwards;
+}
+@keyframes newEntryGlow {
+  0%   { background: var(--accent-soft); }
+  60%  { background: var(--accent-soft); }
+  100% { background: var(--surface); }
+}
+
+/* Spinner used inside the Save button while submitting. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.save button.loading .spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
 }
 
 /* Bottom sheet (currency picker, category picker, confirm) */
