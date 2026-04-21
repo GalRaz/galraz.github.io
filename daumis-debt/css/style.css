@@ -1041,14 +1041,18 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   border-radius: 50%;
 }
 
-/* "Just-added" glow on the topmost history row after a save — fades over ~3s. */
+/* "Just-added" glow on the topmost history row after a save — fades over ~3s.
+   The base surface color stays opaque so the red `.swipe-delete` layer below
+   can never bleed through. The animated tint lives on background-image as a
+   translucent gradient overlay. */
 .history-list li.new-entry .swipe-content {
+  background-color: var(--surface);
   animation: newEntryGlow 3s ease-out forwards;
 }
 @keyframes newEntryGlow {
-  0%   { background: var(--accent-soft); }
-  60%  { background: var(--accent-soft); }
-  100% { background: var(--surface); }
+  0%   { background-image: linear-gradient(rgba(92, 107, 79, 0.14), rgba(92, 107, 79, 0.14)); }
+  60%  { background-image: linear-gradient(rgba(92, 107, 79, 0.14), rgba(92, 107, 79, 0.14)); }
+  100% { background-image: linear-gradient(rgba(92, 107, 79, 0),    rgba(92, 107, 79, 0)); }
 }
 
 /* Spinner used inside the Save button while submitting. */
