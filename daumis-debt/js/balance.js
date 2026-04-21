@@ -965,8 +965,12 @@ function renderOnThisDay(items) {
     return;
   }
 
-  // Pick one at random
-  const memory = matches[Math.floor(Math.random() * matches.length)];
+  // Pick one deterministically for today — if `renderOnThisDay` runs
+  // twice in the same session (cache-first, then network refresh) we want
+  // the SAME memory both times so the card doesn't flicker between two
+  // different polaroids. Hash today's date into an index.
+  const daySeed = Math.floor(today.getTime() / 86400000);
+  const memory = matches[daySeed % matches.length];
   const diffMs = today - memory.date;
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
   const diffMonths = Math.round(diffDays / 30);

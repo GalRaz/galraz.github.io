@@ -965,8 +965,10 @@ function renderOnThisDay(items) {
     return;
   }
 
-  // Pick one at random
-  const memory = matches[Math.floor(Math.random() * matches.length)];
+  // Pick deterministically for today so repeat renders (cache-first then
+  // network refresh) don't flicker between two different memories.
+  const daySeed = Math.floor(today.getTime() / 86400000);
+  const memory = matches[daySeed % matches.length];
   const diffMs = today - memory.date;
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
   const diffMonths = Math.round(diffDays / 30);
