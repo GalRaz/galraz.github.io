@@ -1,6 +1,7 @@
 import { auth, googleProvider } from './firebase-config.js';
 import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
+import { categorize } from './balance.js';
 
 /**
  * Save or update the current user's profile in the `users` collection.
@@ -293,73 +294,26 @@ const ALL_CURRENCIES = [
   { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' }
 ];
 
-function buildCurrencySelect(extraCurrency) {
-  const select = document.getElementById('entry-currency');
-  const prioritySet = new Set();
-  if (extraCurrency) prioritySet.add(extraCurrency);
+// All categories — used to populate the override sheet (categorize is imported from balance.js)
+const ALL_CATEGORIES = [
+  { label: 'groceries', icon: '🛒', display: 'Groceries' },
+  { label: 'dining', icon: '🍽️', display: 'Dining' },
+  { label: 'flights', icon: '✈️', display: 'Flights' },
+  { label: 'lodging', icon: '🏨', display: 'Lodging' },
+  { label: 'transport', icon: '🚕', display: 'Transport' },
+  { label: 'auto', icon: '⛽', display: 'Auto' },
+  { label: 'entertainment', icon: '🎬', display: 'Entertainment' },
+  { label: 'housing', icon: '🏠', display: 'Housing' },
+  { label: 'health', icon: '💊', display: 'Health' },
+  { label: 'shopping', icon: '🛍️', display: 'Shopping' },
+  { label: 'gifts', icon: '🎁', display: 'Gifts' },
+  { label: 'balance', icon: '📊', display: 'Balance' },
+  { label: 'other', icon: '$', display: 'Other' },
+];
 
-  // Get currencies with balances and their sizes
-  const balanceSizes = {};
-  try {
-    const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
-    used.forEach(c => prioritySet.add(c));
-    const sizes = JSON.parse(localStorage.getItem('daumis-debt-currency-balances') || '{}');
-    Object.assign(balanceSizes, sizes);
-    // Add any currency with a non-zero balance to priority
-    for (const [cur, amt] of Object.entries(sizes)) {
-      if (Math.abs(amt) > 0.005) prioritySet.add(cur);
-    }
-  } catch (e) {}
-
-  // Always include last used
-  const lastUsed = localStorage.getItem('daumis-debt-last-currency');
-  if (lastUsed) prioritySet.add(lastUsed);
-
-  // Always include consolidation currency
-  const consolCur = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
-  prioritySet.add(consolCur);
-
-  select.innerHTML = '';
-
-  // Priority currencies sorted: last-used first, then by balance size
-  const priorityCurrencies = ALL_CURRENCIES.filter(c => prioritySet.has(c.code));
-  priorityCurrencies.sort((a, b) => {
-    // Last used always first
-    if (a.code === lastUsed) return -1;
-    if (b.code === lastUsed) return 1;
-    // Then by absolute balance size (largest first)
-    const balA = Math.abs(balanceSizes[a.code] || 0);
-    const balB = Math.abs(balanceSizes[b.code] || 0);
-    if (balA !== balB) return balB - balA;
-    // Then consolidation currency
-    if (a.code === consolCur) return -1;
-    if (b.code === consolCur) return 1;
-    return 0;
-  });
-  const otherCurrencies = ALL_CURRENCIES.filter(c => !prioritySet.has(c.code));
-
-  priorityCurrencies.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.code;
-    opt.textContent = c.label;
-    select.appendChild(opt);
-  });
-
-  // Separator
-  if (priorityCurrencies.length > 0 && otherCurrencies.length > 0) {
-    const sep = document.createElement('option');
-    sep.disabled = true;
-    sep.textContent = '── Other ──';
-    select.appendChild(sep);
-  }
-
-  // All other currencies
-  otherCurrencies.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c.code;
-    opt.textContent = c.label;
-    select.appendChild(opt);
-  });
+function getCategoryDisplay(label) {
+  const c = ALL_CATEGORIES.find(x => x.label === label);
+  return c ? c.display : (label || 'Other').replace(/^\w/, m => m.toUpperCase());
 }
 
 function buildConsolCurrencySelect(currentValue) {
@@ -412,32 +366,80 @@ function buildConsolCurrencySelect(currentValue) {
 // --- FAB ---
 document.getElementById('fab-add').addEventListener('click', () => {
   editingEntry = null;
-  showScreen('add', 'slide-forward');
-  // Restore entry type toggle visibility
-  document.querySelector('#screen-add > .toggle-group').style.display = '';
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('entry-date').value = today;
-  document.getElementById('form-entry').reset();
-  document.getElementById('entry-date').value = today;
-  // Reset toggles
-  resetToggles();
-  updateFormForType('expense');
-  // Reset recurring toggle
-  document.querySelectorAll('#entry-recurring .toggle-btn').forEach((b, i) =>
-    b.classList.toggle('active', i === 0)
-  );
-  // Build smart currency dropdown and select last-used
-  buildCurrencySelect();
-  const defaultCurrency = localStorage.getItem('daumis-debt-last-currency') || 'USD';
-  document.getElementById('entry-currency').value = defaultCurrency;
-  // Reset edit UI
-  const deleteBtn = document.getElementById('btn-delete-entry');
-  if (deleteBtn) deleteBtn.style.display = 'none';
-  const submitBtn = document.querySelector('#form-entry button[type="submit"]');
-  submitBtn.textContent = 'Save';
-  // Auto-focus the amount field
-  setTimeout(() => document.getElementById('entry-amount').focus(), 100);
+  openAddScreen({ editing: false });
 });
+
+/**
+ * Open the Add screen and reset all state to a fresh new-expense form.
+ */
+function openAddScreen({ editing = false, prefill = null } = {}) {
+  showScreen('add', 'slide-forward');
+  const today = new Date().toISOString().split('T')[0];
+
+  // Reset the form body
+  const form = document.getElementById('form-entry');
+  form.reset();
+  document.getElementById('entry-date').value = today;
+
+  // Remove any lingering category override
+  delete form.dataset.catOverride;
+  const chip = document.getElementById('desc-chip');
+  chip.classList.add('hidden');
+  chip.textContent = '';
+
+  // Default currency
+  const defaultCurrency = (prefill && prefill.currency) || localStorage.getItem('daumis-debt-last-currency') || 'USD';
+  setActiveCurrency(defaultCurrency);
+  renderCurrencyPills();
+
+  // Reset split state
+  splitState = { payer: 'self', splitType: 'even' };
+  renderSplitSentence();
+
+  // Reset date chips
+  document.querySelectorAll('#d-chips .d-chip').forEach((b) => b.classList.remove('active'));
+  document.querySelector('#d-chips .d-chip[data-date="today"]').classList.add('active');
+  document.querySelector('#d-chips .d-chip[data-date="pick"]').textContent = 'Pick…';
+
+  // Reset recurring
+  recurringState = { active: false, frequency: 'monthly' };
+  renderRecurringRow();
+
+  // Reset entry-type toggle to "expense"
+  setEntryType('expense');
+
+  // Title + save button label
+  document.getElementById('add-title').textContent = editing ? 'Edit expense' : 'Add expense';
+  const saveBtn = document.getElementById('btn-save-entry');
+  saveBtn.textContent = editing ? 'Save changes' : 'Save expense';
+  saveBtn.disabled = true;
+  saveBtn.classList.add('disabled');
+  saveBtn.classList.remove('loading');
+
+  // Remove any delete button from edit-mode
+  const existingDelete = document.getElementById('btn-delete-entry');
+  if (existingDelete) existingDelete.remove();
+
+  // Hide any overlays
+  closeSheet();
+  closePopover();
+
+  updatePartnerNames();
+
+  if (prefill) {
+    document.getElementById('entry-desc').value = prefill.description || '';
+    document.getElementById('entry-amount').value = prefill.amount || '';
+    onDescInput();
+    onAmountInput();
+    if (prefill.date) {
+      const iso = prefill.date.toISOString().split('T')[0];
+      document.getElementById('entry-date').value = iso;
+      applyDateChip(iso);
+    }
+  }
+
+  setTimeout(() => document.getElementById('entry-amount').focus(), 100);
+}
 
 // --- Back buttons ---
 document.getElementById('btn-back').addEventListener('click', goBack);
@@ -719,7 +721,8 @@ window.addEventListener('edit-recurring', (e) => {
   title.textContent = 'Edit Recurring';
 
   // Hide entry type toggle and form
-  document.querySelector('#screen-add > .toggle-group').style.display = 'none';
+  const entToggle = document.getElementById('entry-type');
+  if (entToggle) entToggle.style.display = 'none';
   document.getElementById('form-entry').style.display = 'none';
 
   let container = document.getElementById('settle-container');
@@ -861,17 +864,11 @@ window.addEventListener('edit-entry', (e) => {
     title.textContent = 'Settlement Details';
 
     // Hide the entry type toggle and form
-    document.querySelector('#screen-add > .toggle-group').style.display = 'none';
+    const entToggle = document.getElementById('entry-type');
+    if (entToggle) entToggle.style.display = 'none';
     document.getElementById('form-entry').style.display = 'none';
 
-    // Show detail in settle container
-    let container = document.getElementById('settle-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'settle-container';
-      document.getElementById('form-entry').parentNode.insertBefore(container, document.getElementById('form-entry'));
-    }
-
+    const container = document.getElementById('settle-container');
     const sym = getCurrencySymbol(data.currency);
     const dateObj = data.date instanceof Date ? data.date : (data.date?.toDate ? data.date.toDate() : new Date(data.date));
     const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -903,42 +900,46 @@ window.addEventListener('edit-entry', (e) => {
     return;
   }
 
-  showScreen('add', 'slide-forward');
+  // Expense edit — open screen, then populate fields
+  openAddScreen({ editing: true });
 
-  // Set entry type toggle to expense
-  document.querySelectorAll('#entry-type .toggle-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.value === 'expense');
-  });
-  // Show entry type toggle
-  document.querySelector('#screen-add > .toggle-group').style.display = '';
-  updateFormForType('expense');
-
-  // Pre-fill fields
+  // Pre-fill
   document.getElementById('entry-desc').value = data.description || '';
   document.getElementById('entry-amount').value = data.amount || '';
-  buildCurrencySelect(data.currency);
-  document.getElementById('entry-currency').value = data.currency || 'USD';
+  setActiveCurrency(data.currency || 'USD');
+  renderCurrencyPills();
 
-  // Set the correct split option
+  // Map paidBy + splitType back onto the sentence state.
+  // Only two type keys now: 'even' (split evenly) or 'full' (whoever-didn't-pay owes full).
   const paidBySelf = data.paidBy === currentUser.uid;
-  const paidValue = paidBySelf ? 'self' : 'partner';
-  const splitValue = data.splitType || 'even';
-  document.querySelectorAll('.split-option').forEach(b => {
-    b.classList.toggle('active', b.dataset.paid === paidValue && b.dataset.split === splitValue);
-  });
+  const typeKey = data.splitType === 'full' ? 'full' : 'even';
+  splitState = {
+    payer: paidBySelf ? 'self' : 'partner',
+    splitType: typeKey,
+    typeKey,
+  };
+  renderSplitSentence();
 
   // Set date
   const dateObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
-  document.getElementById('entry-date').value = dateObj.toISOString().split('T')[0];
+  const iso = dateObj.toISOString().split('T')[0];
+  document.getElementById('entry-date').value = iso;
+  applyDateChip(iso);
 
-  // Hide recurring group when editing
-  document.getElementById('recurring-group').style.display = 'none';
+  // Hide the recurring row when editing an existing expense
+  const recRow = document.getElementById('recur-row');
+  if (recRow) recRow.style.display = 'none';
 
-  // Update UI for edit mode
-  const submitBtn = document.querySelector('#form-entry button[type="submit"]');
-  submitBtn.textContent = 'Save Changes';
+  // Trigger input derivations
+  onDescInput();
+  onAmountInput();
 
-  // Show delete button
+  // Edit-mode UI: title + button label + delete button
+  document.getElementById('add-title').textContent = 'Edit expense';
+  const saveBtn = document.getElementById('btn-save-entry');
+  saveBtn.textContent = 'Save changes';
+
+  const saveWrap = saveBtn.parentNode;
   let deleteBtn = document.getElementById('btn-delete-entry');
   if (!deleteBtn) {
     deleteBtn = document.createElement('button');
@@ -946,9 +947,10 @@ window.addEventListener('edit-entry', (e) => {
     deleteBtn.type = 'button';
     deleteBtn.className = 'btn btn-delete';
     deleteBtn.textContent = 'Delete';
-    submitBtn.parentNode.insertBefore(deleteBtn, submitBtn.nextSibling);
+    deleteBtn.style.marginTop = '8px';
+    deleteBtn.style.width = '100%';
+    saveWrap.appendChild(deleteBtn);
   }
-  deleteBtn.style.display = '';
   deleteBtn.onclick = async () => {
     if (!confirm('Delete this entry?')) return;
     try {
@@ -965,44 +967,31 @@ window.addEventListener('edit-entry', (e) => {
   };
 });
 
-// --- Toggle buttons ---
-document.querySelectorAll('.toggle').forEach((toggle) => {
-  toggle.querySelectorAll('.toggle-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      toggle.querySelectorAll('.toggle-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
-});
-
-// --- Entry type toggle (expense vs payment) ---
-document.querySelectorAll('#entry-type .toggle-btn').forEach((btn) => {
+// --- Entry-type toggle (Expense ↔ Settle up) ---
+document.querySelectorAll('#entry-type button').forEach((btn) => {
   btn.addEventListener('click', () => {
-    updateFormForType(btn.dataset.value);
+    setEntryType(btn.dataset.value);
   });
 });
 
-function updateFormForType(type) {
-  const descField = document.getElementById('entry-desc');
-  const expenseOptions = document.getElementById('expense-options');
-  const paymentDirection = document.getElementById('payment-direction');
-  const title = document.getElementById('add-title');
-  const recurringGroup = document.getElementById('recurring-group');
+function setEntryType(type) {
+  document.querySelectorAll('#entry-type button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.value === type);
+  });
   const form = document.getElementById('form-entry');
   const settleContainer = document.getElementById('settle-container');
+  const title = document.getElementById('add-title');
 
   if (type === 'payment') {
     form.style.display = 'none';
-    title.textContent = 'Settle Up';
+    settleContainer.style.display = '';
+    title.textContent = 'Settle up';
     renderSettleUp();
   } else {
-    if (settleContainer) settleContainer.style.display = 'none';
+    settleContainer.style.display = 'none';
+    settleContainer.innerHTML = '';
     form.style.display = '';
-    descField.style.display = '';
-    expenseOptions.style.display = '';
-    paymentDirection.style.display = 'none';
-    recurringGroup.style.display = '';
-    title.textContent = 'Add Expense';
+    title.textContent = editingEntry ? 'Edit expense' : 'Add expense';
   }
   updatePartnerNames();
 }
@@ -1017,375 +1006,1085 @@ function getCurrencySymbol(code) {
   return symbols[code] || code + ' ';
 }
 
-async function renderSettleUp() {
-  // Get or create the settle container
-  let container = document.getElementById('settle-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'settle-container';
-    const form = document.getElementById('form-entry');
-    form.parentNode.insertBefore(container, form);
-  }
-  container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center">Loading balances...</p>';
-  container.style.display = '';
+// =========================================================================
+// Add Expense — interactive state machine
+// =========================================================================
 
-  // Hide the regular form
-  document.getElementById('form-entry').style.display = 'none';
+// Active currency — which pill is hot and which symbol renders in the amount row.
+let activeCurrency = 'USD';
+// Split sentence state — mapped to Firestore paidBy/splitType on save.
+//   payer:     'self'   = I paid,  'partner' = partner paid.
+//   splitType: 'even'   = both owe half, 'full' = owed-by side owes the whole thing.
+// The legacy data shape only has paidBy + splitType, so we derive owedBy from payer.
+let splitState = { payer: 'self', splitType: 'even' };
+// Recurring inline expansion state
+let recurringState = { active: false, frequency: 'monthly' };
+
+// --- Currency pills ---
+function getTopCurrencies() {
+  const out = [];
+  const seen = new Set();
+  const push = (c) => { if (c && !seen.has(c) && ALL_CURRENCIES.some(x => x.code === c)) { out.push(c); seen.add(c); } };
+
+  const last = localStorage.getItem('daumis-debt-last-currency');
+  push(last);
+
+  // Partner's home / consolidation currency
+  const consol = localStorage.getItem('daumis-debt-consol-currency');
+  push(consol);
 
   try {
-    // Compute per-currency balances
-    const { computeCurrencyBalances, formatAmountByDigits } = await import('./balance.js');
-    const { currencyBalances, balance: totalUsdBalance } = await computeCurrencyBalances();
+    const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+    used.forEach(push);
+  } catch (e) {}
 
-    // Get exchange rates for "settle all"
-    const { getExchangeRate } = await import('./exchange.js');
+  // Fallbacks
+  ['USD', 'EUR', 'GBP', 'JPY'].forEach(push);
 
-    // Filter to non-zero currencies, excluding dust (< $0.10 USD equivalent)
-    const allDebts = Object.entries(currencyBalances).filter(([, v]) => Math.abs(v) > 0.005);
-    const debts = [];
-    for (const [cur, amount] of allDebts) {
-      try {
-        const rate = await getExchangeRate(cur);
-        if (Math.abs(amount * rate) >= 0.10) {
-          debts.push([cur, amount]);
-        }
-      } catch (e) {
-        debts.push([cur, amount]); // keep if can't check
+  return out.slice(0, 4);
+}
+
+function renderCurrencyPills() {
+  const pills = document.getElementById('cur-pills');
+  if (!pills) return;
+  const top = getTopCurrencies();
+  // Ensure active currency is one of the visible pills — if not, swap in.
+  if (!top.includes(activeCurrency)) {
+    top[top.length - 1] = activeCurrency;
+  }
+  pills.innerHTML = '';
+  top.forEach((code) => {
+    const sym = getCurrencySymbol(code).trim() || '$';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cur-pill' + (code === activeCurrency ? ' active' : '');
+    btn.dataset.cur = code;
+    btn.textContent = `${sym} ${code}`;
+    btn.addEventListener('click', () => {
+      setActiveCurrency(code);
+      renderCurrencyPills();
+      renderSplitSentence();
+    });
+    pills.appendChild(btn);
+  });
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'cur-pill more';
+  more.textContent = '+ More';
+  more.addEventListener('click', openCurrencySheet);
+  pills.appendChild(more);
+}
+
+function setActiveCurrency(code) {
+  activeCurrency = code;
+  const sym = getCurrencySymbol(code).trim() || '$';
+  document.getElementById('amt-sym').textContent = sym;
+}
+
+function openCurrencySheet() {
+  const home = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+  let recents = [];
+  try { recents = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]'); } catch (e) {}
+  const recentsSet = new Set(recents);
+
+  function rank(code) {
+    if (code === activeCurrency) return 0;
+    if (code === home) return 1;
+    if (recentsSet.has(code)) return 2;
+    return 3;
+  }
+
+  const sorted = [...ALL_CURRENCIES].sort((a, b) => {
+    const ra = rank(a.code), rb = rank(b.code);
+    if (ra !== rb) return ra - rb;
+    return a.code.localeCompare(b.code);
+  });
+
+  function rowsHtml(filter) {
+    const q = (filter || '').toLowerCase().trim();
+    return sorted
+      .filter(c => !q || c.code.toLowerCase().includes(q) || c.label.toLowerCase().includes(q))
+      .map(c => {
+        const sym = getCurrencySymbol(c.code).trim() || c.code;
+        const on = c.code === activeCurrency ? ' on' : '';
+        return `<div class="sheet-row${on}" data-cur="${c.code}">
+          <span><strong>${sym}</strong> &nbsp;${c.code}</span>
+          <span class="r">${c.label.replace(c.code, '').trim()}</span>
+        </div>`;
+      })
+      .join('');
+  }
+
+  openSheet({
+    title: 'Pick currency',
+    searchable: true,
+    bodyHtml: `<div class="sheet-list" id="cur-sheet-list">${rowsHtml('')}</div>`,
+    onReady: (sheet) => {
+      const input = sheet.querySelector('.sheet-search');
+      const list = sheet.querySelector('#cur-sheet-list');
+      if (input) {
+        input.addEventListener('input', () => {
+          list.innerHTML = rowsHtml(input.value);
+          wireRows();
+        });
       }
+      function wireRows() {
+        list.querySelectorAll('.sheet-row').forEach(r => {
+          r.addEventListener('click', () => {
+            const code = r.dataset.cur;
+            setActiveCurrency(code);
+            // Mark as recent
+            try {
+              const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+              if (!used.includes(code)) {
+                used.unshift(code);
+                localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(used.slice(0, 12)));
+              }
+            } catch (e) {}
+            renderCurrencyPills();
+            renderSplitSentence();
+            closeSheet();
+          });
+        });
+      }
+      wireRows();
     }
-    debts.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  });
+}
 
-    if (debts.length === 0) {
-      container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px 0">All settled up! Nothing to pay.</p>';
+// --- Description auto-detect chip ---
+function onDescInput() {
+  const form = document.getElementById('form-entry');
+  const desc = document.getElementById('entry-desc').value;
+  const chip = document.getElementById('desc-chip');
+  const override = form.dataset.catOverride;
+
+  let cat;
+  if (override) {
+    cat = ALL_CATEGORIES.find(c => c.label === override) || { icon: '$', label: 'other', display: 'Other' };
+  } else {
+    if (!desc || desc.trim().length < 3) {
+      chip.classList.add('hidden');
+      chip.textContent = '';
+      updateSaveEnabled();
       return;
     }
-
-    // Determine who owes whom overall
-    const partnerName = getUserName(getPartnerUid());
-    const iOwe = totalUsdBalance < 0;
-    const directionLabel = iOwe ? `You owe ${partnerName}` : `${partnerName} owes you`;
-
-    let html = `<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px">${directionLabel}</p>`;
-    html += '<div class="settle-list">';
-
-    debts.forEach(([currency, amount]) => {
-      const abs = Math.round(Math.abs(amount) * 100) / 100;
-      const sym = getCurrencySymbol(currency);
-      const isOwed = amount > 0; // positive = they owe me
-      const label = isOwed ? 'Collect' : 'Pay';
-      html += `
-        <div class="settle-row">
-          <div class="settle-currency">
-            <span class="settle-amount-text">${sym}${formatAmountByDigits(abs)}</span>
-            <span class="settle-cur-code">${currency}</span>
-          </div>
-          <button class="btn btn-small settle-btn" data-currency="${currency}" data-amount="${abs}">${label}</button>
-        </div>`;
-    });
-
-    html += '</div>';
-
-    // Settle All section
-    const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
-    const consolSym = getCurrencySymbol(consolCurrency);
-
-    // Convert per-currency balances to consolCurrency via live rates (signed sum, same as dashboard)
-    let totalConsolSigned = 0;
-    for (const [cur, amount] of debts) {
-      if (cur === consolCurrency) {
-        totalConsolSigned += amount;
-      } else {
-        try {
-          const curToUsd = await getExchangeRate(cur);
-          if (consolCurrency === 'USD') {
-            totalConsolSigned += amount * curToUsd;
-          } else {
-            const consolToUsd = await getExchangeRate(consolCurrency);
-            totalConsolSigned += amount * (curToUsd / consolToUsd);
-          }
-        } catch (e) {}
-      }
+    cat = categorize(desc);
+    if (cat.label === 'other') {
+      chip.classList.add('hidden');
+      chip.textContent = '';
+      updateSaveEnabled();
+      return;
     }
-    const totalConsol = Math.round(Math.abs(totalConsolSigned) * 100) / 100;
+  }
+  const display = cat.display || getCategoryDisplay(cat.label);
+  chip.textContent = `${cat.icon} ${display}`;
+  chip.classList.remove('hidden');
+  updateSaveEnabled();
+}
 
-    html += `
-      <div class="settle-divider"></div>
-      <div class="settle-all-section">
-        <p class="settle-all-label">Settle everything at once</p>
-        <p class="settle-all-total">${consolSym}${formatAmountByDigits(totalConsol)} ${consolCurrency}</p>
-        <p class="settle-all-hint">Creates one settlement per currency at exact amounts</p>
-        <button class="btn btn-primary settle-all-btn" id="btn-settle-all">Settle All</button>
-      </div>`;
+function openCategorySheet() {
+  const desc = document.getElementById('entry-desc').value;
+  const autoLabel = (categorize(desc) || {}).label;
+  const form = document.getElementById('form-entry');
+  const current = form.dataset.catOverride || autoLabel;
 
-    container.innerHTML = html;
+  const rows = ALL_CATEGORIES.map(c => {
+    const isAuto = c.label === autoLabel;
+    const isOn = c.label === current;
+    return `<div class="sheet-row${isOn ? ' on' : ''}" data-cat="${c.label}">
+      <span>${c.icon} &nbsp;${c.display}${isAuto ? ' <span class="r">(auto-detected)</span>' : ''}</span>
+      ${isOn ? '<span class="check">✓</span>' : ''}
+    </div>`;
+  }).join('');
 
-    // Wire up individual settle buttons
-    container.querySelectorAll('.settle-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const currency = btn.dataset.currency;
-        const amount = parseFloat(btn.dataset.amount);
-        const sym = getCurrencySymbol(currency);
-        if (!confirm(`Settle ${sym}${amount.toLocaleString()} ${currency}?`)) return;
-        btn.disabled = true;
-        btn.textContent = 'Settling...';
-
-        try {
-          const { convertToUSD } = await import('./exchange.js');
-          const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
-
-          // Determine paidBy: if I owe (negative balance in this currency), I'm paying
-          const curBalance = currencyBalances[currency];
-          const paidBy = curBalance < 0 ? currentUser.uid : getPartnerUid();
-          const paidTo = curBalance < 0 ? getPartnerUid() : currentUser.uid;
-
-          await db.collection('payments').add({
-            amount,
-            currency,
-            usdAmount,
-            exchangeRate,
-            paidBy,
-            paidTo,
-            date: new Date(),
-            addedBy: currentUser.uid,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-
-          // Track used currency
-          localStorage.setItem('daumis-debt-last-currency', currency);
-          const usedCurrencies = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
-          if (!usedCurrencies.includes(currency)) {
-            usedCurrencies.push(currency);
-            localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(usedCurrencies));
-          }
-
-          btn.textContent = 'Done!';
-          btn.style.background = 'var(--green)';
-
-          // Refresh the settle screen after a moment
-          setTimeout(() => renderSettleUp(), 800);
-        } catch (err) {
-          console.error('Settle failed:', err);
-          btn.textContent = 'Failed';
-          btn.disabled = false;
-        }
+  openSheet({
+    title: 'Pick category',
+    bodyHtml: `<div class="sheet-list">${rows}</div>`,
+    onReady: (sheet) => {
+      sheet.querySelectorAll('.sheet-row').forEach(r => {
+        r.addEventListener('click', () => {
+          form.dataset.catOverride = r.dataset.cat;
+          onDescInput();
+          closeSheet();
+        });
       });
-    });
+    }
+  });
+}
 
-    // Wire up Settle All button
-    document.getElementById('btn-settle-all')?.addEventListener('click', async () => {
-      const btn = document.getElementById('btn-settle-all');
-      if (!confirm('Settle all outstanding debts?')) return;
-      btn.disabled = true;
-      btn.textContent = 'Settling...';
+// --- Amount input ---
+function onAmountInput() {
+  renderSplitSentence();
+  updateSaveEnabled();
+}
 
-      try {
-        const { convertToUSD } = await import('./exchange.js');
+function updateSaveEnabled() {
+  const btn = document.getElementById('btn-save-entry');
+  const amt = parseFloat(document.getElementById('entry-amount').value);
+  // Design spec: enable the moment amount > 0. Description is still required
+  // at submit time (existing validation there), no need to gate the button too.
+  const ok = !isNaN(amt) && amt > 0;
+  btn.disabled = !ok;
+  btn.classList.toggle('disabled', !ok);
+}
 
-        for (const [currency, amount] of debts) {
-          const abs = Math.round(Math.abs(amount) * 100) / 100;
-          const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
-          const paidBy = amount < 0 ? currentUser.uid : getPartnerUid();
-          const paidTo = amount < 0 ? getPartnerUid() : currentUser.uid;
+// --- Split sentence ---
+async function renderSplitSentence() {
+  const payerChip = document.getElementById('split-payer-chip');
+  const typeChip = document.getElementById('split-type-chip');
+  const outcome = document.getElementById('split-outcome');
+  const hint = document.getElementById('split-hint');
+  const partnerName = getUserName(getPartnerUid());
 
-          await db.collection('payments').add({
-            amount: abs,
-            currency,
-            usdAmount,
-            exchangeRate,
-            paidBy,
-            paidTo,
-            date: new Date(),
-            addedBy: currentUser.uid,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }
+  payerChip.textContent = splitState.payer === 'self' ? 'You' : partnerName;
+  payerChip.dataset.val = splitState.payer;
 
-        btn.textContent = 'All settled!';
-        btn.style.background = 'var(--green)';
-        setTimeout(async () => {
-          showScreen('dashboard');
-          const { loadDashboard } = await import('./balance.js');
-          invalidateAllCaches(); loadDashboard(true);
-        }, 1000);
-      } catch (err) {
-        console.error('Settle all failed:', err);
-        btn.textContent = 'Failed';
-        btn.disabled = false;
+  // Only two options: 'even' (split half/half) or 'full' (whoever didn't pay owes full).
+  const typeKey = splitState.typeKey === 'full' ? 'full' : 'even';
+  splitState.typeKey = typeKey;
+  splitState.splitType = typeKey;
+  typeChip.textContent = typeKey === 'even' ? 'equally' : 'in full';
+  typeChip.dataset.val = typeKey;
+
+  // Connector text changes so the sentence stays grammatical:
+  //   "<payer> paid, splitting <equally>."  (even)
+  //   "<payer> paid <in full>."             (full)
+  const connector = document.getElementById('split-connector');
+  if (connector) connector.textContent = typeKey === 'even' ? ' paid, splitting ' : ' paid ';
+
+  // Compute outcome text
+  const amt = parseFloat(document.getElementById('entry-amount').value);
+  if (!amt || isNaN(amt) || amt <= 0) {
+    outcome.textContent = '';
+    hint.style.display = '';
+    hint.innerHTML = `Enter an amount to see what <span class="partner-name">${partnerName}</span> owes.`;
+    return;
+  }
+  hint.style.display = 'none';
+
+  const sym = getCurrencySymbol(activeCurrency).trim() || activeCurrency;
+
+  // Whoever didn't pay is the one who owes.
+  const owedBy = splitState.payer === 'self' ? partnerName : 'You';
+  const owedAmount = typeKey === 'even' ? amt / 2 : amt;
+
+  const owedStr = `${sym}${formatAmt(owedAmount)}`;
+
+  // USD-consolidated parenthetical when active currency != consol currency
+  const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+  let fx = '';
+  if (activeCurrency !== consol) {
+    try {
+      const { getExchangeRate } = await import('./exchange.js');
+      const rate = await getExchangeRate(activeCurrency);
+      let consolAmt;
+      if (consol === 'USD') {
+        consolAmt = owedAmount * rate;
+      } else {
+        const consolRate = await getExchangeRate(consol);
+        consolAmt = owedAmount * rate / consolRate;
       }
-    });
+      const consolSym = getCurrencySymbol(consol).trim() || consol;
+      fx = ` <span class="fx" style="color:var(--text-muted);font-weight:400">(≈ ${consolSym}${formatAmt(consolAmt)})</span>`;
+    } catch (e) {}
+  }
 
-  } catch (err) {
-    console.error('Failed to load settle-up:', err);
-    container.innerHTML = '<p style="color:var(--red);text-align:center">Failed to load balances.</p>';
+  outcome.innerHTML = `${owedBy} owes <span class="choice owed">${owedStr}</span>${fx}.`;
+}
+
+function formatAmt(v) {
+  const abs = Math.abs(v);
+  const intPart = Math.floor(abs);
+  const digits = intPart === 0 ? 1 : String(intPart).length;
+  if (digits >= 7) return abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (digits >= 5) return abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+  return abs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// --- Popover infrastructure ---
+function openPopover({ anchor, items, onPick }) {
+  const pop = document.getElementById('popover');
+  pop.innerHTML = items.map((it, i) => `
+    <div class="pop-item${it.on ? ' on' : ''}" data-i="${i}">
+      <span>${it.label}${it.sub ? `<br><span class="sub">${it.sub}</span>` : ''}</span>
+      ${it.on ? '<span class="check">✓</span>' : ''}
+    </div>
+  `).join('');
+
+  // Position under anchor, relative to #screen-add
+  const screen = document.getElementById('screen-add');
+  const aRect = anchor.getBoundingClientRect();
+  const sRect = screen.getBoundingClientRect();
+  pop.style.left = (aRect.left - sRect.left) + 'px';
+  pop.style.top = (aRect.bottom - sRect.top + 10) + 'px';
+  pop.classList.remove('hidden');
+  anchor.classList.add('hot');
+
+  pop.querySelectorAll('.pop-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.i, 10);
+      onPick(items[idx]);
+      closePopover();
+    });
+  });
+
+  // Close on outside tap
+  function outside(ev) {
+    if (!pop.contains(ev.target) && ev.target !== anchor) {
+      closePopover();
+    }
+  }
+  setTimeout(() => document.addEventListener('click', outside, { once: true, capture: true }), 0);
+  pop._cleanup = () => { anchor.classList.remove('hot'); };
+}
+
+function closePopover() {
+  const pop = document.getElementById('popover');
+  if (pop._cleanup) pop._cleanup();
+  pop.classList.add('hidden');
+  pop.innerHTML = '';
+}
+
+// --- Bottom sheet infrastructure ---
+function openSheet({ title, bodyHtml, searchable = false, onReady }) {
+  const sheet = document.getElementById('bottom-sheet');
+  const scrim = document.getElementById('scrim');
+  sheet.innerHTML = `
+    <div class="sheet-title">
+      <span>${title}</span>
+      <span class="done" id="sheet-done">Done</span>
+    </div>
+    ${searchable ? '<input type="text" class="sheet-search" placeholder="Search…">' : ''}
+    ${bodyHtml}
+  `;
+  sheet.classList.remove('hidden');
+  scrim.classList.remove('hidden');
+  scrim.onclick = () => closeSheet();
+  sheet.querySelector('#sheet-done')?.addEventListener('click', closeSheet);
+  if (onReady) onReady(sheet);
+}
+
+function closeSheet() {
+  const sheet = document.getElementById('bottom-sheet');
+  const scrim = document.getElementById('scrim');
+  sheet.classList.add('hidden');
+  sheet.innerHTML = '';
+  scrim.classList.add('hidden');
+  scrim.onclick = null;
+}
+
+// --- Payer / split chip popovers ---
+document.getElementById('split-payer-chip').addEventListener('click', (e) => {
+  const partnerName = getUserName(getPartnerUid());
+  openPopover({
+    anchor: e.currentTarget,
+    items: [
+      { label: 'You paid', value: 'self', on: splitState.payer === 'self' },
+      { label: `${partnerName} paid`, value: 'partner', on: splitState.payer === 'partner' },
+    ],
+    onPick: (it) => {
+      splitState.payer = it.value;
+      // typeKey is now payer-agnostic ('even' or 'full') — no remapping needed.
+      renderSplitSentence();
+    },
+  });
+});
+
+document.getElementById('split-type-chip').addEventListener('click', async (e) => {
+  const partnerName = getUserName(getPartnerUid());
+  const amt = parseFloat(document.getElementById('entry-amount').value) || 0;
+  const sym = getCurrencySymbol(activeCurrency).trim() || activeCurrency;
+  // Whoever didn't pay is the one who owes.
+  const owesName = splitState.payer === 'self' ? partnerName : 'You';
+  const previewEqually = amt > 0 ? `${owesName} owes ${sym}${formatAmt(amt / 2)}` : '';
+  const previewFull = amt > 0 ? `${owesName} owes ${sym}${formatAmt(amt)}` : '';
+
+  openPopover({
+    anchor: e.currentTarget,
+    items: [
+      { label: 'equally', value: 'even', sub: previewEqually, on: splitState.typeKey === 'even' },
+      { label: 'in full', value: 'full', sub: previewFull, on: splitState.typeKey === 'full' },
+    ],
+    onPick: (it) => {
+      splitState.typeKey = it.value;
+      splitState.splitType = it.value;
+      renderSplitSentence();
+    },
+  });
+});
+
+// --- Date chips ---
+function applyDateChip(iso) {
+  const today = new Date().toISOString().split('T')[0];
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const yesterday = y.toISOString().split('T')[0];
+
+  document.querySelectorAll('#d-chips .d-chip').forEach(b => b.classList.remove('active'));
+  const pickChip = document.querySelector('#d-chips .d-chip[data-date="pick"]');
+  pickChip.textContent = 'Pick…';
+
+  if (iso === today) {
+    document.querySelector('#d-chips .d-chip[data-date="today"]').classList.add('active');
+  } else if (iso === yesterday) {
+    document.querySelector('#d-chips .d-chip[data-date="yesterday"]').classList.add('active');
+  } else {
+    pickChip.classList.add('active');
+    const d = new Date(iso + 'T12:00:00');
+    pickChip.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 }
+
+document.querySelectorAll('#d-chips .d-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const which = btn.dataset.date;
+    if (which === 'today') {
+      const iso = new Date().toISOString().split('T')[0];
+      document.getElementById('entry-date').value = iso;
+      applyDateChip(iso);
+    } else if (which === 'yesterday') {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      const iso = d.toISOString().split('T')[0];
+      document.getElementById('entry-date').value = iso;
+      applyDateChip(iso);
+    } else {
+      openCalendarSheet();
+    }
+  });
+});
+
+// --- Calendar sheet ---
+function openCalendarSheet() {
+  const initIso = document.getElementById('entry-date').value || new Date().toISOString().split('T')[0];
+  let viewDate = new Date(initIso + 'T12:00:00');
+  let selectedIso = initIso;
+
+  function monthGridHtml() {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const first = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const prevLastDay = new Date(year, month, 0).getDate();
+    const startDow = first.getDay(); // 0=Sun
+    const todayIso = new Date().toISOString().split('T')[0];
+
+    const dayHeaders = ['S','M','T','W','T','F','S'].map(d => `<div class="d-h">${d}</div>`).join('');
+    let cells = '';
+    // Previous month's trailing days
+    for (let i = startDow - 1; i >= 0; i--) {
+      const day = prevLastDay - i;
+      cells += `<button class="d muted" disabled>${day}</button>`;
+    }
+    // Current month
+    for (let day = 1; day <= lastDay; day++) {
+      const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const cls = ['d'];
+      if (iso === todayIso) cls.push('today');
+      if (iso === selectedIso) cls.push('sel');
+      cells += `<button class="${cls.join(' ')}" data-iso="${iso}">${day}</button>`;
+    }
+    // Pad trailing next-month days to fill the grid
+    const totalCells = startDow + lastDay;
+    const pad = (7 - (totalCells % 7)) % 7;
+    for (let i = 1; i <= pad; i++) {
+      cells += `<button class="d muted" disabled>${i}</button>`;
+    }
+
+    const monthName = viewDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return `
+      <div class="cal">
+        <div class="cal-head">
+          <button class="cal-nav" id="cal-prev">‹</button>
+          <span>${monthName}</span>
+          <button class="cal-nav" id="cal-next">›</button>
+        </div>
+        <div class="cal-grid">
+          ${dayHeaders}
+          ${cells}
+        </div>
+      </div>`;
+  }
+
+  function mount(sheet) {
+    sheet.querySelector('#cal-prev')?.addEventListener('click', () => {
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
+      sheet.querySelector('.cal').outerHTML = monthGridHtml();
+      mount(sheet);
+    });
+    sheet.querySelector('#cal-next')?.addEventListener('click', () => {
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+      sheet.querySelector('.cal').outerHTML = monthGridHtml();
+      mount(sheet);
+    });
+    sheet.querySelectorAll('.cal-grid .d[data-iso]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedIso = btn.dataset.iso;
+        sheet.querySelectorAll('.cal-grid .d').forEach(b => b.classList.remove('sel'));
+        btn.classList.add('sel');
+      });
+    });
+  }
+
+  openSheet({
+    title: 'Pick a date',
+    bodyHtml: monthGridHtml(),
+    onReady: (sheet) => {
+      mount(sheet);
+      sheet.querySelector('#sheet-done')?.addEventListener('click', () => {
+        document.getElementById('entry-date').value = selectedIso;
+        applyDateChip(selectedIso);
+      });
+    },
+  });
+}
+
+// --- Recurring inline expand ---
+function renderRecurringRow() {
+  const row = document.getElementById('recur-row');
+  if (!row) return;
+  if (!recurringState.active) {
+    row.classList.remove('open');
+    row.innerHTML = `<span class="recur-label">Repeat this expense</span><span class="plus">+</span>`;
+    row.onclick = () => { recurringState.active = true; renderRecurringRow(); updateSaveLabel(); };
+    // Reset save label
+    updateSaveLabel();
+    return;
+  }
+  row.classList.add('open');
+  const dateIso = document.getElementById('entry-date').value || new Date().toISOString().split('T')[0];
+  const base = new Date(dateIso + 'T12:00:00');
+  let next = new Date(base);
+  if (recurringState.frequency === 'weekly') next.setDate(next.getDate() + 7);
+  else if (recurringState.frequency === 'yearly') next.setFullYear(next.getFullYear() + 1);
+  else next.setMonth(next.getMonth() + 1);
+  const nextLabel = next.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  row.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="recur-label">Repeat this expense</span>
+      <span class="plus" id="recur-close" style="transform:rotate(45deg);cursor:pointer">+</span>
+    </div>
+    <div class="recur-toggle" id="recur-freq">
+      <button type="button" data-f="weekly" class="${recurringState.frequency === 'weekly' ? 'active' : ''}">Weekly</button>
+      <button type="button" data-f="monthly" class="${recurringState.frequency === 'monthly' ? 'active' : ''}">Monthly</button>
+      <button type="button" data-f="yearly" class="${recurringState.frequency === 'yearly' ? 'active' : ''}">Yearly</button>
+    </div>
+    <div style="font-size:10.5px;color:var(--text-muted)">Next occurrence: <strong>${nextLabel}</strong></div>
+  `;
+  row.onclick = null;
+  document.getElementById('recur-close').addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    recurringState.active = false;
+    renderRecurringRow();
+  });
+  row.querySelectorAll('#recur-freq button').forEach(b => {
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      recurringState.frequency = b.dataset.f;
+      renderRecurringRow();
+    });
+  });
+  updateSaveLabel();
+}
+
+function updateSaveLabel() {
+  const saveBtn = document.getElementById('btn-save-entry');
+  if (!saveBtn) return;
+  if (editingEntry) return; // don't change label when editing
+  saveBtn.textContent = recurringState.active ? 'Save recurring' : 'Save expense';
+}
+
+// --- Description chip tap → open category sheet ---
+document.getElementById('desc-chip').addEventListener('click', openCategorySheet);
+
+// --- Description + amount wiring ---
+document.getElementById('entry-desc').addEventListener('input', () => {
+  // User edited description — clear any prior override so auto-detect resumes
+  const form = document.getElementById('form-entry');
+  delete form.dataset.catOverride;
+  onDescInput();
+});
+document.getElementById('entry-amount').addEventListener('input', onAmountInput);
 
 function updatePartnerNames() {
   const partnerName = getUserName(getPartnerUid());
   document.querySelectorAll('.partner-name').forEach(el => {
     el.textContent = partnerName;
   });
+  renderSplitSentence();
 }
 
-// --- Split option buttons ---
-document.querySelectorAll('.split-option').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.split-option').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-});
+// =========================================================================
+// Settle Up — hero + per-currency rows + settle-all + zero-state
+// =========================================================================
 
-function resetToggles() {
-  document.querySelectorAll('#screen-add .toggle').forEach((toggle) => {
-    toggle.querySelectorAll('.toggle-btn').forEach((b, i) => b.classList.toggle('active', i === 0));
-  });
-  document.querySelectorAll('.split-option').forEach((b, i) => b.classList.toggle('active', i === 0));
+let _settleDebts = null;       // cached debts array for the current render
+let _settleCurrencyBalances = null;
+let _settleTotalUsd = 0;
+
+async function renderSettleUp() {
+  const container = document.getElementById('settle-container');
+  const form = document.getElementById('form-entry');
+  form.style.display = 'none';
+  container.style.display = '';
+  container.innerHTML = `<p style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px 0">Loading balances…</p>`;
+
+  try {
+    const { computeCurrencyBalances, formatAmountByDigits } = await import('./balance.js');
+    const { getExchangeRate } = await import('./exchange.js');
+    const { currencyBalances, balance: totalUsdBalance } = await computeCurrencyBalances();
+
+    // Filter dust
+    const allDebts = Object.entries(currencyBalances).filter(([, v]) => Math.abs(v) > 0.005);
+    const debts = [];
+    for (const [cur, amount] of allDebts) {
+      try {
+        const rate = await getExchangeRate(cur);
+        const usd = Math.abs(amount * rate);
+        if (usd >= 0.10) debts.push([cur, amount, usd]);
+      } catch (e) { debts.push([cur, amount, Math.abs(amount)]); }
+    }
+    debts.sort((a, b) => b[2] - a[2]);
+
+    _settleDebts = debts;
+    _settleCurrencyBalances = currencyBalances;
+    _settleTotalUsd = totalUsdBalance;
+
+    if (debts.length === 0) {
+      renderSettleZero({ firstLoad: true });
+      return;
+    }
+
+    const partnerName = getUserName(getPartnerUid());
+    // Use "you" for the viewer (matches the design) so the hero reads naturally
+    // no matter what the current user's display name is.
+    const iOwe = totalUsdBalance < 0;
+    const label = iOwe ? `You owe ${partnerName}, all in` : `${partnerName} owes you, all in`;
+
+    const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+    const consolSym = getCurrencySymbol(consol).trim() || consol;
+
+    let totalConsol = 0;
+    for (const [cur, amount] of debts) {
+      if (cur === consol) {
+        totalConsol += Math.abs(amount);
+      } else {
+        try {
+          const curToUsd = await getExchangeRate(cur);
+          if (consol === 'USD') totalConsol += Math.abs(amount * curToUsd);
+          else {
+            const consolToUsd = await getExchangeRate(consol);
+            totalConsol += Math.abs(amount * (curToUsd / consolToUsd));
+          }
+        } catch (e) {}
+      }
+    }
+
+    const totalUsdAbs = debts.reduce((s, [, , usd]) => s + usd, 0);
+
+    let rowsHtml = '';
+    debts.forEach(([cur, amount, usd]) => {
+      const abs = Math.abs(amount);
+      const sym = getCurrencySymbol(cur).trim() || cur;
+      const share = totalUsdAbs > 0 ? (usd / totalUsdAbs) * 100 : 0;
+      // Nudge tiny shares to "<1%" so rows don't read as "0%".
+      const pctStr = share >= 1 ? `${Math.round(share)}%` : '<1%';
+      rowsHtml += `
+        <div class="settle-row" data-cur="${cur}">
+          <div>
+            <div class="settle-amt">${sym}${formatAmountByDigits(abs)}</div>
+            <div class="settle-meta">${cur} · ${pctStr} of the total</div>
+          </div>
+          <button class="settle-btn" data-cur="${cur}">Mark paid</button>
+        </div>`;
+    });
+
+    container.innerHTML = `
+      <div class="settle-hero">
+        <div class="settle-label">${label}</div>
+        <div class="settle-total">${consolSym}${formatAmountByDigits(totalConsol)}</div>
+        <div class="settle-sub">across ${debts.length} ${debts.length === 1 ? 'currency' : 'currencies'} · as of today</div>
+      </div>
+      <div id="settle-rows">${rowsHtml}</div>
+      <div class="save" style="margin-top:14px">
+        <button type="button" id="btn-settle-all">Settle everything</button>
+      </div>
+    `;
+
+    container.querySelectorAll('.settle-btn').forEach(btn => {
+      btn.addEventListener('click', () => onMarkPaidClick(btn.dataset.cur));
+    });
+    document.getElementById('btn-settle-all').addEventListener('click', onSettleAllClick);
+  } catch (err) {
+    console.error('renderSettleUp failed:', err);
+    container.innerHTML = `<p style="color:var(--red);text-align:center">Failed to load balances.</p>`;
+  }
 }
 
-// --- Combined form submission ---
+function renderSettleZero({ firstLoad = false, settledCount = 0 } = {}) {
+  const container = document.getElementById('settle-container');
+  const partnerName = getUserName(getPartnerUid());
+  const body = firstLoad
+    ? `All settled. Nothing to pay.`
+    : `You don’t owe ${partnerName} a yen. ${partnerName} doesn’t owe you a yen.`;
+  const today = new Date();
+  const stamp = `SETTLED ${today.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase()} · ${today.getFullYear()}`;
+  container.innerHTML = `
+    <div class="settle-zero">
+      <div class="settle-zero-check">✓</div>
+      <div class="settle-zero-title">All square.</div>
+      <div class="settle-zero-body">${body}</div>
+      ${!firstLoad ? `<div class="settle-zero-footer">${stamp}</div>` : ''}
+    </div>
+    ${!firstLoad ? `<div class="settle-zero-quip">Until the next ramen.</div>` : ''}
+    <div class="save">
+      <button type="button" id="btn-back-to-dash" class="back-to-dash">Back to dashboard</button>
+    </div>
+  `;
+  document.getElementById('btn-back-to-dash').addEventListener('click', async () => {
+    showScreen('dashboard', 'slide-back');
+    const { loadDashboard } = await import('./balance.js');
+    invalidateAllCaches(); loadDashboard(true);
+  });
+}
+
+function onMarkPaidClick(currency) {
+  const entry = _settleDebts.find(([c]) => c === currency);
+  if (!entry) return;
+  const [, amount, usd] = entry;
+  const abs = Math.round(Math.abs(amount) * 100) / 100;
+  const sym = getCurrencySymbol(currency).trim() || currency;
+  const partnerName = getUserName(getPartnerUid());
+  const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+  const consolSym = getCurrencySymbol(consol).trim() || consol;
+  const row = document.querySelector(`.settle-row[data-cur="${currency}"]`);
+  if (row) row.classList.add('selected');
+
+  openSheet({
+    title: 'Confirm',
+    bodyHtml: `
+      <div style="padding:10px 4px 14px;font-size:14px;color:var(--text);line-height:1.5">
+        Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usd.toFixed(2)}) as paid to ${partnerName}?
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:8px">The other currencies stay open — this just zeros out ${currency}.</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="settle-cancel" style="flex:1;padding:11px;border-radius:12px;background:var(--bg);border:none;font-weight:600;font-family:inherit">Cancel</button>
+        <button type="button" id="settle-ok" style="flex:1;padding:11px;border-radius:12px;background:var(--accent);color:#fff;border:none;font-weight:700;font-family:inherit">Yes, mark paid</button>
+      </div>
+    `,
+    onReady: (sheet) => {
+      sheet.querySelector('#settle-cancel').addEventListener('click', () => {
+        if (row) row.classList.remove('selected');
+        closeSheet();
+      });
+      sheet.querySelector('#settle-ok').addEventListener('click', async () => {
+        closeSheet();
+        await confirmMarkPaid(currency, abs, usd);
+      });
+    },
+  });
+}
+
+async function confirmMarkPaid(currency, abs, usdAbs) {
+  try {
+    const { convertToUSD } = await import('./exchange.js');
+    const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
+    const curBalance = _settleCurrencyBalances[currency] || 0;
+    const paidBy = curBalance < 0 ? currentUser.uid : getPartnerUid();
+    const paidTo = curBalance < 0 ? getPartnerUid() : currentUser.uid;
+
+    const docRef = await db.collection('payments').add({
+      amount: abs,
+      currency,
+      usdAmount,
+      exchangeRate,
+      paidBy,
+      paidTo,
+      date: new Date(),
+      addedBy: currentUser.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Track used currency
+    localStorage.setItem('daumis-debt-last-currency', currency);
+    try {
+      const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+      if (!used.includes(currency)) { used.push(currency); localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(used)); }
+    } catch (e) {}
+
+    // Replace the row with a dashed just-settled affordance + 8s undo
+    const row = document.querySelector(`.settle-row[data-cur="${currency}"]`);
+    if (row) {
+      row.classList.remove('selected');
+      row.classList.add('just-settled');
+      const sym = getCurrencySymbol(currency).trim() || currency;
+      row.innerHTML = `
+        <div>
+          <div class="settle-amt">${sym}${abs.toLocaleString()} settled just now</div>
+          <div class="settle-meta">Logged as a settle entry</div>
+        </div>
+        <button class="settle-btn" data-undo="${docRef.id}">Undo</button>
+      `;
+      const undoBtn = row.querySelector('[data-undo]');
+      let undone = false;
+      const timer = setTimeout(() => {
+        if (undone) return;
+        row.style.transition = 'opacity 400ms ease';
+        row.style.opacity = '0';
+        setTimeout(() => { renderSettleUp(); }, 450);
+      }, 8000);
+      undoBtn.addEventListener('click', async () => {
+        undone = true;
+        clearTimeout(timer);
+        try { await db.collection('payments').doc(docRef.id).delete(); } catch (e) {}
+        invalidateAllCaches();
+        renderSettleUp();
+      });
+    }
+
+    // Toast
+    showToast(`${currency} cleared · balance update pending`);
+    invalidateAllCaches();
+
+    // Recompute hero/totals to reflect the cleared currency (but keep the
+    // just-settled row visible) — we do a softer re-render after 8s above.
+    // For now, update the hero label immediately by re-fetching totals.
+    // Simpler: re-render after a short beat so the undo window stays stable.
+  } catch (err) {
+    console.error('Mark paid failed:', err);
+    alert('Failed to save settlement.');
+  }
+}
+
+function onSettleAllClick() {
+  if (!_settleDebts || _settleDebts.length === 0) return;
+  const partnerName = getUserName(getPartnerUid());
+  const breakdown = _settleDebts.map(([cur, amount]) => {
+    const sym = getCurrencySymbol(cur).trim() || cur;
+    return `${sym}${Math.abs(amount).toLocaleString()}`;
+  }).join(' · ');
+
+  const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
+  const consolSym = getCurrencySymbol(consol).trim() || consol;
+  const totalUsd = _settleDebts.reduce((s, [, , usd]) => s + usd, 0);
+
+  openSheet({
+    title: `Settle all ${_settleDebts.length}?`,
+    bodyHtml: `
+      <div style="padding:10px 4px 14px;font-size:14px;color:var(--text);line-height:1.5">
+        <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-bottom:4px">${consolSym}${totalUsd.toFixed(2)}</div>
+        <div style="font-size:11.5px;color:var(--text-muted)">${breakdown}</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:8px">Creates one settlement per currency at the exact amount.</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="sa-cancel" style="flex:1;padding:11px;border-radius:12px;background:var(--bg);border:none;font-weight:600;font-family:inherit">Cancel</button>
+        <button type="button" id="sa-ok" style="flex:1;padding:11px;border-radius:12px;background:var(--accent);color:#fff;border:none;font-weight:700;font-family:inherit">Yes — settle all</button>
+      </div>
+    `,
+    onReady: (sheet) => {
+      sheet.querySelector('#sa-cancel').addEventListener('click', closeSheet);
+      sheet.querySelector('#sa-ok').addEventListener('click', async () => {
+        closeSheet();
+        await settleEverything();
+      });
+    }
+  });
+}
+
+async function settleEverything() {
+  const count = _settleDebts.length;
+  try {
+    const { convertToUSD } = await import('./exchange.js');
+    for (const [currency, amount] of _settleDebts) {
+      const abs = Math.round(Math.abs(amount) * 100) / 100;
+      const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
+      const paidBy = amount < 0 ? currentUser.uid : getPartnerUid();
+      const paidTo = amount < 0 ? getPartnerUid() : currentUser.uid;
+      await db.collection('payments').add({
+        amount: abs,
+        currency,
+        usdAmount,
+        exchangeRate,
+        paidBy,
+        paidTo,
+        date: new Date(),
+        addedBy: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    invalidateAllCaches();
+    renderSettleZero({ firstLoad: false, settledCount: count });
+    showToast(`All ${count} currencies cleared`);
+  } catch (err) {
+    console.error('Settle all failed:', err);
+    alert('Failed to settle.');
+  }
+}
+
+// --- Toast helper ---
+function showToast(text, { screen = 'add' } = {}) {
+  let toast;
+  if (screen === 'add') {
+    toast = document.getElementById('entry-toast');
+    if (!toast) return;
+    const textEl = document.getElementById('entry-toast-text');
+    if (textEl) textEl.textContent = text;
+    toast.classList.remove('hidden');
+    // Force reflow so transition fires
+    void toast.offsetWidth;
+    toast.classList.add('visible');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.classList.add('hidden'), 250);
+    }, 2500);
+  } else {
+    // Dashboard toast — reuse the entry-toast node but position it in viewport
+    toast = document.getElementById('entry-toast');
+    if (!toast) return;
+    const textEl = document.getElementById('entry-toast-text');
+    if (textEl) textEl.textContent = text;
+    toast.classList.remove('hidden');
+    void toast.offsetWidth;
+    toast.classList.add('visible');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.classList.add('hidden'), 250);
+    }, 2500);
+  }
+}
+
+// =========================================================================
+// Form submission — Save Expense / Save Recurring
+// =========================================================================
+let _pendingNewEntry = null; // { description, at: Date } used to glow the new history row
+
 document.getElementById('form-entry').addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!currentUser) return;
 
-  const entryType = document.querySelector('#entry-type .toggle-btn.active').dataset.value;
   const amount = parseFloat(document.getElementById('entry-amount').value);
-  const currency = document.getElementById('entry-currency').value;
+  const currency = activeCurrency;
   const date = document.getElementById('entry-date').value;
+  const description = document.getElementById('entry-desc').value.trim();
 
-  // Get paid-by and split from the appropriate UI
-  let paidByValue, splitType;
-  if (entryType === 'expense') {
-    const activeOption = document.querySelector('.split-option.active');
-    paidByValue = activeOption?.dataset.paid || 'self';
-    splitType = activeOption?.dataset.split || 'even';
-  } else {
-    paidByValue = document.querySelector('#entry-paid-by .toggle-btn.active').dataset.value;
-  }
+  // Two split types:
+  //   'even' — both owe half (paidBy is who paid, owedBy is the other party)
+  //   'full' — whoever paid is owed in full (owedBy is the other party)
+  const typeKey = splitState.typeKey === 'full' ? 'full' : 'even';
+  const paidByValue = splitState.payer; // 'self' | 'partner'
+  const owedByValue = paidByValue === 'self' ? 'partner' : 'self';
+  const splitType = typeKey;
 
   // Validation
-  if (entryType === 'expense') {
-    const desc = document.getElementById('entry-desc').value.trim();
-    if (!desc) {
-      alert('Please add a description.');
-      return;
-    }
-    if (desc.length > 200) {
-      alert('Description is too long (max 200 characters).');
-      return;
-    }
-  }
+  if (!description) { alert('Please add a description.'); return; }
+  if (description.length > 200) { alert('Description is too long (max 200 characters).'); return; }
+  if (!amount || isNaN(amount) || amount <= 0) { alert('Please enter a valid positive amount.'); return; }
+  if (amount > 1000000) { alert('Amount seems too large.'); return; }
 
-  if (!amount || isNaN(amount) || amount <= 0) {
-    alert('Please enter a valid positive amount.');
-    return;
-  }
-
-  if (amount > 1000000) {
-    alert('Amount seems too large. Please check and try again.');
-    return;
-  }
-
-  const submitBtn = document.querySelector('#form-entry button[type="submit"]');
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Saving...';
+  const saveBtn = document.getElementById('btn-save-entry');
+  saveBtn.disabled = true;
+  saveBtn.classList.add('loading');
+  const prevLabel = saveBtn.textContent;
+  saveBtn.innerHTML = `<span class="spinner"></span> Saving…`;
 
   try {
     const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
-    const paidBy = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
-    const otherUid = paidByValue === 'self' ? getPartnerUid() : currentUser.uid;
+    const paidByUid = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
+    const owedByUid = owedByValue === 'self' ? currentUser.uid : getPartnerUid();
+    const expenseDate = new Date(date + 'T12:00:00');
+    const isFuture = expenseDate > new Date();
 
-    if (entryType === 'expense') {
-      const description = document.getElementById('entry-desc').value.trim();
-      const expenseDate = new Date(date + 'T12:00:00');
-      const isFuture = expenseDate > new Date();
-      const recurringValue = !editingEntry ? (document.querySelector('#entry-recurring .toggle-btn.active')?.dataset.value || 'none') : 'none';
+    const isRecurring = !editingEntry && recurringState.active;
+    const freq = recurringState.frequency;
 
-      if (isFuture && recurringValue !== 'none') {
-        // Future recurring: don't create expense now, just schedule it
-        const { createRecurring } = await import('./recurring.js');
-        await createRecurring({
-          description, amount, currency, paidBy, splitType,
-          owedBy: otherUid, frequency: recurringValue,
-          addedBy: currentUser.uid, startDate: expenseDate
-        });
-      } else if (editingEntry && editingEntry.type === 'expense') {
-        await db.collection('expenses').doc(editingEntry.id).update({
-          description, amount, currency, usdAmount, exchangeRate,
-          paidBy, splitType, owedBy: otherUid, date: expenseDate,
-        });
-      } else {
-        await db.collection('expenses').add({
-          description, amount, currency, usdAmount, exchangeRate,
-          paidBy, splitType, owedBy: otherUid, date: expenseDate,
-          addedBy: currentUser.uid,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }
+    if (isFuture && isRecurring) {
+      const { createRecurring } = await import('./recurring.js');
+      await createRecurring({
+        description, amount, currency, paidBy: paidByUid, splitType,
+        owedBy: owedByUid, frequency: freq,
+        addedBy: currentUser.uid, startDate: expenseDate,
+      });
+    } else if (editingEntry && editingEntry.type === 'expense') {
+      await db.collection('expenses').doc(editingEntry.id).update({
+        description, amount, currency, usdAmount, exchangeRate,
+        paidBy: paidByUid, splitType, owedBy: owedByUid, date: expenseDate,
+      });
     } else {
-      if (editingEntry && editingEntry.type === 'payment') {
-        await db.collection('payments').doc(editingEntry.id).update({
-          amount,
-          currency,
-          usdAmount,
-          exchangeRate,
-          paidBy,
-          paidTo: otherUid,
-          date: new Date(date + 'T12:00:00'),
-        });
-      } else {
-        await db.collection('payments').add({
-          amount,
-          currency,
-          usdAmount,
-          exchangeRate,
-          paidBy,
-          paidTo: otherUid,
-          date: new Date(date + 'T12:00:00'),
-          addedBy: currentUser.uid,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-      }
-    }
-
-    // Create recurring if selected (only for new, non-future expenses — future ones handled above)
-    if (!editingEntry && entryType === 'expense') {
-      const expenseDate = new Date(date + 'T12:00:00');
-      const isFuture = expenseDate > new Date();
-      const recurringValue = document.querySelector('#entry-recurring .toggle-btn.active')?.dataset.value || 'none';
-      if (recurringValue !== 'none' && !isFuture) {
+      await db.collection('expenses').add({
+        description, amount, currency, usdAmount, exchangeRate,
+        paidBy: paidByUid, splitType, owedBy: owedByUid, date: expenseDate,
+        addedBy: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      if (isRecurring && !isFuture) {
         const { createRecurring } = await import('./recurring.js');
         await createRecurring({
-          description: document.getElementById('entry-desc').value.trim(),
-          amount, currency, paidBy, splitType,
-          owedBy: otherUid, frequency: recurringValue,
-          addedBy: currentUser.uid, startDate: expenseDate
+          description, amount, currency, paidBy: paidByUid, splitType,
+          owedBy: owedByUid, frequency: freq,
+          addedBy: currentUser.uid, startDate: expenseDate,
         });
       }
     }
 
-    // Track last-used and used currencies
+    // Track used currencies
     localStorage.setItem('daumis-debt-last-currency', currency);
     try {
-      const usedCurrencies = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
-      if (!usedCurrencies.includes(currency)) {
-        usedCurrencies.push(currency);
-        localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(usedCurrencies));
-      }
+      const used = JSON.parse(localStorage.getItem('daumis-debt-used-currencies') || '[]');
+      if (!used.includes(currency)) { used.push(currency); localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(used)); }
     } catch (e) {}
 
-    // Go back to dashboard
+    _pendingNewEntry = { description, at: Date.now(), isRecurring };
+    const wasEditing = !!editingEntry;
     editingEntry = null;
+
+    // Navigate to dashboard and refresh
     showScreen('dashboard', 'slide-back');
     const { loadDashboard } = await import('./balance.js');
-    invalidateAllCaches(); loadDashboard(true);
+    invalidateAllCaches();
+    await loadDashboard(true);
+    glowMostRecentHistoryRow();
+    showDashboardToast(isRecurring ? 'Recurring saved' : (wasEditing ? 'Updated' : 'Added · balance updated'));
   } catch (err) {
     console.error('Error saving entry:', err);
     alert('Failed to save. Check your connection.');
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = editingEntry ? 'Save Changes' : 'Save';
+    saveBtn.classList.remove('loading');
+    saveBtn.disabled = false;
+    saveBtn.textContent = prevLabel;
   }
 });
+
+/**
+ * Flag the topmost history row so its CSS animation runs.
+ * The `.new-entry` rule in style.css handles the fade.
+ */
+function glowMostRecentHistoryRow() {
+  const first = document.querySelector('#history-list li');
+  if (!first) return;
+  first.classList.add('new-entry');
+  setTimeout(() => first.classList.remove('new-entry'), 3200);
+}
+
+/**
+ * Show the app-wide toast (sibling of all screens — works on any screen).
+ */
+function showDashboardToast(text) {
+  const toast = document.getElementById('entry-toast');
+  if (!toast) return;
+  const label = document.getElementById('entry-toast-text');
+  if (label) label.textContent = text;
+  toast.classList.remove('hidden');
+  // Force reflow so the transition runs when we add .visible.
+  void toast.offsetWidth;
+  toast.classList.add('visible');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.classList.add('hidden'), 260);
+  }, 2500);
+}
 
 // --- Insights ---
 let _insightsCache = null; // { expenses, duelSnap } — reused across period switches

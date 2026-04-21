@@ -65,78 +65,90 @@
     <div id="screen-add" class="screen">
       <div class="screen-header">
         <button id="btn-back" class="btn-icon">&larr;</button>
-        <h2 id="add-title">Add Expense</h2>
+        <h2 id="add-title">Add expense</h2>
       </div>
-      <div class="toggle-group" style="margin-bottom:16px">
-        <div class="toggle" id="entry-type">
-          <button type="button" class="toggle-btn active" data-value="expense">Expense</button>
-          <button type="button" class="toggle-btn" data-value="payment">Settle up</button>
-        </div>
+
+      <div class="ent-toggle" id="entry-type">
+        <button type="button" class="active" data-value="expense">Expense</button>
+        <button type="button" data-value="payment">Settle up</button>
       </div>
-      <form id="form-entry" class="form">
-        <div class="row">
-          <input type="number" id="entry-amount" placeholder="Amount" step="0.01" inputmode="decimal" required>
-          <select id="entry-currency">
-            <option value="USD">$ USD</option>
-            <option value="EUR">€ EUR</option>
-            <option value="GBP">£ GBP</option>
-            <option value="JPY">¥ JPY</option>
-            <option value="THB">฿ THB</option>
-            <option value="BTN">Nu BTN</option>
-            <option value="TWD">NT$ TWD</option>
-            <option value="KRW">₩ KRW</option>
-            <option value="CNY">¥ CNY</option>
-            <option value="INR">₹ INR</option>
-            <option value="AUD">A$ AUD</option>
-            <option value="CAD">C$ CAD</option>
-            <option value="CHF">Fr CHF</option>
-            <option value="SGD">S$ SGD</option>
-            <option value="HKD">HK$ HKD</option>
-            <option value="NZD">NZ$ NZD</option>
-            <option value="SEK">kr SEK</option>
-            <option value="NOK">kr NOK</option>
-            <option value="DKK">kr DKK</option>
-            <option value="MXN">$ MXN</option>
-            <option value="BRL">R$ BRL</option>
-            <option value="PLN">zł PLN</option>
-            <option value="CZK">Kč CZK</option>
-            <option value="HUF">Ft HUF</option>
-            <option value="ILS">₪ ILS</option>
-            <option value="TRY">₺ TRY</option>
-            <option value="ZAR">R ZAR</option>
-            <option value="PHP">₱ PHP</option>
-            <option value="MYR">RM MYR</option>
-            <option value="IDR">Rp IDR</option>
-          </select>
-        </div>
-        <input type="text" id="entry-desc" placeholder="What was it for?">
-        <div id="expense-options" class="toggle-group">
-          <label>How to split</label>
-          <div class="split-options" id="entry-split-options">
-            <button type="button" class="split-option active" data-paid="self" data-split="even">You paid, split equally</button>
-            <button type="button" class="split-option" data-paid="self" data-split="full">You are owed the full amount</button>
-            <button type="button" class="split-option" data-paid="partner" data-split="even"><span class="partner-name">Partner</span> paid, split equally</button>
-            <button type="button" class="split-option" data-paid="partner" data-split="full"><span class="partner-name">Partner</span> is owed the full amount</button>
+
+      <!-- Expense form (shown when entry-type = expense) -->
+      <form id="form-entry" class="entry-body">
+        <!-- Amount block -->
+        <div class="amt">
+          <div class="amt-label">Amount</div>
+          <div class="amt-row">
+            <span class="amt-sym" id="amt-sym">$</span>
+            <input type="text" id="entry-amount" class="amt-val" inputmode="decimal" autocomplete="off" placeholder="0">
+          </div>
+          <div class="cur-pills" id="cur-pills">
+            <!-- JS populates currency pills here -->
           </div>
         </div>
-        <div id="payment-direction" class="toggle-group" style="display:none">
-          <label>Who paid</label>
-          <div class="toggle" id="entry-paid-by">
-            <button type="button" class="toggle-btn active" data-value="self">I paid</button>
-            <button type="button" class="toggle-btn" data-value="partner"><span class="partner-name">Partner</span> paid</button>
+
+        <!-- Description + auto-detected category chip -->
+        <div class="desc">
+          <input type="text" id="entry-desc" placeholder="What was it for?">
+          <span id="desc-chip" class="desc-chip hidden"></span>
+        </div>
+
+        <!-- Split as a sentence -->
+        <div class="split" id="split-block">
+          <div class="split-label">How to split</div>
+          <div class="split-sentence" id="split-sentence">
+            <span class="choice" id="split-payer-chip" data-val="self">You</span><span id="split-connector"> paid, splitting </span><span class="choice" id="split-type-chip" data-val="even">equally</span>.
+            <span id="split-outcome" class="split-outcome"></span>
+          </div>
+          <div class="split-hint" id="split-hint">Enter an amount to see what <span class="partner-name">Daum</span> owes.</div>
+        </div>
+
+        <!-- Payment mode: who paid -->
+        <div class="split" id="payment-direction" style="display:none">
+          <div class="split-label">Who paid</div>
+          <div class="split-sentence">
+            <span class="choice" id="pay-payer-chip" data-val="self">You</span>
+            paid <span class="partner-name">the partner</span>.
           </div>
         </div>
-        <input type="date" id="entry-date">
-        <div id="recurring-group" class="toggle-group">
-          <label>Recurring</label>
-          <div class="toggle" id="entry-recurring">
-            <button type="button" class="toggle-btn active" data-value="none">One-time</button>
-            <button type="button" class="toggle-btn" data-value="weekly">Weekly</button>
-            <button type="button" class="toggle-btn" data-value="monthly">Monthly</button>
+
+        <!-- Date chips -->
+        <div class="d-label">Date</div>
+        <div class="d-chips" id="d-chips">
+          <button type="button" class="d-chip active" data-date="today">Today</button>
+          <button type="button" class="d-chip" data-date="yesterday">Yesterday</button>
+          <button type="button" class="d-chip" data-date="pick">Pick&hellip;</button>
+        </div>
+        <input type="hidden" id="entry-date">
+
+        <!-- Recurring (expense-only, expands in place) -->
+        <div id="recurring-group">
+          <div class="recur-row" id="recur-row">
+            <span class="recur-label">Repeat this expense</span>
+            <span class="plus">+</span>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary">Save</button>
+
+        <!-- Save -->
+        <div class="save">
+          <button type="submit" id="btn-save-entry" class="disabled" disabled>Save expense</button>
+        </div>
       </form>
+
+      <!-- Settle-up body (populated by JS, shown when entry-type = payment) -->
+      <div id="settle-container" class="entry-body" style="display:none"></div>
+
+      <!-- Shared overlays (absolutely positioned inside #screen-add) -->
+      <div id="scrim" class="scrim hidden"></div>
+      <div id="bottom-sheet" class="sheet hidden"></div>
+      <div id="popover" class="pop hidden"></div>
+
+    </div>
+
+    <!-- App-wide toast (sibling of all screens so it floats over any of them) -->
+    <div id="entry-toast" class="toast hidden">
+      <span class="dot"></span>
+      <span id="entry-toast-text"></span>
     </div>
 
     <!-- Insights screen -->
