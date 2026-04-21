@@ -1634,17 +1634,20 @@ async function renderSettleUp() {
     const { getExchangeRate } = await import('./exchange.js');
     const { currencyBalances, balance: totalUsdBalance } = await computeCurrencyBalances();
 
-    // Filter dust
+    // Filter dust. `usdSigned` keeps the direction:
+    //   > 0 → partner owes me in this currency
+    //   < 0 → I owe partner in this currency
     const allDebts = Object.entries(currencyBalances).filter(([, v]) => Math.abs(v) > 0.005);
     const debts = [];
     for (const [cur, amount] of allDebts) {
       try {
         const rate = await getExchangeRate(cur);
-        const usd = Math.abs(amount * rate);
-        if (usd >= 0.10) debts.push([cur, amount, usd]);
-      } catch (e) { debts.push([cur, amount, Math.abs(amount)]); }
+        const usdSigned = amount * rate;
+        if (Math.abs(usdSigned) >= 0.10) debts.push([cur, amount, usdSigned]);
+      } catch (e) { debts.push([cur, amount, amount]); }
     }
-    debts.sort((a, b) => b[2] - a[2]);
+    // Sort by magnitude so the biggest row (either direction) is on top.
+    debts.sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
 
     _settleDebts = debts;
     _settleCurrencyBalances = currencyBalances;
@@ -1656,44 +1659,55 @@ async function renderSettleUp() {
     }
 
     const partnerName = getUserName(getPartnerUid());
-    // Use "you" for the viewer (matches the design) so the hero reads naturally
-    // no matter what the current user's display name is.
-    const iOwe = totalUsdBalance < 0;
-    const label = iOwe ? `You owe ${partnerName}, all in` : `${partnerName} owes you, all in`;
 
     const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
     const consolSym = getCurrencySymbol(consol).trim() || consol;
 
-    let totalConsol = 0;
+    // Signed sum across currencies, converted to consol. Taking abs at the end
+    // gives the magnitude; the sign tells us the net direction.
+    let totalConsolSigned = 0;
     for (const [cur, amount] of debts) {
       if (cur === consol) {
-        totalConsol += Math.abs(amount);
+        totalConsolSigned += amount;
       } else {
         try {
           const curToUsd = await getExchangeRate(cur);
-          if (consol === 'USD') totalConsol += Math.abs(amount * curToUsd);
+          if (consol === 'USD') totalConsolSigned += amount * curToUsd;
           else {
             const consolToUsd = await getExchangeRate(consol);
-            totalConsol += Math.abs(amount * (curToUsd / consolToUsd));
+            totalConsolSigned += amount * (curToUsd / consolToUsd);
           }
         } catch (e) {}
       }
     }
+    const totalConsol = Math.abs(totalConsolSigned);
+    const iOweNet = totalConsolSigned < 0;
+    // The hero headline — use "you" on the viewer's side so the sentence
+    // reads naturally regardless of the viewer's display name.
+    const label = iOweNet
+      ? `You owe ${partnerName}, net`
+      : `${partnerName} owes you, net`;
 
-    const totalUsdAbs = debts.reduce((s, [, , usd]) => s + usd, 0);
+    // Per-row share is against total ACTIVITY (sum of magnitudes), so each
+    // row's percentage reflects how much of the total debt lives there —
+    // not its share of the net.
+    const totalUsdAbs = debts.reduce((s, [, , u]) => s + Math.abs(u), 0);
 
     let rowsHtml = '';
-    debts.forEach(([cur, amount, usd]) => {
+    debts.forEach(([cur, amount, usdSigned]) => {
       const abs = Math.abs(amount);
       const sym = getCurrencySymbol(cur).trim() || cur;
-      const share = totalUsdAbs > 0 ? (usd / totalUsdAbs) * 100 : 0;
-      // Nudge tiny shares to "<1%" so rows don't read as "0%".
+      const share = totalUsdAbs > 0 ? (Math.abs(usdSigned) / totalUsdAbs) * 100 : 0;
       const pctStr = share >= 1 ? `${Math.round(share)}%` : '<1%';
+      const iOweThis = amount < 0;
+      const sign = iOweThis ? '−' : '+';
+      const color = iOweThis ? 'var(--red)' : 'var(--green)';
+      const dirLabel = iOweThis ? 'you owe' : 'they owe you';
       rowsHtml += `
         <div class="settle-row" data-cur="${cur}">
           <div>
-            <div class="settle-amt">${sym}${formatAmountByDigits(abs)}</div>
-            <div class="settle-meta">${cur} · ${pctStr} of the total</div>
+            <div class="settle-amt" style="color:${color}">${sign}${sym}${formatAmountByDigits(abs)}</div>
+            <div class="settle-meta">${cur} · ${pctStr} · ${dirLabel}</div>
           </div>
           <button class="settle-btn" data-cur="${cur}">Mark paid</button>
         </div>`;
@@ -1702,7 +1716,7 @@ async function renderSettleUp() {
     container.innerHTML = `
       <div class="settle-hero">
         <div class="settle-label">${label}</div>
-        <div class="settle-total">${consolSym}${formatAmountByDigits(totalConsol)}</div>
+        <div class="settle-total" style="color:${iOweNet ? 'var(--red)' : 'var(--green)'}">${consolSym}${formatAmountByDigits(totalConsol)}</div>
         <div class="settle-sub">across ${debts.length} ${debts.length === 1 ? 'currency' : 'currencies'} · as of today</div>
       </div>
       <div id="settle-rows">${rowsHtml}</div>
@@ -1751,25 +1765,31 @@ function renderSettleZero({ firstLoad = false, settledCount = 0 } = {}) {
 function onMarkPaidClick(currency) {
   const entry = _settleDebts.find(([c]) => c === currency);
   if (!entry) return;
-  const [, amount, usd] = entry;
+  const [, amount, usdSigned] = entry;
   const abs = Math.round(Math.abs(amount) * 100) / 100;
+  const usdAbs = Math.abs(usdSigned);
   const sym = getCurrencySymbol(currency).trim() || currency;
   const partnerName = getUserName(getPartnerUid());
   const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
   const consolSym = getCurrencySymbol(consol).trim() || consol;
+  const iOweThis = amount < 0;
   const row = document.querySelector(`.settle-row[data-cur="${currency}"]`);
   if (row) row.classList.add('selected');
+
+  const question = iOweThis
+    ? `Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usdAbs.toFixed(2)}) as paid to ${partnerName}?`
+    : `Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usdAbs.toFixed(2)}) as received from ${partnerName}?`;
 
   openSheet({
     title: 'Confirm',
     bodyHtml: `
       <div style="padding:10px 4px 14px;font-size:14px;color:var(--text);line-height:1.5">
-        Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usd.toFixed(2)}) as paid to ${partnerName}?
+        ${question}
         <div style="font-size:11.5px;color:var(--text-muted);margin-top:8px">The other currencies stay open — this just zeros out ${currency}.</div>
       </div>
       <div style="display:flex;gap:8px">
         <button type="button" id="settle-cancel" style="flex:1;padding:11px;border-radius:12px;background:var(--bg);border:none;font-weight:600;font-family:inherit">Cancel</button>
-        <button type="button" id="settle-ok" style="flex:1;padding:11px;border-radius:12px;background:var(--accent);color:#fff;border:none;font-weight:700;font-family:inherit">Yes, mark paid</button>
+        <button type="button" id="settle-ok" style="flex:1;padding:11px;border-radius:12px;background:var(--accent);color:#fff;border:none;font-weight:700;font-family:inherit">${iOweThis ? 'Yes, mark paid' : 'Yes, mark received'}</button>
       </div>
     `,
     onReady: (sheet) => {
@@ -1779,7 +1799,7 @@ function onMarkPaidClick(currency) {
       });
       sheet.querySelector('#settle-ok').addEventListener('click', async () => {
         closeSheet();
-        await confirmMarkPaid(currency, abs, usd);
+        await confirmMarkPaid(currency, abs, usdAbs);
       });
     },
   });
