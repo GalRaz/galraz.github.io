@@ -1,13 +1,14 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
-import { recordDuelResult, seededRandom } from '../duel.js';
+import { recordDuelResult } from '../duel.js';
 
 const VALUES = [-10000, -5000, 0, 5000, 10000];
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
 
-  const rng = seededRandom(seed * 13 + 7);
-  const netAdjust = VALUES[Math.floor(rng() * VALUES.length)];
+  // Roll an independent value per scratch. Previously seeded on the week →
+  // both players revealed the same number and outcomes cancelled every time.
+  const netAdjust = VALUES[Math.floor(Math.random() * VALUES.length)];
 
   container.innerHTML = `
     <p>복권을 긁어서 결과를 확인하세요!</p>
