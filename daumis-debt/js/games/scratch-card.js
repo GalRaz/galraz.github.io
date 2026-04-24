@@ -1,13 +1,15 @@
 import { getCurrentUser, getPartnerUid } from '../app.js';
-import { recordDuelResult, seededRandom } from '../duel.js';
+import { recordDuelResult } from '../duel.js';
 
 const VALUES = [-10, -5, 0, 5, 10];
 
 export async function play(container, { year, week, seed }) {
   const user = getCurrentUser();
 
-  const rng = seededRandom(seed * 13 + 7);
-  const netAdjust = VALUES[Math.floor(rng() * VALUES.length)];
+  // Roll an independent value per scratch. Previously this was seeded on the
+  // week, which meant both players revealed the same number and their
+  // outcomes cancelled each other out every time — no real gamble.
+  const netAdjust = VALUES[Math.floor(Math.random() * VALUES.length)];
 
   container.innerHTML = `
     <p>Scratch your card to reveal the result!</p>

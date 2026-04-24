@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gapara-v9';
+const CACHE_NAME = 'gapara-v10';
 const ASSETS = [
   '/gapara/',
   '/gapara/index.html',
