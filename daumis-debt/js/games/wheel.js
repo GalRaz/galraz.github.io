@@ -66,7 +66,14 @@ export async function play(container, { year, week, seed }) {
 
     const sliceAngle = (2 * Math.PI) / SLICES.length;
     const targetSliceCenter = resultIndex * sliceAngle + sliceAngle / 2;
-    const spins = 5 + Math.random() * 3;
+    // CRITICAL: spins must be an INTEGER. totalAngle = spins*2π + remainder,
+    // so the final currentAngle mod 2π equals startAngle + remainder ONLY if
+    // spins*2π is a whole multiple of 2π. A non-integer spins (e.g. 5.7)
+    // adds a random fractional rotation to the landing — which is why the
+    // wheel could visually land anywhere regardless of the pointer-alignment
+    // formula. Previous fixes kept tweaking ±π/2 in `targetFinal`; this was
+    // the actual culprit.
+    const spins = 5 + Math.floor(Math.random() * 3); // 5, 6, or 7 full rotations
 
     const duration = 3000;
     const start = performance.now();
