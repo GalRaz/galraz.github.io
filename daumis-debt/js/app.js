@@ -169,17 +169,23 @@ auth.onAuthStateChanged((user) => {
     }
 
     if (finalDx > window.innerWidth * THRESHOLD) {
-      // Complete: animate off screen
+      // Complete: animate the top screen off screen.
+      //
+      // Keep the dashboard in `swipe-base` (position:fixed, viewport-anchored)
+      // for the entire slide-out — the class swap to normal flow happens in
+      // the setTimeout below, AFTER the top screen is fully gone. Doing it
+      // synchronously caused the dashboard to reflow from position:fixed
+      // → normal flow mid-animation, which read as a subtle horizontal
+      // "shift" of the underneath screen during the swipe.
       topScreen.style.transition = 'transform 0.25s ease-out';
       topScreen.style.transform = `translateX(${window.innerWidth}px)`;
       setTimeout(() => {
         topScreen.classList.remove('active');
-        cleanup();
+        dashboard.classList.add('active');
+        cleanup(); // removes swipe-base from dashboard, swipe-top from topScreen
       }, 250);
       editingEntry = null;
       currentScreen = 'screen-dashboard';
-      dashboard.classList.remove('swipe-base');
-      dashboard.classList.add('active');
       const { loadDashboard } = await import('./balance.js');
       loadDashboard();
     } else {
