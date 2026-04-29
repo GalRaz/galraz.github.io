@@ -804,7 +804,93 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   border-radius: 999px;
 }
 
-/* Split-as-sentence */
+/* Split: segmented controls (Variant A from design bundle) */
+#screen-add .a-seg-wrap {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 10px;
+  position: relative;
+}
+#screen-add .a-seg-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+#screen-add .a-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg);
+  border-radius: 11px;
+  padding: 3px;
+  gap: 3px;
+  margin-bottom: 12px;
+}
+#screen-add .a-seg button {
+  padding: 11px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 120ms ease, color 120ms ease;
+}
+#screen-add .a-seg button.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(92, 107, 79, 0.25);
+}
+#screen-add .a-seg button:active { transform: scale(0.98); }
+#screen-add .a-seg-2 button {
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 8px;
+  min-height: 64px;
+  text-align: center;
+}
+#screen-add .a-seg-2 button .main {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+#screen-add .a-seg-2 button .sub {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+#screen-add .a-seg-2 button.active .sub { color: rgba(255, 255, 255, 0.85); }
+
+#screen-add .a-result {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px dashed var(--surface-3);
+  min-height: 18px;
+}
+#screen-add .a-result strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+#screen-add .a-result.empty {
+  border-top: none;
+  padding-top: 0;
+  min-height: 0;
+}
+
+/* Legacy split-as-sentence styles (kept for any residual references) */
 #screen-add .split {
   background: var(--surface);
   border-radius: var(--radius);

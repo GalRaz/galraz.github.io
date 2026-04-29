@@ -1229,46 +1229,71 @@ function updateSaveEnabled() {
   btn.classList.toggle('disabled', !ok);
 }
 
-// --- Split sentence ---
+// --- Split (segmented control variant from design bundle: Variant A) ---
+// Two stacked segmented controls — top row picks payer, bottom row picks
+// "Split evenly" vs "For [the other person]". The second tile renames itself
+// based on payer so the label always reads as "this expense was for X".
 async function renderSplitSentence() {
-  const payerChip = document.getElementById('split-payer-chip');
-  const typeChip = document.getElementById('split-type-chip');
+  const segPayer = document.getElementById('seg-payer');
+  const segType = document.getElementById('seg-type');
   const outcome = document.getElementById('split-outcome');
   const hint = document.getElementById('split-hint');
+  // Defensive: bail if the new markup isn't present (e.g., during tests).
+  if (!segPayer || !segType || !outcome) return;
+
   const partnerName = getUserName(getPartnerUid());
 
-  payerChip.textContent = splitState.payer === 'self' ? 'You' : partnerName;
-  payerChip.dataset.val = splitState.payer;
-
-  // Only two options: 'even' (split half/half) or 'full' (whoever didn't pay owes full).
+  // Normalize state
+  const payer = splitState.payer === 'partner' ? 'partner' : 'self';
+  splitState.payer = payer;
   const typeKey = splitState.typeKey === 'full' ? 'full' : 'even';
   splitState.typeKey = typeKey;
   splitState.splitType = typeKey;
-  typeChip.textContent = typeKey === 'even' ? 'equally' : 'in full';
-  typeChip.dataset.val = typeKey;
 
-  // Connector text changes so the sentence stays grammatical:
-  //   "<payer> paid, splitting <equally>."  (even)
-  //   "<payer> paid <in full>."             (full)
-  const connector = document.getElementById('split-connector');
-  if (connector) connector.textContent = typeKey === 'even' ? ' paid, splitting ' : ' paid ';
+  // --- Update payer segment ---
+  segPayer.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', b.dataset.val === payer);
+  });
+  // The "partner" button label uses the dynamic partner name.
+  const partnerBtn = segPayer.querySelector('button[data-val="partner"]');
+  if (partnerBtn) {
+    const span = partnerBtn.querySelector('.partner-name');
+    if (span) span.textContent = partnerName;
+  }
 
-  // Compute outcome text
+  // --- Update split-type segment ---
+  segType.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', b.dataset.val === typeKey);
+  });
+  // Dynamic relabel of the "full" tile based on who paid.
+  // Payer = self  →  "For <Partner>"  / "<Partner> owes full"
+  // Payer = partner → "For you"       / "You owes full"  → grammar fix: "You owe full"
+  const fullMain = document.getElementById('seg-full-main');
+  const fullSub = document.getElementById('seg-full-sub');
+  if (fullMain) {
+    fullMain.textContent = payer === 'self' ? `For ${partnerName}` : 'For you';
+  }
+  if (fullSub) {
+    fullSub.textContent = payer === 'self' ? `${partnerName} owes full` : 'You owe full';
+  }
+
+  // --- Result line ---
   const amt = parseFloat(document.getElementById('entry-amount').value);
   if (!amt || isNaN(amt) || amt <= 0) {
     outcome.textContent = '';
-    hint.style.display = '';
-    hint.innerHTML = `Enter an amount to see what <span class="partner-name">${partnerName}</span> owes.`;
+    outcome.classList.add('empty');
+    if (hint) {
+      hint.style.display = 'none'; // hint is redundant once segments are visible
+    }
     return;
   }
-  hint.style.display = 'none';
+  outcome.classList.remove('empty');
+  if (hint) hint.style.display = 'none';
 
   const sym = getCurrencySymbol(activeCurrency).trim() || activeCurrency;
-
-  // Whoever didn't pay is the one who owes.
-  const owedBy = splitState.payer === 'self' ? partnerName : 'You';
+  const owedBy = payer === 'self' ? partnerName : 'You';
+  const verb = payer === 'self' ? 'owes' : 'owe';
   const owedAmount = typeKey === 'even' ? amt / 2 : amt;
-
   const owedStr = `${sym}${formatAmt(owedAmount)}`;
 
   // USD-consolidated parenthetical when active currency != consol currency
@@ -1286,11 +1311,11 @@ async function renderSplitSentence() {
         consolAmt = owedAmount * rate / consolRate;
       }
       const consolSym = getCurrencySymbol(consol).trim() || consol;
-      fx = ` <span class="fx" style="color:var(--text-muted);font-weight:400">(≈ ${consolSym}${formatAmt(consolAmt)})</span>`;
+      fx = ` · ≈ ${consolSym}${formatAmt(consolAmt)}`;
     } catch (e) {}
   }
 
-  outcome.innerHTML = `${owedBy} owes <span class="choice owed">${owedStr}</span>${fx}.`;
+  outcome.innerHTML = `${owedBy} ${verb} <strong>${owedStr}</strong>${fx}`;
 }
 
 function formatAmt(v) {
@@ -1374,44 +1399,29 @@ function closeSheet() {
   scrim.onclick = null;
 }
 
-// --- Payer / split chip popovers ---
-document.getElementById('split-payer-chip').addEventListener('click', (e) => {
-  const partnerName = getUserName(getPartnerUid());
-  openPopover({
-    anchor: e.currentTarget,
-    items: [
-      { label: 'You paid', value: 'self', on: splitState.payer === 'self' },
-      { label: `${partnerName} paid`, value: 'partner', on: splitState.payer === 'partner' },
-    ],
-    onPick: (it) => {
-      splitState.payer = it.value;
-      // typeKey is now payer-agnostic ('even' or 'full') — no remapping needed.
-      renderSplitSentence();
-    },
+// --- Segmented split control handlers (Variant A) ---
+// Direct tap-to-select; no popover. Each segment is a 2-button group whose
+// active state is reflected by `.active`. Re-render after each change so the
+// dynamic label ("For Alice" / "For you") and the result line stay in sync.
+function bindSegment(containerId, onPick) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-val]');
+    if (!btn || !el.contains(btn)) return;
+    onPick(btn.dataset.val);
   });
+}
+
+bindSegment('seg-payer', (val) => {
+  splitState.payer = val;
+  renderSplitSentence();
 });
 
-document.getElementById('split-type-chip').addEventListener('click', async (e) => {
-  const partnerName = getUserName(getPartnerUid());
-  const amt = parseFloat(document.getElementById('entry-amount').value) || 0;
-  const sym = getCurrencySymbol(activeCurrency).trim() || activeCurrency;
-  // Whoever didn't pay is the one who owes.
-  const owesName = splitState.payer === 'self' ? partnerName : 'You';
-  const previewEqually = amt > 0 ? `${owesName} owes ${sym}${formatAmt(amt / 2)}` : '';
-  const previewFull = amt > 0 ? `${owesName} owes ${sym}${formatAmt(amt)}` : '';
-
-  openPopover({
-    anchor: e.currentTarget,
-    items: [
-      { label: 'equally', value: 'even', sub: previewEqually, on: splitState.typeKey === 'even' },
-      { label: 'in full', value: 'full', sub: previewFull, on: splitState.typeKey === 'full' },
-    ],
-    onPick: (it) => {
-      splitState.typeKey = it.value;
-      splitState.splitType = it.value;
-      renderSplitSentence();
-    },
-  });
+bindSegment('seg-type', (val) => {
+  splitState.typeKey = val;
+  splitState.splitType = val;
+  renderSplitSentence();
 });
 
 // --- Date chips ---

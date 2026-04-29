@@ -93,13 +93,25 @@
           <span id="desc-chip" class="desc-chip hidden"></span>
         </div>
 
-        <!-- Split as a sentence -->
-        <div class="split" id="split-block">
-          <div class="split-label">How to split</div>
-          <div class="split-sentence" id="split-sentence">
-            <span class="choice" id="split-payer-chip" data-val="self">You</span><span id="split-connector"> paid, splitting </span><span class="choice" id="split-type-chip" data-val="even">equally</span>.
-            <span id="split-outcome" class="split-outcome"></span>
+        <!-- Split: two segmented controls (Variant A from design bundle) -->
+        <div class="a-seg-wrap" id="split-block">
+          <div class="a-seg-label">Who paid</div>
+          <div class="a-seg" id="seg-payer" role="tablist" aria-label="Who paid">
+            <button type="button" class="active" data-val="self">You</button>
+            <button type="button" data-val="partner"><span class="partner-name">Partner</span></button>
           </div>
+          <div class="a-seg-label" style="margin-top:4px;">How to split</div>
+          <div class="a-seg a-seg-2" id="seg-type" role="tablist" aria-label="How to split">
+            <button type="button" class="active" data-val="even">
+              <span class="main">Split evenly</span>
+              <span class="sub">50 / 50</span>
+            </button>
+            <button type="button" data-val="full">
+              <span class="main" id="seg-full-main">For <span class="partner-name">Partner</span></span>
+              <span class="sub" id="seg-full-sub"><span class="partner-name">Partner</span> owes full</span>
+            </button>
+          </div>
+          <div class="a-result" id="split-outcome"></div>
           <div class="split-hint" id="split-hint">Enter an amount to see what <span class="partner-name">Daum</span> owes.</div>
         </div>
 
