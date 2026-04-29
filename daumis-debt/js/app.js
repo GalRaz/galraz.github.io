@@ -934,22 +934,25 @@ window.addEventListener('edit-entry', (e) => {
   onDescInput();
   onAmountInput();
 
-  // Edit-mode UI: title + button label + delete button
+  // Edit-mode UI: title + button label + trash icon in the header (top-left,
+  // immediately after the back button — destructive action stays out of the
+  // way of the primary Save flow rather than sitting under it).
   document.getElementById('add-title').textContent = 'Edit expense';
   const saveBtn = document.getElementById('btn-save-entry');
   saveBtn.textContent = 'Save changes';
 
-  const saveWrap = saveBtn.parentNode;
+  const header = document.querySelector('#screen-add .screen-header');
   let deleteBtn = document.getElementById('btn-delete-entry');
   if (!deleteBtn) {
     deleteBtn = document.createElement('button');
     deleteBtn.id = 'btn-delete-entry';
     deleteBtn.type = 'button';
-    deleteBtn.className = 'btn btn-delete';
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.style.marginTop = '8px';
-    deleteBtn.style.width = '100%';
-    saveWrap.appendChild(deleteBtn);
+    deleteBtn.className = 'btn-icon btn-delete-icon';
+    deleteBtn.setAttribute('aria-label', 'Delete entry');
+    deleteBtn.title = 'Delete';
+    deleteBtn.textContent = '🗑';
+    // Top-right: appended last, pushed to the far edge via CSS margin-left:auto.
+    header.appendChild(deleteBtn);
   }
   deleteBtn.onclick = async () => {
     if (!confirm('Delete this entry?')) return;
@@ -1698,17 +1701,14 @@ async function renderSettleUp() {
       ? `You owe ${partnerName}, net`
       : `${partnerName} owes you, net`;
 
-    // Per-row share is against total ACTIVITY (sum of magnitudes), so each
-    // row's percentage reflects how much of the total debt lives there —
-    // not its share of the net.
-    const totalUsdAbs = debts.reduce((s, [, , u]) => s + Math.abs(u), 0);
-
+    // Per-row meta: just direction. Percentages were removed because rows can
+    // point in opposite directions ("you owe €100" + "they owe you $100"),
+    // where each row's share of total activity magnitude doesn't correspond
+    // to its share of the net hero total — and is actively misleading.
     let rowsHtml = '';
-    debts.forEach(([cur, amount, usdSigned]) => {
+    debts.forEach(([cur, amount]) => {
       const abs = Math.abs(amount);
       const sym = getCurrencySymbol(cur).trim() || cur;
-      const share = totalUsdAbs > 0 ? (Math.abs(usdSigned) / totalUsdAbs) * 100 : 0;
-      const pctStr = share >= 1 ? `${Math.round(share)}%` : '<1%';
       const iOweThis = amount < 0;
       const sign = iOweThis ? '−' : '+';
       const color = iOweThis ? 'var(--red)' : 'var(--green)';
@@ -1717,7 +1717,7 @@ async function renderSettleUp() {
         <div class="settle-row" data-cur="${cur}">
           <div>
             <div class="settle-amt" style="color:${color}">${sign}${sym}${formatAmountByDigits(abs)}</div>
-            <div class="settle-meta">${cur} · ${pctStr} · ${dirLabel}</div>
+            <div class="settle-meta">${cur} · ${dirLabel}</div>
           </div>
           <button class="settle-btn" data-cur="${cur}">Mark paid</button>
         </div>`;

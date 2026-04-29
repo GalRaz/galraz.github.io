@@ -539,6 +539,18 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
 }
 .btn-delete:active { background: var(--red-soft); }
 
+/* Trash icon variant — used for the Edit Expense header delete action.
+   Pushed to the far right of the screen-header via margin-left:auto so the
+   destructive action sits opposite the back button. */
+.btn-delete-icon {
+  margin-left: auto;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.btn-delete-icon:active {
+  background: var(--red-soft, rgba(181, 69, 58, 0.12));
+}
+
 /* Duel game styles */
 .duel-game { text-align: center; padding: 20px 0; }
 .duel-game h2 { font-size: 1.5rem; margin-bottom: 20px; }
