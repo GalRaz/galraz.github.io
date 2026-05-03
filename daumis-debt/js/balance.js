@@ -24,7 +24,7 @@ let _renderHistoryOpts = null; // last displayOpts passed to renderHistory, for 
 function _emptyTime() { return { kind: 'all' }; }
 
 function _loadPersistedFilter() {
-  const fallback = { text: '', type: '', category: '', time: _emptyTime() };
+  const fallback = { text: '', type: '', time: _emptyTime() };
   try {
     const raw = localStorage.getItem(HISTORY_FILTER_KEY);
     if (!raw) return _migrateLegacyFilter(fallback);
@@ -32,7 +32,6 @@ function _loadPersistedFilter() {
     return {
       text: typeof f.text === 'string' ? f.text : '',
       type: f.type === 'expense' || f.type === 'payment' || f.type === 'duel' ? f.type : '',
-      category: typeof f.category === 'string' ? f.category : '',
       time: _normalizeTime(f.time)
     };
   } catch (e) {
@@ -54,7 +53,6 @@ function _migrateLegacyFilter(fallback) {
       const migrated = {
         text: typeof f.text === 'string' ? f.text : '',
         type: f.type || '',
-        category: f.category || '',
         time: { kind: 'range', from: _toISODate(from), to: _toISODate(to) }
       };
       _persistFilter(migrated);
@@ -64,10 +62,12 @@ function _migrateLegacyFilter(fallback) {
   return fallback;
 }
 
+const VALID_PRESETS = new Set(['7d', '30d', 'ytd']);
+
 function _normalizeTime(t) {
   if (!t || typeof t !== 'object') return _emptyTime();
   if (t.kind === 'all') return _emptyTime();
-  if (t.kind === 'preset' && typeof t.id === 'string') return { kind: 'preset', id: t.id };
+  if (t.kind === 'preset' && VALID_PRESETS.has(t.id)) return { kind: 'preset', id: t.id };
   if (t.kind === 'range' && typeof t.from === 'string' && typeof t.to === 'string') {
     return { kind: 'range', from: t.from, to: t.to };
   }
@@ -101,8 +101,6 @@ function _sameDay(a, b) {
 const PRESET_LABELS = {
   '7d': 'Last 7 days',
   '30d': 'Last 30 days',
-  'this_month': 'This month',
-  'last_month': 'Last month',
   'ytd': 'Year to date'
 };
 
@@ -118,12 +116,6 @@ export function resolveTimeRange(time) {
     const to = _endOfDay(now);
     if (t.id === '7d')  { const f = new Date(now); f.setDate(f.getDate() - 7);  return { from: _startOfDay(f), to }; }
     if (t.id === '30d') { const f = new Date(now); f.setDate(f.getDate() - 30); return { from: _startOfDay(f), to }; }
-    if (t.id === 'this_month') return { from: _firstOfMonth(now), to };
-    if (t.id === 'last_month') {
-      const f = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const tEnd = _endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
-      return { from: f, to: tEnd };
-    }
     if (t.id === 'ytd') return { from: new Date(now.getFullYear(), 0, 1), to };
     return null;
   }
@@ -144,9 +136,6 @@ function _itemMatchesText(item, q) {
 
 function _itemMatchesFacets(item, f) {
   if (f.type && item.type !== f.type) return false;
-  if (f.category && item.type === 'expense') {
-    if (categorize(item.description).label !== f.category) return false;
-  }
   const rng = resolveTimeRange(f.time);
   if (rng) {
     const d = toJSDate(item.date || item.sortDate);
@@ -174,18 +163,8 @@ function _countMatches(draft) {
 function _facetCount(filter) {
   let n = 0;
   if (filter.type) n++;
-  if (filter.category) n++;
   if (filter.time && filter.time.kind !== 'all') n++;
   return n;
-}
-
-/** All distinct expense categories present in current items (sorted). */
-function _availableCategories() {
-  const seen = new Set();
-  _allHistoryItems.forEach(item => {
-    if (item.type === 'expense') seen.add(categorize(item.description).label);
-  });
-  return Array.from(seen).sort();
 }
 
 function _updateFilterButton() {
@@ -213,9 +192,6 @@ function _renderActiveTags() {
   }
   if (_historyFilter.time && _historyFilter.time.kind !== 'all') {
     tags.push({ facet: 'time', label: _timeLabel(_historyFilter.time) });
-  }
-  if (_historyFilter.category) {
-    tags.push({ facet: 'category', label: _historyFilter.category });
   }
   if (tags.length === 0) {
     host.classList.add('hidden');
@@ -275,7 +251,7 @@ function _rerenderList(myUid, totalBalance) {
       <button type="button" class="empty-clear" id="history-empty-clear">Clear filters</button>`;
     list.appendChild(li);
     li.querySelector('#history-empty-clear').addEventListener('click', () => {
-      _historyFilter = { text: '', type: '', category: '', time: _emptyTime() };
+      _historyFilter = { text: '', type: '', time: _emptyTime() };
       const searchInput = document.getElementById('history-search');
       if (searchInput) searchInput.value = '';
       _persistFilter(_historyFilter);
@@ -563,16 +539,15 @@ function _initFilterListeners(myUid, totalBalance) {
     tagsHost.addEventListener('click', (e) => {
       const clearAll = e.target.closest('#history-clear-all');
       if (clearAll) {
-        _historyFilter = { text: _historyFilter.text, type: '', category: '', time: _emptyTime() };
+        _historyFilter = { text: _historyFilter.text, type: '', time: _emptyTime() };
         _applyFilters(myUid, totalBalance);
         return;
       }
       const tag = e.target.closest('.hc-tag');
       if (!tag) return;
       const facet = tag.dataset.facet;
-      if (facet === 'type') { _historyFilter.type = ''; _historyFilter.category = ''; }
-      else if (facet === 'time') { _historyFilter.time = _emptyTime(); }
-      else if (facet === 'category') { _historyFilter.category = ''; }
+      if (facet === 'type') _historyFilter.type = '';
+      else if (facet === 'time') _historyFilter.time = _emptyTime();
       _applyFilters(myUid, totalBalance);
     });
   }
@@ -585,7 +560,7 @@ function _initFilterListeners(myUid, totalBalance) {
 
   if (scrim) scrim.addEventListener('click', () => _closeFilterSheet(false, myUid, totalBalance));
   if (resetBtn) resetBtn.addEventListener('click', () => {
-    _filterDraft = { text: _historyFilter.text, type: '', category: '', time: _emptyTime() };
+    _filterDraft = { text: _historyFilter.text, type: '', time: _emptyTime() };
     _calMode = 'start';
     _calAnchor = _firstOfMonth(new Date());
     _renderSheet();
@@ -606,38 +581,31 @@ function _initFilterListeners(myUid, totalBalance) {
   sheet.querySelector('[data-grp="type"]').addEventListener('click', (e) => {
     const btn = e.target.closest('.hf-pill');
     if (!btn || !_filterDraft) return;
-    const next = btn.dataset.val;
-    _filterDraft.type = next;
-    // Edge case: switching type clears category (it's only meaningful for expenses)
-    _filterDraft.category = '';
+    _filterDraft.type = btn.dataset.val;
     _renderSheet();
   });
 
-  // Time pills
+  // Time pills — tapping the active pill toggles the time filter off
+  // (since there's no explicit "All" pill in this group).
   sheet.querySelector('[data-grp="time"]').addEventListener('click', (e) => {
     const btn = e.target.closest('.hf-pill');
     if (!btn || !_filterDraft) return;
     const v = btn.dataset.val;
-    if (v === 'all') { _filterDraft.time = _emptyTime(); _calMode = 'start'; }
-    else if (v === 'custom') {
-      // Seed range from today if there's no existing range
-      if (_filterDraft.time?.kind !== 'range') {
-        _filterDraft.time = { kind: 'range', from: '', to: '' };
-      }
+    const t = _filterDraft.time || _emptyTime();
+    const isActive =
+      (v === 'custom' && t.kind === 'range') ||
+      (t.kind === 'preset' && t.id === v);
+    if (isActive) {
+      _filterDraft.time = _emptyTime();
+      _calMode = 'start';
+    } else if (v === 'custom') {
+      if (t.kind !== 'range') _filterDraft.time = { kind: 'range', from: '', to: '' };
       _calAnchor = _firstOfMonth(new Date());
       _calMode = _filterDraft.time.from ? 'end' : 'start';
     } else {
       _filterDraft.time = { kind: 'preset', id: v };
       _calMode = 'start';
     }
-    _renderSheet();
-  });
-
-  // Category pills (delegated — list is rebuilt on every render)
-  sheet.querySelector('[data-grp="category"]').addEventListener('click', (e) => {
-    const btn = e.target.closest('.hf-pill');
-    if (!btn || !_filterDraft) return;
-    _filterDraft.category = btn.dataset.val || '';
     _renderSheet();
   });
 
@@ -803,30 +771,6 @@ function _renderSheet() {
       timeLabel.textContent = 'Time';
       rangeLine.classList.add('hidden');
       calEl.classList.add('hidden');
-    }
-  }
-
-  // --- Category pills (rebuild based on draft.type filter) ---
-  const catGrp = document.querySelector('[data-grp="category"]');
-  const catWrap = document.querySelector('[data-grp-cat]');
-  if (catGrp && catWrap) {
-    const showCats = !_filterDraft.type || _filterDraft.type === 'expense';
-    if (!showCats) {
-      catWrap.style.display = 'none';
-    } else {
-      const labels = _availableCategories();
-      if (labels.length === 0) {
-        catWrap.style.display = 'none';
-      } else {
-        catWrap.style.display = '';
-        const cur = _filterDraft.category || '';
-        let html = `<button type="button" class="hf-pill${cur === '' ? ' on' : ''}" data-val="" aria-pressed="${cur === '' ? 'true' : 'false'}">All</button>`;
-        labels.forEach(label => {
-          const on = cur === label;
-          html += `<button type="button" class="hf-pill${on ? ' on' : ''}" data-val="${_escape(label)}" aria-pressed="${on ? 'true' : 'false'}">${_escape(label)}</button>`;
-        });
-        catGrp.innerHTML = html;
-      }
     }
   }
 
