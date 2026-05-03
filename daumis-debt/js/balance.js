@@ -9,67 +9,252 @@ let _snapshotCache = null;
 let _duelAvailableCache = null;
 
 // History pagination + filter state
+const HISTORY_FILTER_KEY = 'daumis-debt-history-filter';
 let _allHistoryItems = [];
 let _historyShownCount = 20;
-let _historyFilter = { text: '', type: '', category: '', month: '' };
+let _historyFilter = _loadPersistedFilter();
+// Draft state used while the sheet is open; commits to _historyFilter on Apply.
+let _filterDraft = null;
+// Calendar view state — anchor month and the in-progress range pick mode.
+let _calAnchor = _firstOfMonth(new Date());
+let _calMode = 'start'; // 'start' (next click sets from) | 'end' (next click sets to)
 let _filtersInitialized = false;
 let _renderHistoryOpts = null; // last displayOpts passed to renderHistory, for re-renders
 
-function _getFilteredItems() {
-  return _allHistoryItems.filter(item => {
-    if (_historyFilter.type && item.type !== _historyFilter.type) return false;
-    if (_historyFilter.text) {
-      const q = _historyFilter.text.toLowerCase();
-      const desc = (item.description || item.game || '').toLowerCase();
-      if (!desc.includes(q)) return false;
-    }
-    if (_historyFilter.category && item.type === 'expense') {
-      if (categorize(item.description).label !== _historyFilter.category) return false;
-    }
-    if (_historyFilter.month) {
-      const d = toJSDate(item.date || item.sortDate);
-      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (ym !== _historyFilter.month) return false;
-    }
-    return true;
-  });
+function _emptyTime() { return { kind: 'all' }; }
+
+function _loadPersistedFilter() {
+  const fallback = { text: '', type: '', category: '', time: _emptyTime() };
+  try {
+    const raw = localStorage.getItem(HISTORY_FILTER_KEY);
+    if (!raw) return _migrateLegacyFilter(fallback);
+    const f = JSON.parse(raw);
+    return {
+      text: typeof f.text === 'string' ? f.text : '',
+      type: f.type === 'expense' || f.type === 'payment' || f.type === 'duel' ? f.type : '',
+      category: typeof f.category === 'string' ? f.category : '',
+      time: _normalizeTime(f.time)
+    };
+  } catch (e) {
+    return _migrateLegacyFilter(fallback);
+  }
 }
 
-function _populateCategoryChips() {
-  const catChips = document.getElementById('history-cat-chips');
-  if (!catChips) return;
-  const showCats = !_historyFilter.type || _historyFilter.type === 'expense';
-  if (!showCats) { catChips.innerHTML = ''; return; }
+function _migrateLegacyFilter(fallback) {
+  // Pre-Filter-B: the only persisted shape was `_historyFilter.month` = "YYYY-MM".
+  // Convert to a {kind:'range'} time filter, then drop the legacy field.
+  try {
+    const raw = localStorage.getItem(HISTORY_FILTER_KEY);
+    if (!raw) return fallback;
+    const f = JSON.parse(raw);
+    if (typeof f.month === 'string' && /^\d{4}-\d{2}$/.test(f.month)) {
+      const [y, m] = f.month.split('-').map(Number);
+      const from = new Date(y, m - 1, 1);
+      const to = new Date(y, m, 0);
+      const migrated = {
+        text: typeof f.text === 'string' ? f.text : '',
+        type: f.type || '',
+        category: f.category || '',
+        time: { kind: 'range', from: _toISODate(from), to: _toISODate(to) }
+      };
+      _persistFilter(migrated);
+      return migrated;
+    }
+  } catch (e) {}
+  return fallback;
+}
+
+function _normalizeTime(t) {
+  if (!t || typeof t !== 'object') return _emptyTime();
+  if (t.kind === 'all') return _emptyTime();
+  if (t.kind === 'preset' && typeof t.id === 'string') return { kind: 'preset', id: t.id };
+  if (t.kind === 'range' && typeof t.from === 'string' && typeof t.to === 'string') {
+    return { kind: 'range', from: t.from, to: t.to };
+  }
+  return _emptyTime();
+}
+
+function _persistFilter(filter) {
+  try { localStorage.setItem(HISTORY_FILTER_KEY, JSON.stringify(filter)); } catch (e) {}
+}
+
+function _toISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function _fromISODate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function _firstOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function _startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function _endOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999); }
+
+function _sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+const PRESET_LABELS = {
+  '7d': 'Last 7 days',
+  '30d': 'Last 30 days',
+  'this_month': 'This month',
+  'last_month': 'Last month',
+  'ytd': 'Year to date'
+};
+
+/**
+ * Resolve a {kind} time filter to a concrete inclusive {from, to} JS date range,
+ * or `null` for `kind:'all'`.
+ */
+export function resolveTimeRange(time) {
+  const t = _normalizeTime(time);
+  if (t.kind === 'all') return null;
+  const now = new Date();
+  if (t.kind === 'preset') {
+    const to = _endOfDay(now);
+    if (t.id === '7d')  { const f = new Date(now); f.setDate(f.getDate() - 7);  return { from: _startOfDay(f), to }; }
+    if (t.id === '30d') { const f = new Date(now); f.setDate(f.getDate() - 30); return { from: _startOfDay(f), to }; }
+    if (t.id === 'this_month') return { from: _firstOfMonth(now), to };
+    if (t.id === 'last_month') {
+      const f = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const tEnd = _endOfDay(new Date(now.getFullYear(), now.getMonth(), 0));
+      return { from: f, to: tEnd };
+    }
+    if (t.id === 'ytd') return { from: new Date(now.getFullYear(), 0, 1), to };
+    return null;
+  }
+  if (t.kind === 'range') {
+    let from = _startOfDay(_fromISODate(t.from));
+    let to = _endOfDay(_fromISODate(t.to));
+    if (to < from) { const tmp = from; from = _startOfDay(new Date(to)); to = _endOfDay(new Date(tmp)); }
+    return { from, to };
+  }
+  return null;
+}
+
+function _itemMatchesText(item, q) {
+  if (!q) return true;
+  const desc = (item.description || item.game || '').toLowerCase();
+  return desc.includes(q.toLowerCase());
+}
+
+function _itemMatchesFacets(item, f) {
+  if (f.type && item.type !== f.type) return false;
+  if (f.category && item.type === 'expense') {
+    if (categorize(item.description).label !== f.category) return false;
+  }
+  const rng = resolveTimeRange(f.time);
+  if (rng) {
+    const d = toJSDate(item.date || item.sortDate);
+    if (d < rng.from || d > rng.to) return false;
+  }
+  return true;
+}
+
+function _getFilteredItems() {
+  return _allHistoryItems.filter(item =>
+    _itemMatchesFacets(item, _historyFilter) && _itemMatchesText(item, _historyFilter.text)
+  );
+}
+
+/**
+ * Live count of items that *would* match if `draft` were applied.
+ * Includes the search text from the committed filter (search is independent of the sheet).
+ */
+function _countMatches(draft) {
+  const text = _historyFilter.text;
+  return _allHistoryItems.reduce((n, item) =>
+    _itemMatchesFacets(item, draft) && _itemMatchesText(item, text) ? n + 1 : n, 0);
+}
+
+function _facetCount(filter) {
+  let n = 0;
+  if (filter.type) n++;
+  if (filter.category) n++;
+  if (filter.time && filter.time.kind !== 'all') n++;
+  return n;
+}
+
+/** All distinct expense categories present in current items (sorted). */
+function _availableCategories() {
   const seen = new Set();
   _allHistoryItems.forEach(item => {
     if (item.type === 'expense') seen.add(categorize(item.description).label);
   });
-  if (seen.size === 0) { catChips.innerHTML = ''; return; }
-  const labels = Array.from(seen).sort();
-  let html = `<button class="filter-chip${!_historyFilter.category ? ' active' : ''}" data-cat="">All categories</button>`;
-  labels.forEach(label => {
-    const active = _historyFilter.category === label ? ' active' : '';
-    html += `<button class="filter-chip${active}" data-cat="${label}">${label}</button>`;
-  });
-  catChips.innerHTML = html;
+  return Array.from(seen).sort();
 }
 
-function _populateMonthPicker() {
-  const sel = document.getElementById('history-month');
-  if (!sel) return;
-  const seen = new Set();
-  _allHistoryItems.forEach(item => {
-    const d = toJSDate(item.date || item.sortDate);
-    if (!isNaN(d)) seen.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  });
-  const months = Array.from(seen).sort().reverse();
-  const current = sel.value;
-  sel.innerHTML = '<option value="">All time</option>';
-  months.forEach(ym => {
-    const [y, m] = ym.split('-');
-    const label = new Date(+y, +m - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    sel.innerHTML += `<option value="${ym}"${ym === current ? ' selected' : ''}>${label}</option>`;
-  });
+function _updateFilterButton() {
+  const btn = document.getElementById('btn-history-filter');
+  const badge = document.getElementById('history-filter-badge');
+  if (!btn || !badge) return;
+  const n = _facetCount(_historyFilter);
+  if (n > 0) {
+    btn.classList.add('active');
+    badge.textContent = String(n);
+    badge.classList.remove('hidden');
+  } else {
+    btn.classList.remove('active');
+    badge.classList.add('hidden');
+  }
+}
+
+function _renderActiveTags() {
+  const host = document.getElementById('history-active-tags');
+  if (!host) return;
+  const tags = [];
+  if (_historyFilter.type) {
+    const label = { expense: 'Expenses', payment: 'Payments', duel: 'Duels' }[_historyFilter.type] || _historyFilter.type;
+    tags.push({ facet: 'type', label });
+  }
+  if (_historyFilter.time && _historyFilter.time.kind !== 'all') {
+    tags.push({ facet: 'time', label: _timeLabel(_historyFilter.time) });
+  }
+  if (_historyFilter.category) {
+    tags.push({ facet: 'category', label: _historyFilter.category });
+  }
+  if (tags.length === 0) {
+    host.classList.add('hidden');
+    host.innerHTML = '';
+    return;
+  }
+  host.classList.remove('hidden');
+  host.innerHTML = tags
+    .map(t => `<button type="button" class="hc-tag" data-facet="${t.facet}">${_escape(t.label)} <span class="x" aria-hidden="true">×</span></button>`)
+    .join('') + `<button type="button" class="hc-clear" id="history-clear-all">Clear</button>`;
+}
+
+function _renderSummary() {
+  const el = document.getElementById('history-summary');
+  if (!el) return;
+  const hasFacets = _facetCount(_historyFilter) > 0;
+  const hasText = !!_historyFilter.text;
+  if (!hasFacets && !hasText) { el.classList.add('hidden'); el.textContent = ''; return; }
+  const filtered = _getFilteredItems();
+  el.classList.remove('hidden');
+  el.textContent = `${filtered.length} of ${_allHistoryItems.length} entries`;
+}
+
+function _timeLabel(time) {
+  if (time.kind === 'preset') return PRESET_LABELS[time.id] || time.id;
+  if (time.kind === 'range') {
+    const f = _fromISODate(time.from), t = _fromISODate(time.to);
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (_sameDay(f, t)) return fmt(f);
+    if (f.getFullYear() === t.getFullYear() && f.getMonth() === t.getMonth()) {
+      return `${f.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → ${t.getDate()}`;
+    }
+    return `${fmt(f)} → ${fmt(t)}`;
+  }
+  return '';
+}
+
+function _escape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
 function _rerenderList(myUid, totalBalance) {
@@ -84,7 +269,18 @@ function _rerenderList(myUid, totalBalance) {
   list.innerHTML = '';
 
   if (filtered.length === 0) {
-    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No matching expenses.</li>';
+    const li = document.createElement('li');
+    li.className = 'empty-state';
+    li.innerHTML = `<span>No matching entries.</span>
+      <button type="button" class="empty-clear" id="history-empty-clear">Clear filters</button>`;
+    list.appendChild(li);
+    li.querySelector('#history-empty-clear').addEventListener('click', () => {
+      _historyFilter = { text: '', type: '', category: '', time: _emptyTime() };
+      const searchInput = document.getElementById('history-search');
+      if (searchInput) searchInput.value = '';
+      _persistFilter(_historyFilter);
+      _applyFilters(myUid, totalBalance);
+    });
     return;
   }
 
@@ -308,58 +504,467 @@ function _rerenderList(myUid, totalBalance) {
 
 function _applyFilters(myUid, totalBalance) {
   _historyShownCount = 20;
-  _populateCategoryChips();
+  _persistFilter(_historyFilter);
+  _updateFilterButton();
+  _renderActiveTags();
+  _renderSummary();
   _rerenderList(myUid, totalBalance);
+}
+
+/**
+ * True while the history-filter sheet is open. Other parts of the app
+ * (e.g. pull-to-refresh) check this so they can suppress conflicting gestures.
+ */
+export function isHistoryFilterSheetOpen() {
+  const sheet = document.getElementById('history-filter-sheet');
+  return !!sheet && !sheet.classList.contains('hidden');
 }
 
 function _initFilterListeners(myUid, totalBalance) {
   if (_filtersInitialized) return;
   _filtersInitialized = true;
 
+  // --- Search (live, independent of the sheet) ---
   let _searchTimer = null;
   const searchEl = document.getElementById('history-search');
+  const searchClear = document.getElementById('history-search-clear');
   if (searchEl) {
+    searchEl.value = _historyFilter.text || '';
+    if (searchClear) searchClear.classList.toggle('hidden', !searchEl.value);
     searchEl.addEventListener('input', () => {
       clearTimeout(_searchTimer);
+      if (searchClear) searchClear.classList.toggle('hidden', !searchEl.value);
       _searchTimer = setTimeout(() => {
         _historyFilter.text = searchEl.value.trim();
         _applyFilters(myUid, totalBalance);
       }, 200);
     });
   }
+  if (searchClear) {
+    searchClear.addEventListener('click', () => {
+      if (!searchEl) return;
+      searchEl.value = '';
+      searchClear.classList.add('hidden');
+      _historyFilter.text = '';
+      _applyFilters(myUid, totalBalance);
+      searchEl.focus();
+    });
+  }
 
-  const typeChips = document.getElementById('history-type-chips');
-  if (typeChips) {
-    typeChips.addEventListener('click', (e) => {
-      const btn = e.target.closest('.filter-chip');
-      if (!btn) return;
-      typeChips.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      _historyFilter.type = btn.dataset.type;
-      _historyFilter.category = '';
+  // --- Filter button -> open sheet ---
+  const filterBtn = document.getElementById('btn-history-filter');
+  if (filterBtn) {
+    filterBtn.addEventListener('click', () => _openFilterSheet(myUid, totalBalance));
+  }
+
+  // --- Active tags + clear-all (delegated, since markup is regenerated) ---
+  const tagsHost = document.getElementById('history-active-tags');
+  if (tagsHost) {
+    tagsHost.addEventListener('click', (e) => {
+      const clearAll = e.target.closest('#history-clear-all');
+      if (clearAll) {
+        _historyFilter = { text: _historyFilter.text, type: '', category: '', time: _emptyTime() };
+        _applyFilters(myUid, totalBalance);
+        return;
+      }
+      const tag = e.target.closest('.hc-tag');
+      if (!tag) return;
+      const facet = tag.dataset.facet;
+      if (facet === 'type') { _historyFilter.type = ''; _historyFilter.category = ''; }
+      else if (facet === 'time') { _historyFilter.time = _emptyTime(); }
+      else if (facet === 'category') { _historyFilter.category = ''; }
       _applyFilters(myUid, totalBalance);
     });
   }
 
-  const catChips = document.getElementById('history-cat-chips');
-  if (catChips) {
-    catChips.addEventListener('click', (e) => {
-      const btn = e.target.closest('.filter-chip');
-      if (!btn) return;
-      catChips.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      _historyFilter.category = btn.dataset.cat;
-      _applyFilters(myUid, totalBalance);
+  // --- Sheet wiring ---
+  const sheet = document.getElementById('history-filter-sheet');
+  const scrim = document.getElementById('history-filter-scrim');
+  const resetBtn = document.getElementById('history-filter-reset');
+  const applyBtn = document.getElementById('btn-filter-apply');
+
+  if (scrim) scrim.addEventListener('click', () => _closeFilterSheet(false, myUid, totalBalance));
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    _filterDraft = { text: _historyFilter.text, type: '', category: '', time: _emptyTime() };
+    _calMode = 'start';
+    _calAnchor = _firstOfMonth(new Date());
+    _renderSheet();
+  });
+  if (applyBtn) applyBtn.addEventListener('click', () => _closeFilterSheet(true, myUid, totalBalance));
+
+  // ESC anywhere closes (discards) the sheet.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isHistoryFilterSheetOpen()) {
+      e.preventDefault();
+      _closeFilterSheet(false, myUid, totalBalance);
+    }
+  });
+
+  if (!sheet) return;
+
+  // Type pills
+  sheet.querySelector('[data-grp="type"]').addEventListener('click', (e) => {
+    const btn = e.target.closest('.hf-pill');
+    if (!btn || !_filterDraft) return;
+    const next = btn.dataset.val;
+    _filterDraft.type = next;
+    // Edge case: switching type clears category (it's only meaningful for expenses)
+    _filterDraft.category = '';
+    _renderSheet();
+  });
+
+  // Time pills
+  sheet.querySelector('[data-grp="time"]').addEventListener('click', (e) => {
+    const btn = e.target.closest('.hf-pill');
+    if (!btn || !_filterDraft) return;
+    const v = btn.dataset.val;
+    if (v === 'all') { _filterDraft.time = _emptyTime(); _calMode = 'start'; }
+    else if (v === 'custom') {
+      // Seed range from today if there's no existing range
+      if (_filterDraft.time?.kind !== 'range') {
+        _filterDraft.time = { kind: 'range', from: '', to: '' };
+      }
+      _calAnchor = _firstOfMonth(new Date());
+      _calMode = _filterDraft.time.from ? 'end' : 'start';
+    } else {
+      _filterDraft.time = { kind: 'preset', id: v };
+      _calMode = 'start';
+    }
+    _renderSheet();
+  });
+
+  // Category pills (delegated — list is rebuilt on every render)
+  sheet.querySelector('[data-grp="category"]').addEventListener('click', (e) => {
+    const btn = e.target.closest('.hf-pill');
+    if (!btn || !_filterDraft) return;
+    _filterDraft.category = btn.dataset.val || '';
+    _renderSheet();
+  });
+
+  // Calendar day clicks (delegated)
+  const cal = document.getElementById('hf-calendar');
+  if (cal) {
+    cal.addEventListener('click', (e) => {
+      const day = e.target.closest('.d');
+      if (!day || day.classList.contains('muted') || day.classList.contains('disabled')) return;
+      const iso = day.dataset.date;
+      if (!iso || !_filterDraft) return;
+      const time = _filterDraft.time;
+      if (!time || time.kind !== 'range') {
+        _filterDraft.time = { kind: 'range', from: iso, to: '' };
+        _calMode = 'end';
+      } else if (_calMode === 'start' || !time.from) {
+        _filterDraft.time = { kind: 'range', from: iso, to: '' };
+        _calMode = 'end';
+      } else {
+        // Picking the end — auto-swap if reversed
+        let from = time.from, to = iso;
+        if (_fromISODate(to) < _fromISODate(from)) { const tmp = from; from = to; to = tmp; }
+        _filterDraft.time = { kind: 'range', from, to };
+        _calMode = 'start';
+      }
+      _renderSheet();
+    });
+    // Calendar month nav (delegated)
+    cal.addEventListener('click', (e) => {
+      const nav = e.target.closest('.cal-nav');
+      if (!nav) return;
+      const dir = nav.dataset.dir === 'prev' ? -1 : 1;
+      _calAnchor = new Date(_calAnchor.getFullYear(), _calAnchor.getMonth() + dir, 1);
+      _renderCalendar();
+    });
+  }
+}
+
+// ===== Sheet lifecycle =====
+
+let _lastFocusBeforeSheet = null;
+
+function _openFilterSheet(myUid, totalBalance) {
+  const sheet = document.getElementById('history-filter-sheet');
+  const scrim = document.getElementById('history-filter-scrim');
+  const filterBtn = document.getElementById('btn-history-filter');
+  if (!sheet || !scrim) return;
+
+  _lastFocusBeforeSheet = document.activeElement;
+  // Snapshot the committed filter into a draft (search stays committed/live)
+  _filterDraft = JSON.parse(JSON.stringify(_historyFilter));
+  _calMode = 'start';
+  _calAnchor = _firstOfMonth(new Date());
+
+  scrim.classList.remove('hidden', 'closing');
+  sheet.classList.remove('hidden', 'closing');
+  sheet.setAttribute('aria-hidden', 'false');
+  if (filterBtn) filterBtn.setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';
+
+  _renderSheet();
+
+  // Focus trap: on first open, move focus to the title
+  const title = document.getElementById('history-filter-title');
+  if (title) { title.setAttribute('tabindex', '-1'); title.focus(); }
+
+  // Pass the latest myUid/totalBalance to apply via closure
+  _sheetApplyCtx = { myUid, totalBalance };
+}
+
+let _sheetApplyCtx = null;
+
+function _closeFilterSheet(commit, myUid, totalBalance) {
+  const sheet = document.getElementById('history-filter-sheet');
+  const scrim = document.getElementById('history-filter-scrim');
+  const filterBtn = document.getElementById('btn-history-filter');
+  if (!sheet || !scrim) return;
+
+  if (commit && _filterDraft) {
+    // Don't commit a half-finished custom range — fall back to "all" if to/from missing.
+    if (_filterDraft.time?.kind === 'range' && (!_filterDraft.time.from || !_filterDraft.time.to)) {
+      _filterDraft.time = _emptyTime();
+    }
+    _historyFilter = _filterDraft;
+  }
+  _filterDraft = null;
+
+  sheet.classList.add('closing');
+  scrim.classList.add('closing');
+  sheet.setAttribute('aria-hidden', 'true');
+  if (filterBtn) filterBtn.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+  setTimeout(() => {
+    sheet.classList.add('hidden');
+    sheet.classList.remove('closing');
+    scrim.classList.add('hidden');
+    scrim.classList.remove('closing');
+  }, 180);
+
+  if (_lastFocusBeforeSheet && typeof _lastFocusBeforeSheet.focus === 'function') {
+    _lastFocusBeforeSheet.focus();
+  }
+
+  if (commit) _applyFilters(myUid, totalBalance);
+}
+
+// ===== Sheet render =====
+
+function _renderSheet() {
+  if (!_filterDraft) return;
+
+  // --- Type pills ---
+  const typeGrp = document.querySelector('[data-grp="type"]');
+  if (typeGrp) {
+    typeGrp.querySelectorAll('.hf-pill').forEach(p => {
+      const on = (p.dataset.val || '') === (_filterDraft.type || '');
+      p.classList.toggle('on', on);
+      p.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 
-  const monthSel = document.getElementById('history-month');
-  if (monthSel) {
-    monthSel.addEventListener('change', () => {
-      _historyFilter.month = monthSel.value;
-      _applyFilters(myUid, totalBalance);
+  // --- Time pills ---
+  const timeGrp = document.querySelector('[data-grp="time"]');
+  if (timeGrp) {
+    const t = _filterDraft.time || _emptyTime();
+    timeGrp.querySelectorAll('.hf-pill').forEach(p => {
+      const v = p.dataset.val;
+      let on = false;
+      if (t.kind === 'all') on = v === 'all';
+      else if (t.kind === 'preset') on = v === t.id;
+      else if (t.kind === 'range') on = v === 'custom';
+      p.classList.toggle('on', on);
+      p.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
+
+  // --- Range line + calendar visibility ---
+  const rangeLine = document.getElementById('hf-range-line');
+  const calEl = document.getElementById('hf-calendar');
+  const timeLabel = document.getElementById('hf-time-label');
+  const t = _filterDraft.time || _emptyTime();
+  if (rangeLine && calEl && timeLabel) {
+    if (t.kind === 'range') {
+      timeLabel.textContent = 'Time · Custom range';
+      rangeLine.classList.remove('hidden');
+      const fromTxt = t.from ? _fromISODate(t.from).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '<span class="dim">Pick a day</span>';
+      const toTxt = t.to ? _fromISODate(t.to).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '<span class="dim">Pick a day</span>';
+      rangeLine.innerHTML = `${fromTxt} → ${toTxt}`;
+      calEl.classList.remove('hidden');
+      _renderCalendar();
+    } else if (t.kind === 'preset') {
+      timeLabel.textContent = 'Time';
+      const rng = resolveTimeRange(t);
+      if (rng) {
+        rangeLine.classList.remove('hidden');
+        const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        rangeLine.innerHTML = `<span class="dim">${fmt(rng.from)} → ${fmt(rng.to)}</span>`;
+      } else {
+        rangeLine.classList.add('hidden');
+      }
+      calEl.classList.add('hidden');
+    } else {
+      timeLabel.textContent = 'Time';
+      rangeLine.classList.add('hidden');
+      calEl.classList.add('hidden');
+    }
+  }
+
+  // --- Category pills (rebuild based on draft.type filter) ---
+  const catGrp = document.querySelector('[data-grp="category"]');
+  const catWrap = document.querySelector('[data-grp-cat]');
+  if (catGrp && catWrap) {
+    const showCats = !_filterDraft.type || _filterDraft.type === 'expense';
+    if (!showCats) {
+      catWrap.style.display = 'none';
+    } else {
+      const labels = _availableCategories();
+      if (labels.length === 0) {
+        catWrap.style.display = 'none';
+      } else {
+        catWrap.style.display = '';
+        const cur = _filterDraft.category || '';
+        let html = `<button type="button" class="hf-pill${cur === '' ? ' on' : ''}" data-val="" aria-pressed="${cur === '' ? 'true' : 'false'}">All</button>`;
+        labels.forEach(label => {
+          const on = cur === label;
+          html += `<button type="button" class="hf-pill${on ? ' on' : ''}" data-val="${_escape(label)}" aria-pressed="${on ? 'true' : 'false'}">${_escape(label)}</button>`;
+        });
+        catGrp.innerHTML = html;
+      }
+    }
+  }
+
+  // --- Reset visibility ---
+  const resetBtn = document.getElementById('history-filter-reset');
+  if (resetBtn) {
+    const dirty = _facetCount(_filterDraft) > 0;
+    resetBtn.classList.toggle('muted', !dirty);
+  }
+
+  // --- Apply CTA ---
+  _updateApplyCTA();
+}
+
+function _updateApplyCTA() {
+  const apply = document.getElementById('btn-filter-apply');
+  if (!apply || !_filterDraft) return;
+  const t = _filterDraft.time || _emptyTime();
+  const incompleteRange = t.kind === 'range' && (!t.from || !t.to);
+  if (incompleteRange) {
+    apply.classList.add('ghost');
+    apply.disabled = true;
+    apply.textContent = t.from ? 'Pick end date' : 'Pick start date';
+    return;
+  }
+  apply.classList.remove('ghost');
+  apply.disabled = false;
+  const n = _countMatches(_filterDraft);
+  const total = _allHistoryItems.length;
+  const facets = _facetCount(_filterDraft);
+  if (facets === 0) {
+    apply.textContent = `Show all ${total}`;
+  } else if (_filterDraft.type === 'expense') {
+    apply.textContent = `Show ${n} expense${n === 1 ? '' : 's'}`;
+  } else if (_filterDraft.type === 'payment') {
+    apply.textContent = `Show ${n} payment${n === 1 ? '' : 's'}`;
+  } else if (_filterDraft.type === 'duel') {
+    apply.textContent = `Show ${n} duel${n === 1 ? '' : 's'}`;
+  } else {
+    apply.textContent = `Show ${n} entr${n === 1 ? 'y' : 'ies'}`;
+  }
+}
+
+function _renderCalendar() {
+  const cal = document.getElementById('hf-calendar');
+  if (!cal || !_filterDraft) return;
+  const anchor = _calAnchor;
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
+  const today = _startOfDay(new Date());
+  const monthLabel = anchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  // Days-with-entries set for the visible month
+  const daysWithEntries = new Set();
+  for (const item of _allHistoryItems) {
+    const d = toJSDate(item.date || item.sortDate);
+    if (d.getFullYear() === year && d.getMonth() === month) {
+      daysWithEntries.add(d.getDate());
+    }
+  }
+
+  const t = _filterDraft.time || _emptyTime();
+  const fromD = t.kind === 'range' && t.from ? _fromISODate(t.from) : null;
+  const toD = t.kind === 'range' && t.to ? _fromISODate(t.to) : null;
+
+  // Grid layout: Monday-first week, 6 rows
+  const firstDay = new Date(year, month, 1);
+  // JS getDay(): 0=Sun..6=Sat; convert to 0=Mon..6=Sun
+  const offset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+
+  const cells = [];
+  // Leading muted days (previous month)
+  for (let i = offset - 1; i >= 0; i--) {
+    cells.push({ muted: true, n: prevMonthDays - i });
+  }
+  // Current month
+  for (let n = 1; n <= daysInMonth; n++) {
+    const date = new Date(year, month, n);
+    const iso = _toISODate(date);
+    const isFuture = date > today;
+    let inRange = false, isStart = false, isEnd = false;
+    if (fromD && toD) {
+      if (date >= _startOfDay(fromD) && date <= _startOfDay(toD)) inRange = true;
+      if (_sameDay(date, fromD)) isStart = true;
+      if (_sameDay(date, toD)) isEnd = true;
+    } else if (fromD && !toD) {
+      if (_sameDay(date, fromD)) { inRange = true; isStart = true; isEnd = true; }
+    }
+    cells.push({
+      n, iso,
+      hasDot: daysWithEntries.has(n),
+      today: _sameDay(date, today),
+      disabled: isFuture,
+      range: inRange,
+      start: isStart,
+      end: isEnd,
+    });
+  }
+  // Trailing muted days to fill the last row
+  while (cells.length % 7 !== 0) {
+    const trailing = cells.length - (offset + daysInMonth);
+    cells.push({ muted: true, n: trailing + 1 });
+  }
+
+  // Disable next-month nav if we'd go past today's month
+  const todayMonthAnchor = _firstOfMonth(today);
+  const nextDisabled = anchor.getTime() >= todayMonthAnchor.getTime();
+
+  let html = `
+    <div class="hf-cal-head">
+      <span class="mo">${monthLabel}</span>
+      <span class="nav">
+        <button type="button" class="cal-nav" data-dir="prev" aria-label="Previous month">‹</button>
+        <button type="button" class="cal-nav" data-dir="next" aria-label="Next month"${nextDisabled ? ' disabled' : ''}>›</button>
+      </span>
+    </div>
+    <div class="hf-cal-grid">
+      <div class="dow">M</div><div class="dow">T</div><div class="dow">W</div><div class="dow">T</div>
+      <div class="dow">F</div><div class="dow">S</div><div class="dow">S</div>
+  `;
+  for (const c of cells) {
+    if (c.muted) {
+      html += `<div class="d muted" aria-hidden="true">${c.n}</div>`;
+    } else {
+      const cls = ['d'];
+      if (c.hasDot) cls.push('dot');
+      if (c.today) cls.push('today');
+      if (c.disabled) cls.push('disabled');
+      if (c.range) cls.push('range');
+      if (c.start) cls.push('start');
+      if (c.end) cls.push('end');
+      html += `<button type="button" class="${cls.join(' ')}" data-date="${c.iso}"${c.disabled ? ' disabled aria-disabled="true"' : ''}>${c.n}</button>`;
+    }
+  }
+  html += `</div>`;
+  cal.innerHTML = html;
 }
 
 export function invalidateDataCache() {
@@ -962,9 +1567,10 @@ function renderHistory(items, myUid, totalBalance, displayOpts) {
   _renderHistoryOpts = displayOpts;
   _historyShownCount = 20;
 
-  _populateCategoryChips();
-  _populateMonthPicker();
   _initFilterListeners(myUid, totalBalance);
+  _updateFilterButton();
+  _renderActiveTags();
+  _renderSummary();
   _rerenderList(myUid, totalBalance);
 }
 

@@ -57,19 +57,67 @@
         </div>
         <h3>History</h3>
         <div id="history-controls">
-          <input type="text" id="history-search" placeholder="Search expenses…" autocomplete="off">
-          <div id="history-type-chips" class="filter-chips">
-            <button class="filter-chip active" data-type="">All</button>
-            <button class="filter-chip" data-type="expense">Expenses</button>
-            <button class="filter-chip" data-type="payment">Payments</button>
-            <button class="filter-chip" data-type="duel">Duels</button>
+          <div class="hc-bar">
+            <div class="hc-search">
+              <span class="hc-magn" aria-hidden="true"></span>
+              <input type="text" id="history-search" placeholder="Search history…" autocomplete="off">
+              <button type="button" id="history-search-clear" class="hc-search-clear hidden" aria-label="Clear search">×</button>
+            </div>
+            <button type="button" id="btn-history-filter" class="hc-filter-btn"
+                    aria-haspopup="dialog" aria-expanded="false" aria-controls="history-filter-sheet">
+              <span class="hc-filter-icn" aria-hidden="true"></span>
+              <span>Filter</span>
+              <span id="history-filter-badge" class="hc-filter-badge hidden">0</span>
+            </button>
           </div>
-          <div id="history-cat-chips" class="filter-chips"></div>
-          <select id="history-month"><option value="">All time</option></select>
+          <div id="history-active-tags" class="hc-active-tags hidden"></div>
+          <div id="history-summary" class="hc-summary hidden"></div>
         </div>
         <ul id="history-list" class="history-list"></ul>
       </div>
       <button id="fab-add" class="fab">+</button>
+    </div>
+
+    <!-- History filter bottom sheet (portal at body root) -->
+    <div id="history-filter-scrim" class="hf-scrim hidden"></div>
+    <div id="history-filter-sheet" class="hf-sheet hidden"
+         role="dialog" aria-modal="true" aria-hidden="true"
+         aria-labelledby="history-filter-title">
+      <div class="hf-grabber" aria-hidden="true"></div>
+      <div class="hf-title-row">
+        <h5 id="history-filter-title">Filter history</h5>
+        <button type="button" id="history-filter-reset" class="hf-reset">Reset</button>
+      </div>
+      <div class="hf-scroll">
+        <div class="hf-grp">
+          <div class="hf-glbl">Type</div>
+          <div class="hf-pills" data-grp="type" role="group" aria-label="Type">
+            <button type="button" class="hf-pill on" data-val="" aria-pressed="true">All</button>
+            <button type="button" class="hf-pill" data-val="expense" aria-pressed="false">Expenses</button>
+            <button type="button" class="hf-pill" data-val="payment" aria-pressed="false">Payments</button>
+            <button type="button" class="hf-pill" data-val="duel" aria-pressed="false">Duels</button>
+          </div>
+        </div>
+        <div class="hf-grp" data-grp-time>
+          <div class="hf-glbl" id="hf-time-label">Time</div>
+          <div class="hf-pills" data-grp="time" role="group" aria-label="Time">
+            <button type="button" class="hf-pill on" data-val="all" aria-pressed="true">All</button>
+            <button type="button" class="hf-pill" data-val="7d" aria-pressed="false">7d</button>
+            <button type="button" class="hf-pill" data-val="30d" aria-pressed="false">30d</button>
+            <button type="button" class="hf-pill" data-val="this_month" aria-pressed="false">Month</button>
+            <button type="button" class="hf-pill" data-val="last_month" aria-pressed="false">Last mo</button>
+            <button type="button" class="hf-pill" data-val="ytd" aria-pressed="false">YTD</button>
+            <button type="button" class="hf-pill" data-val="custom" aria-pressed="false">Custom…</button>
+          </div>
+          <div id="hf-range-line" class="hf-range-line hidden"></div>
+          <div id="hf-calendar" class="hf-cal hidden" role="grid" aria-label="Date range"></div>
+        </div>
+        <div class="hf-grp" data-grp-cat>
+          <div class="hf-glbl">Category</div>
+          <div class="hf-pills" data-grp="category" role="group" aria-label="Category"></div>
+        </div>
+      </div>
+      <button type="button" id="btn-filter-apply" class="hf-apply">Apply</button>
     </div>
 
     <!-- Add entry screen -->

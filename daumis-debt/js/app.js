@@ -205,7 +205,16 @@ let isPulling = false;
 
 const dashboardContent = document.querySelector('#screen-dashboard .dashboard-content');
 if (dashboardContent) {
+  // Synchronous check used in touchstart — dynamic import would add latency.
+  function _historySheetOpen() {
+    const s = document.getElementById('history-filter-sheet');
+    return !!s && !s.classList.contains('hidden');
+  }
+
   dashboardContent.addEventListener('touchstart', (e) => {
+    // Don't capture P2R while the history-filter sheet is open — the user
+    // may be scrolling sheet content or dragging the grabber.
+    if (_historySheetOpen()) return;
     // Only activate if scrolled to top
     if (dashboardContent.scrollTop <= 0) {
       pullStartY = e.touches[0].clientY;
