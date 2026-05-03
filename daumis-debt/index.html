@@ -56,6 +56,17 @@
           <button id="btn-play-duel" class="btn btn-accent">Play</button>
         </div>
         <h3>History</h3>
+        <div id="history-controls">
+          <input type="text" id="history-search" placeholder="Search expenses…" autocomplete="off">
+          <div id="history-type-chips" class="filter-chips">
+            <button class="filter-chip active" data-type="">All</button>
+            <button class="filter-chip" data-type="expense">Expenses</button>
+            <button class="filter-chip" data-type="payment">Payments</button>
+            <button class="filter-chip" data-type="duel">Duels</button>
+          </div>
+          <div id="history-cat-chips" class="filter-chips"></div>
+          <select id="history-month"><option value="">All time</option></select>
+        </div>
         <ul id="history-list" class="history-list"></ul>
       </div>
       <button id="fab-add" class="fab">+</button>

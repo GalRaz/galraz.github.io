@@ -8,6 +8,360 @@ let _snapshotCache = null;
 // Invalidated when a duel is played (duel screen sets it to false) or cache is cleared
 let _duelAvailableCache = null;
 
+// History pagination + filter state
+let _allHistoryItems = [];
+let _historyShownCount = 20;
+let _historyFilter = { text: '', type: '', category: '', month: '' };
+let _filtersInitialized = false;
+let _renderHistoryOpts = null; // last displayOpts passed to renderHistory, for re-renders
+
+function _getFilteredItems() {
+  return _allHistoryItems.filter(item => {
+    if (_historyFilter.type && item.type !== _historyFilter.type) return false;
+    if (_historyFilter.text) {
+      const q = _historyFilter.text.toLowerCase();
+      const desc = (item.description || item.game || '').toLowerCase();
+      if (!desc.includes(q)) return false;
+    }
+    if (_historyFilter.category && item.type === 'expense') {
+      if (categorize(item.description).label !== _historyFilter.category) return false;
+    }
+    if (_historyFilter.month) {
+      const d = toJSDate(item.date || item.sortDate);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (ym !== _historyFilter.month) return false;
+    }
+    return true;
+  });
+}
+
+function _populateCategoryChips() {
+  const catChips = document.getElementById('history-cat-chips');
+  if (!catChips) return;
+  const showCats = !_historyFilter.type || _historyFilter.type === 'expense';
+  if (!showCats) { catChips.innerHTML = ''; return; }
+  const seen = new Set();
+  _allHistoryItems.forEach(item => {
+    if (item.type === 'expense') seen.add(categorize(item.description).label);
+  });
+  if (seen.size === 0) { catChips.innerHTML = ''; return; }
+  const labels = Array.from(seen).sort();
+  let html = `<button class="filter-chip${!_historyFilter.category ? ' active' : ''}" data-cat="">All categories</button>`;
+  labels.forEach(label => {
+    const active = _historyFilter.category === label ? ' active' : '';
+    html += `<button class="filter-chip${active}" data-cat="${label}">${label}</button>`;
+  });
+  catChips.innerHTML = html;
+}
+
+function _populateMonthPicker() {
+  const sel = document.getElementById('history-month');
+  if (!sel) return;
+  const seen = new Set();
+  _allHistoryItems.forEach(item => {
+    const d = toJSDate(item.date || item.sortDate);
+    if (!isNaN(d)) seen.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  });
+  const months = Array.from(seen).sort().reverse();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All time</option>';
+  months.forEach(ym => {
+    const [y, m] = ym.split('-');
+    const label = new Date(+y, +m - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    sel.innerHTML += `<option value="${ym}"${ym === current ? ' selected' : ''}>${label}</option>`;
+  });
+}
+
+function _rerenderList(myUid, totalBalance) {
+  const { balanceView, consolCurrency, consolSymbol, rateCache } = _renderHistoryOpts || {};
+  const showOriginal = balanceView === 'breakdown';
+  const list = document.getElementById('history-list');
+  if (!list) return;
+
+  const filtered = _getFilteredItems();
+  const visible = filtered.slice(0, _historyShownCount);
+
+  list.innerHTML = '';
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No matching expenses.</li>';
+    return;
+  }
+
+  function fmtCurrency(amount, currency) {
+    const sym = CURRENCY_SYMBOLS[currency] || currency + ' ';
+    return `${sym}${formatAmountByDigits(amount)}`;
+  }
+  function fmtConsol(item, impact) {
+    if (!item.currency) return `${consolSymbol}0.00`;
+    const rate = rateCache[item.currency] || 1;
+    const origAmount = item.type === 'payment'
+      ? item.amount
+      : (item.splitType === 'even' ? item.amount / 2 : item.amount);
+    const consolAmount = Math.abs(origAmount) * rate;
+    return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
+  }
+  function fmtDuelConsol(usdAmount) {
+    const rate = rateCache['USD'] || 1;
+    const consolAmount = Math.abs(usdAmount) * rate;
+    return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
+  }
+
+  visible.forEach((item) => {
+    try {
+      const li = document.createElement('li');
+      const dateStr = formatDate(item.date);
+      const impact = itemImpact(item, myUid);
+      const isCredit = impact >= 0;
+      const sign = isCredit ? '+' : '-';
+      const paidByName = item.paidBy === myUid ? getUserName(myUid) : getUserName(item.paidBy);
+      let contentHTML = '';
+
+      if (item.type === 'expense') {
+        const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
+        const splitLabel = item.splitType === 'even' ? 'split' : 'full';
+        const metaLine = `${dateStr} · ${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
+        let displayAmt;
+        if (showOriginal && item.currency) {
+          displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
+        } else {
+          displayAmt = `${sign}${fmtConsol(item, impact)}`;
+        }
+        contentHTML = `
+          <div class="entry-icon expense">${categorize(item.description).icon}</div>
+          <div class="entry-info">
+            <div class="entry-desc">${item.description || 'Expense'}</div>
+            <div class="entry-meta">${metaLine}</div>
+          </div>
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
+      } else if (item.type === 'payment') {
+        const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
+        const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
+        const metaLine = `${dateStr} · ${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
+        let displayAmt;
+        if (showOriginal && item.currency) {
+          displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
+        } else {
+          displayAmt = `${sign}${fmtConsol(item, impact)}`;
+        }
+        contentHTML = `
+          <div class="entry-icon payment">↗</div>
+          <div class="entry-info">
+            <div class="entry-desc">Settle up</div>
+            <div class="entry-meta">${metaLine}</div>
+          </div>
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
+      } else if (item.type === 'duel') {
+        let displayAmt;
+        if (showOriginal) {
+          displayAmt = `${sign}$${Math.abs(item.balanceAdjust || 0).toFixed(2)}`;
+        } else {
+          displayAmt = `${sign}${fmtDuelConsol(impact)}`;
+        }
+        const playerName = item.playedBy
+          ? (item.playedBy === myUid ? getUserName(myUid) : getUserName(item.playedBy))
+          : null;
+        const duelMeta = `${dateStr} · Week ${item.week}${playerName ? ` · ${playerName} played` : ''}`;
+        contentHTML = `
+          <div class="entry-icon duel">⚔</div>
+          <div class="entry-info">
+            <div class="entry-desc">${item.game || 'Duel'}</div>
+            <div class="entry-meta">${duelMeta}</div>
+          </div>
+          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
+      }
+
+      const canDelete = item.type === 'expense' || item.type === 'payment';
+      if (canDelete) {
+        li.innerHTML = `
+          <div class="swipe-delete"><span class="swipe-delete-text">Delete</span></div>
+          <div class="swipe-content">${contentHTML}</div>`;
+
+        const content = li.querySelector('.swipe-content');
+        const deleteBtn = li.querySelector('.swipe-delete');
+        const deleteText = li.querySelector('.swipe-delete-text');
+        let startX = 0, startY = 0, swiping = false, decided = false;
+
+        content.addEventListener('touchstart', (e) => {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+          swiping = false;
+          decided = false;
+          content.style.transition = 'none';
+          deleteText.style.transition = 'none';
+        }, { passive: true });
+
+        content.addEventListener('touchmove', (e) => {
+          const dx = e.touches[0].clientX - startX;
+          const dy = e.touches[0].clientY - startY;
+          if (!decided) {
+            if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+              decided = true;
+              swiping = dx < -5 && Math.abs(dx) > Math.abs(dy);
+              if (swiping) {
+                e.preventDefault();
+                e.stopPropagation();
+                const scrollParent = content.closest('.dashboard-content');
+                if (scrollParent) scrollParent.style.overflow = 'hidden';
+              }
+            }
+            return;
+          }
+          if (swiping) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dx < 0) {
+              const clampedDx = Math.max(dx, -200);
+              content.style.transform = `translateX(${clampedDx}px)`;
+              const textOffset = Math.min(Math.abs(clampedDx) - 60, 0);
+              deleteText.style.transform = `translateX(${textOffset}px)`;
+            }
+          }
+        }, { passive: false });
+
+        async function handleDelete() {
+          const isRecurring = item.description?.includes('(recurring)');
+          const collection = item.type === 'expense' ? 'expenses' : 'payments';
+          if (isRecurring) {
+            const choice = prompt('This is a recurring expense.\nType "one" to delete just this one, or "all" to cancel all future charges.');
+            if (!choice) { content.style.transform = ''; deleteText.style.transform = ''; return; }
+            if (choice.toLowerCase() === 'all') {
+              try {
+                const { getRecurring, deactivateRecurring } = await import('./recurring.js');
+                const recurrings = await getRecurring();
+                const match = recurrings.find(r => item.description.replace(' (recurring)', '') === r.description);
+                if (match) await deactivateRecurring(match.id);
+              } catch (e) { console.warn('Could not cancel recurring:', e); }
+            }
+            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') { content.style.transform = ''; deleteText.style.transform = ''; return; }
+          } else {
+            if (!confirm('Delete this entry?')) { content.style.transform = ''; deleteText.style.transform = ''; return; }
+          }
+          try {
+            const { db } = await import('./firebase-config.js');
+            await db.collection(collection).doc(item.id).delete();
+            li.style.transition = 'opacity 0.3s, max-height 0.3s';
+            li.style.opacity = '0';
+            li.style.maxHeight = '0';
+            li.style.overflow = 'hidden';
+            setTimeout(() => li.remove(), 300);
+          } catch (err) {
+            console.error('Delete failed:', err);
+            alert('Failed to delete.');
+            content.style.transform = '';
+          }
+        }
+
+        content.addEventListener('touchend', (e) => {
+          const scrollParent = content.closest('.dashboard-content');
+          if (scrollParent) scrollParent.style.overflow = '';
+          if (!swiping) {
+            content.style.transition = 'transform 0.2s ease-out';
+            deleteText.style.transition = 'transform 0.2s ease-out';
+            content.style.transform = '';
+            deleteText.style.transform = '';
+            return;
+          }
+          const dx = e.changedTouches[0].clientX - startX;
+          content.style.transition = 'transform 0.2s ease-out';
+          deleteText.style.transition = 'transform 0.2s ease-out';
+          if (dx < -150) {
+            content.style.transform = 'translateX(-200px)';
+            handleDelete();
+          } else {
+            content.style.transform = '';
+            deleteText.style.transform = '';
+          }
+        }, { passive: true });
+
+        deleteBtn.addEventListener('click', () => handleDelete());
+        content.addEventListener('click', (e) => {
+          if (Math.abs(parseFloat(content.style.transform?.match(/-?\d+/)?.[0] || 0)) > 10) {
+            content.style.transition = 'transform 0.2s ease-out';
+            content.style.transform = '';
+            return;
+          }
+          editEntry(item.type, item);
+        });
+      } else {
+        li.innerHTML = `<div class="swipe-content">${contentHTML}</div>`;
+      }
+
+      list.appendChild(li);
+    } catch (e) {
+      console.error('Error rendering item:', item, e);
+    }
+  });
+
+  const remaining = filtered.length - _historyShownCount;
+  if (remaining > 0) {
+    const seeMore = document.createElement('li');
+    seeMore.id = 'history-see-more';
+    seeMore.textContent = `See more · ${remaining} more`;
+    seeMore.addEventListener('click', () => {
+      _historyShownCount += 20;
+      _rerenderList(myUid, totalBalance);
+    });
+    list.appendChild(seeMore);
+  }
+}
+
+function _applyFilters(myUid, totalBalance) {
+  _historyShownCount = 20;
+  _populateCategoryChips();
+  _rerenderList(myUid, totalBalance);
+}
+
+function _initFilterListeners(myUid, totalBalance) {
+  if (_filtersInitialized) return;
+  _filtersInitialized = true;
+
+  let _searchTimer = null;
+  const searchEl = document.getElementById('history-search');
+  if (searchEl) {
+    searchEl.addEventListener('input', () => {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(() => {
+        _historyFilter.text = searchEl.value.trim();
+        _applyFilters(myUid, totalBalance);
+      }, 200);
+    });
+  }
+
+  const typeChips = document.getElementById('history-type-chips');
+  if (typeChips) {
+    typeChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-chip');
+      if (!btn) return;
+      typeChips.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      _historyFilter.type = btn.dataset.type;
+      _historyFilter.category = '';
+      _applyFilters(myUid, totalBalance);
+    });
+  }
+
+  const catChips = document.getElementById('history-cat-chips');
+  if (catChips) {
+    catChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-chip');
+      if (!btn) return;
+      catChips.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      _historyFilter.category = btn.dataset.cat;
+      _applyFilters(myUid, totalBalance);
+    });
+  }
+
+  const monthSel = document.getElementById('history-month');
+  if (monthSel) {
+    monthSel.addEventListener('change', () => {
+      _historyFilter.month = monthSel.value;
+      _applyFilters(myUid, totalBalance);
+    });
+  }
+}
+
 export function invalidateDataCache() {
   _snapshotCache = null;
   _duelAvailableCache = null;
@@ -595,243 +949,23 @@ function applyMood(balance) {
 }
 
 function renderHistory(items, myUid, totalBalance, displayOpts) {
-  const { balanceView, consolCurrency, consolSymbol, rateCache } = displayOpts;
-  const showOriginal = balanceView === 'breakdown';
-
-  const list = document.getElementById('history-list');
   items = items.filter(item => !item.balanceExcluded);
   items.sort((a, b) => (b.sortDate || b.date) - (a.sortDate || a.date));
-  list.innerHTML = '';
 
   if (items.length === 0) {
-    list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No history yet. Tap + to add an expense.</li>';
+    const list = document.getElementById('history-list');
+    if (list) list.innerHTML = '<li style="justify-content:center;color:var(--text-muted)">No history yet. Tap + to add an expense.</li>';
     return;
   }
 
-  function fmtCurrency(amount, currency) {
-    const sym = CURRENCY_SYMBOLS[currency] || currency + ' ';
-    return `${sym}${formatAmountByDigits(amount)}`;
-  }
+  _allHistoryItems = items;
+  _renderHistoryOpts = displayOpts;
+  _historyShownCount = 20;
 
-  function fmtConsol(item, impact) {
-    if (!item.currency) return `${consolSymbol}0.00`;
-    const rate = rateCache[item.currency] || 1;
-    const origAmount = item.type === 'payment'
-      ? item.amount
-      : (item.splitType === 'even' ? item.amount / 2 : item.amount);
-    const consolAmount = Math.abs(origAmount) * rate;
-    return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
-  }
-
-  function fmtDuelConsol(usdAmount) {
-    const rate = rateCache['USD'] || 1;
-    const consolAmount = Math.abs(usdAmount) * rate;
-    return `${consolSymbol}${formatAmountByDigits(consolAmount)}`;
-  }
-
-  items.forEach((item) => {
-    try {
-      const li = document.createElement('li');
-      const dateStr = formatDate(item.date);
-
-      const impact = itemImpact(item, myUid);
-      const isCredit = impact >= 0;
-      const sign = isCredit ? '+' : '-';
-
-      const paidByName = item.paidBy === myUid ? getUserName(myUid) : getUserName(item.paidBy);
-
-      let contentHTML = '';
-
-      if (item.type === 'expense') {
-        const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const splitLabel = item.splitType === 'even' ? 'split' : 'full';
-        const metaLine = `${dateStr} · ${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
-        let displayAmt;
-        if (showOriginal && item.currency) {
-          displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
-        } else {
-          displayAmt = `${sign}${fmtConsol(item, impact)}`;
-        }
-        contentHTML = `
-          <div class="entry-icon expense">${categorize(item.description).icon}</div>
-          <div class="entry-info">
-            <div class="entry-desc">${item.description || 'Expense'}</div>
-            <div class="entry-meta">${metaLine}</div>
-          </div>
-          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
-
-      } else if (item.type === 'payment') {
-        const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
-        const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const metaLine = `${dateStr} · ${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
-        let displayAmt;
-        if (showOriginal && item.currency) {
-          displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
-        } else {
-          displayAmt = `${sign}${fmtConsol(item, impact)}`;
-        }
-        contentHTML = `
-          <div class="entry-icon payment">↗</div>
-          <div class="entry-info">
-            <div class="entry-desc">Settle up</div>
-            <div class="entry-meta">${metaLine}</div>
-          </div>
-          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
-
-      } else if (item.type === 'duel') {
-        let displayAmt;
-        if (showOriginal) {
-          displayAmt = `${sign}$${Math.abs(item.balanceAdjust || 0).toFixed(2)}`;
-        } else {
-          displayAmt = `${sign}${fmtDuelConsol(impact)}`;
-        }
-        const playerName = item.playedBy
-          ? (item.playedBy === myUid ? getUserName(myUid) : getUserName(item.playedBy))
-          : null;
-        const duelMeta = `${dateStr} · Week ${item.week}${playerName ? ` · ${playerName} played` : ''}`;
-        contentHTML = `
-          <div class="entry-icon duel">⚔</div>
-          <div class="entry-info">
-            <div class="entry-desc">${item.game || 'Duel'}</div>
-            <div class="entry-meta">${duelMeta}</div>
-          </div>
-          <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
-      }
-
-      // Wrap in swipe container with delete button behind
-      const canDelete = item.type === 'expense' || item.type === 'payment';
-      if (canDelete) {
-        li.innerHTML = `
-          <div class="swipe-delete"><span class="swipe-delete-text">Delete</span></div>
-          <div class="swipe-content">${contentHTML}</div>`;
-
-        const content = li.querySelector('.swipe-content');
-        const deleteBtn = li.querySelector('.swipe-delete');
-        const deleteText = li.querySelector('.swipe-delete-text');
-        let startX = 0, startY = 0, swiping = false, decided = false;
-
-        content.addEventListener('touchstart', (e) => {
-          startX = e.touches[0].clientX;
-          startY = e.touches[0].clientY;
-          swiping = false;
-          decided = false;
-          content.style.transition = 'none';
-          deleteText.style.transition = 'none';
-        }, { passive: true });
-
-        content.addEventListener('touchmove', (e) => {
-          const dx = e.touches[0].clientX - startX;
-          const dy = e.touches[0].clientY - startY;
-          if (!decided) {
-            if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-              decided = true;
-              swiping = dx < -5 && Math.abs(dx) > Math.abs(dy);
-              if (swiping) {
-                // Immediately lock scrolling
-                e.preventDefault();
-                e.stopPropagation();
-                // Disable scroll on parent
-                const scrollParent = content.closest('.dashboard-content');
-                if (scrollParent) scrollParent.style.overflow = 'hidden';
-              }
-            }
-            return;
-          }
-          if (swiping) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (dx < 0) {
-              const clampedDx = Math.max(dx, -200);
-              content.style.transform = `translateX(${clampedDx}px)`;
-              const textOffset = Math.min(Math.abs(clampedDx) - 60, 0);
-              deleteText.style.transform = `translateX(${textOffset}px)`;
-            }
-          }
-        }, { passive: false });
-
-        async function handleDelete() {
-          const isRecurring = item.description?.includes('(recurring)');
-          const collection = item.type === 'expense' ? 'expenses' : 'payments';
-
-          if (isRecurring) {
-            const choice = prompt('This is a recurring expense.\nType "one" to delete just this one, or "all" to cancel all future charges.');
-            if (!choice) { content.style.transform = ''; deleteText.style.transform = ''; return; }
-            if (choice.toLowerCase() === 'all') {
-              try {
-                const { getRecurring, deactivateRecurring } = await import('./recurring.js');
-                const recurrings = await getRecurring();
-                const match = recurrings.find(r => item.description.replace(' (recurring)', '') === r.description);
-                if (match) await deactivateRecurring(match.id);
-              } catch (e) { console.warn('Could not cancel recurring:', e); }
-            }
-            if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') { content.style.transform = ''; deleteText.style.transform = ''; return; }
-          } else {
-            if (!confirm('Delete this entry?')) { content.style.transform = ''; deleteText.style.transform = ''; return; }
-          }
-
-          try {
-            const { db } = await import('./firebase-config.js');
-            await db.collection(collection).doc(item.id).delete();
-            li.style.transition = 'opacity 0.3s, max-height 0.3s';
-            li.style.opacity = '0';
-            li.style.maxHeight = '0';
-            li.style.overflow = 'hidden';
-            setTimeout(() => li.remove(), 300);
-          } catch (err) {
-            console.error('Delete failed:', err);
-            alert('Failed to delete.');
-            content.style.transform = '';
-          }
-        }
-
-        content.addEventListener('touchend', (e) => {
-          // Re-enable scrolling on parent
-          const scrollParent = content.closest('.dashboard-content');
-          if (scrollParent) scrollParent.style.overflow = '';
-
-          if (!swiping) {
-            content.style.transition = 'transform 0.2s ease-out';
-            deleteText.style.transition = 'transform 0.2s ease-out';
-            content.style.transform = '';
-            deleteText.style.transform = '';
-            return;
-          }
-          const dx = e.changedTouches[0].clientX - startX;
-          content.style.transition = 'transform 0.2s ease-out';
-          deleteText.style.transition = 'transform 0.2s ease-out';
-          if (dx < -150) {
-            content.style.transform = 'translateX(-200px)';
-            handleDelete();
-          } else {
-            content.style.transform = '';
-            deleteText.style.transform = '';
-          }
-        }, { passive: true });
-
-        // Tap delete button also works
-        deleteBtn.addEventListener('click', () => handleDelete());
-
-        // Tap content to edit
-        content.addEventListener('click', (e) => {
-          if (Math.abs(parseFloat(content.style.transform?.match(/-?\d+/)?.[0] || 0)) > 10) {
-            // Swiped open — close instead of navigating
-            content.style.transition = 'transform 0.2s ease-out';
-            content.style.transform = '';
-            return;
-          }
-          editEntry(item.type, item);
-        });
-      } else {
-        // Duels — no swipe delete, just display
-        li.innerHTML = `<div class="swipe-content">${contentHTML}</div>`;
-      }
-
-      list.appendChild(li);
-    } catch (e) {
-      console.error('Error rendering item:', item, e);
-    }
-  });
-
+  _populateCategoryChips();
+  _populateMonthPicker();
+  _initFilterListeners(myUid, totalBalance);
+  _rerenderList(myUid, totalBalance);
 }
 
 function toJSDate(d) {
