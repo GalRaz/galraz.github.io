@@ -329,6 +329,7 @@ body {
 }
 .hc-bar {
   display: flex; align-items: center; gap: 7px;
+  scroll-margin-top: 12px;
 }
 .hc-search {
   flex: 1; display: flex; align-items: center; gap: 7px;

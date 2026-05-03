@@ -515,6 +515,20 @@ function _initFilterListeners(myUid, totalBalance) {
         _applyFilters(myUid, totalBalance);
       }, 200);
     });
+    // When the user starts a search, lift the bar to the top so the first
+    // few results are visible without scrolling. Skipped if it's already
+    // near the top (e.g. re-focus after clearing) to avoid jumpy behavior.
+    // Bound to both focus and input — focus covers tap-to-search; input
+    // covers programmatic typing and any focus auto-scroll race.
+    function _liftSearchBar() {
+      const bar = document.querySelector('#history-controls .hc-bar');
+      if (!bar) return;
+      const rect = bar.getBoundingClientRect();
+      if (rect.top <= 60) return;
+      bar.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+    searchEl.addEventListener('focus', _liftSearchBar);
+    searchEl.addEventListener('input', _liftSearchBar);
   }
   if (searchClear) {
     searchClear.addEventListener('click', () => {
