@@ -1310,10 +1310,25 @@ function validateQuotes(d) {
     && d.theyOwe.every(t => Array.isArray(t) && t.length > 0);
 }
 
+/**
+ * Accept today's quote file or yesterday's. The refresh agent runs late in
+ * the UTC day (~23:09 UTC), which means the file's `date` is "today" only
+ * for the final ~50 minutes of UTC and "yesterday" for the rest of the
+ * user's morning/day. Without this tolerance, dynamic taglines almost
+ * never fire and we constantly fall back to STATIC_QUOTES.
+ */
+function _quotesAreFresh(q) {
+  if (!q || typeof q.date !== 'string') return false;
+  const today = todayUTC();
+  if (q.date === today) return true;
+  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  return q.date === yest;
+}
+
 function getBalanceQuote(balance) {
   const abs = Math.abs(balance);
   const day = Math.floor(Date.now() / 86400000);
-  const quotes = (_dailyQuotes && _dailyQuotes.date === todayUTC()) ? _dailyQuotes : STATIC_QUOTES;
+  const quotes = _quotesAreFresh(_dailyQuotes) ? _dailyQuotes : STATIC_QUOTES;
 
   if (abs < 1) return quotes.settled[day % quotes.settled.length];
 
