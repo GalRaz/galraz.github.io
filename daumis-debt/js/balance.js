@@ -355,48 +355,102 @@ function _eventVerb(kind, item) {
 function _renderActivityList(events, myUid) {
   const list = document.getElementById('history-list');
   if (!list) return;
-  // Same <ul> element, but swap class so styles reflow as an activity list.
   list.classList.add('activity-list');
+  list.innerHTML = '';
 
   if (events.length === 0) {
     list.innerHTML = `<li class="activity-empty">No activity in this range.</li>`;
     return;
   }
 
-  let html = '';
+  // Match the History row formatting so amounts read identically across
+  // the two views (signed, green/red, breakdown vs consolidated).
+  const { balanceView, consolSymbol, rateCache } = _renderHistoryOpts || {};
+  const sym = consolSymbol || '$';
+  const rates = rateCache || {};
+  const showOriginal = balanceView === 'breakdown';
+
+  function fmtCurrency(amount, currency) {
+    const s = CURRENCY_SYMBOLS[currency] || currency + ' ';
+    return `${s}${formatAmountByDigits(amount)}`;
+  }
+  function fmtConsol(item) {
+    if (!item.currency) return `${sym}0.00`;
+    const rate = rates[item.currency] || 1;
+    const orig = item.type === 'payment'
+      ? item.amount
+      : (item.splitType === 'even' ? item.amount / 2 : item.amount);
+    return `${sym}${formatAmountByDigits(Math.abs(orig) * rate)}`;
+  }
+  function fmtDuelConsol(usdAmount) {
+    const rate = rates['USD'] || 1;
+    return `${sym}${formatAmountByDigits(Math.abs(usdAmount) * rate)}`;
+  }
+  function amountFor(item) {
+    if (!item || !item.type) return { html: '', cls: '' };
+    const impact = itemImpact(item, myUid);
+    const isCredit = impact >= 0;
+    const sign = isCredit ? '+' : '−';
+    const cls = isCredit ? 'credit' : 'debit';
+    if (item.type === 'duel') {
+      const text = showOriginal
+        ? `${sign}$${Math.abs(item.balanceAdjust || 0).toFixed(2)}`
+        : `${sign}${fmtDuelConsol(impact)}`;
+      return { html: text, cls };
+    }
+    if (showOriginal && item.currency) {
+      const orig = item.type === 'payment'
+        ? item.amount
+        : (item.splitType === 'even' ? item.amount / 2 : item.amount);
+      return { html: `${sign}${fmtCurrency(orig, item.currency)}`, cls };
+    }
+    return { html: `${sign}${fmtConsol(item)}`, cls };
+  }
+
   let lastBucket = null;
   for (const ev of events.slice(0, _historyShownCount)) {
     const bucket = _dayBucket(ev.ts);
     if (bucket !== lastBucket) {
-      html += `<li class="day-head">${_escape(bucket)}</li>`;
+      const dh = document.createElement('li');
+      dh.className = 'day-head';
+      dh.textContent = bucket;
+      list.appendChild(dh);
       lastBucket = bucket;
     }
+    const item = ev.item;
     const actorName = ev.actor === myUid ? 'You' : (ev.actor ? getUserName(ev.actor) : '—');
-    const verb   = _eventVerb(ev.kind, ev.item);
-    const target = _eventTarget(ev.item);
-    const { glyph, cls } = _eventIcon(ev.kind, ev.item);
-    let amtHTML = '';
-    if (ev.item && ev.item.amount && ev.item.currency && ev.item.type !== 'duel') {
-      const sym = CURRENCY_SYMBOLS[ev.item.currency] || ev.item.currency + ' ';
-      const amt = `${sym}${formatAmountByDigits(ev.item.amount)}`;
-      const dimCls = ev.kind === 'delete' ? ' dim' : '';
-      amtHTML = `<div class="a-amt${dimCls}">${amt}</div>`;
-    }
-    html += `
-      <li class="activity-row">
-        <div class="a-ic ${cls}">${_escape(glyph)}</div>
-        <div class="a-info">
-          <div class="a-line">
-            <span class="actor">${_escape(actorName)}</span>
-            <span class="verb"> ${verb} </span><span class="target">${_escape(target)}</span>
-          </div>
-          <div class="a-meta">${_escape(_relativeTime(ev.ts))}</div>
-        </div>
-        ${amtHTML}
-      </li>`;
-  }
+    const verb   = _eventVerb(ev.kind, item);
+    const target = _eventTarget(item);
+    const { glyph, cls: iconKindCls } = _eventIcon(ev.kind, item);
+    const iconTypeCls = item?.type || '';
+    const eventCls = ev.kind === 'edit' ? ' edit-event' : (ev.kind === 'delete' ? ' delete-event' : '');
+    const { html: amtText, cls: amtCls } = amountFor(item);
+    const amtMod = ev.kind === 'delete' ? ' deleted' : '';
 
-  list.innerHTML = html;
+    const li = document.createElement('li');
+    li.className = 'activity-row';
+    li.innerHTML = `
+      <div class="swipe-content">
+        <div class="entry-icon ${iconTypeCls}${eventCls}">${_escape(glyph)}</div>
+        <div class="entry-info">
+          <div class="entry-desc"><span class="actor">${_escape(actorName)}</span> <span class="verb">${verb}</span> <span class="target">${_escape(target)}</span></div>
+          <div class="entry-meta">${_escape(_relativeTime(ev.ts))}</div>
+        </div>
+        ${amtText ? `<div class="entry-amount ${amtCls}${amtMod}">${amtText}</div>` : ''}
+      </div>`;
+
+    // Tapping an activity row jumps to the edit screen for the underlying entry,
+    // matching the History list. Skip on delete events (item is gone) and on
+    // duels (no edit screen exists for them).
+    const editable = ev.kind !== 'delete' && (item?.type === 'expense' || item?.type === 'payment');
+    if (editable) {
+      const content = li.querySelector('.swipe-content');
+      content.style.cursor = 'pointer';
+      content.addEventListener('click', () => editEntry(item.type, item));
+    }
+
+    list.appendChild(li);
+  }
 
   const remaining = events.length - _historyShownCount;
   if (remaining > 0) {

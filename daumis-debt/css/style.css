@@ -351,12 +351,15 @@ body {
   color: #fff;
 }
 
-/* Activity feed rows + day groupers */
-.activity-list {
-  list-style: none;
-  padding: 0 0 80px;
-  margin: 0;
-}
+/* Activity feed reuses the same row chrome as the History list (.entry-icon /
+   .entry-info / .entry-desc / .entry-meta / .entry-amount) so the two views
+   read identically. Only a few activity-specific tweaks live below: day
+   groupers, edit/delete icon variants, line-wrapping for long descriptions,
+   and a struck-through amount on delete events. */
+
+/* Day-grouper rows — visually a section header, not a card. Override the
+   .history-list li chrome (border-radius, shadow, surface) so the heading
+   sits flat above the list. */
 .activity-list .day-head {
   font-size: 0.7rem;
   letter-spacing: 0.12em;
@@ -364,53 +367,38 @@ body {
   color: var(--text-muted);
   font-weight: 600;
   margin: 14px 0 6px;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0 2px;
+  overflow: visible;
 }
 .activity-list .day-head:first-child { margin-top: 4px; }
-.activity-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  margin-bottom: 6px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
-}
-.activity-row .a-ic {
-  width: 32px; height: 32px;
-  border-radius: 9px;
-  background: var(--surface-2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.95rem;
-  flex-shrink: 0;
-}
-.activity-row .a-ic.edit  { background: var(--accent-soft); color: var(--accent); }
-.activity-row .a-ic.del   { background: var(--red-soft); color: var(--red); }
-.activity-row .a-info { flex: 1; min-width: 0; }
-.activity-row .a-line {
-  font-size: 0.88rem;
-  color: var(--text);
-  font-weight: 500;
-  line-height: 1.35;
+
+/* Allow long descriptions to wrap onto multiple lines (History truncates
+   with ellipsis; Activity should show the full text). */
+.activity-list .entry-desc {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
   word-break: break-word;
   overflow-wrap: anywhere;
 }
-.activity-row .a-line .actor { font-weight: 700; }
-.activity-row .a-line .verb  { color: var(--text-muted); font-weight: 500; }
-.activity-row .a-line .target { color: var(--text); }
-.activity-row .a-meta {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  margin-top: 2px;
+.activity-list .entry-desc .actor { font-weight: 700; }
+.activity-list .entry-desc .verb  { color: var(--text-muted); font-weight: 500; }
+
+/* Edit / delete event icons take a tinted background instead of the per-type
+   colour, so the action stands out from a regular create event. */
+.activity-list .entry-icon.edit-event   { background: var(--accent-soft); color: var(--accent); }
+.activity-list .entry-icon.delete-event { background: var(--red-soft);    color: var(--red); }
+
+/* Soft-deleted items: keep the amount visible but visually retired. */
+.activity-list .entry-amount.deleted {
+  text-decoration: line-through;
+  opacity: 0.6;
 }
-.activity-row .a-amt {
-  font-size: 0.85rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.activity-row .a-amt.cr { color: var(--green); }
-.activity-row .a-amt.dr { color: var(--red); }
-.activity-row .a-amt.dim { color: var(--text-muted); font-weight: 600; }
+
+/* Empty state. */
 .activity-empty {
   text-align: center;
   padding: 32px 16px;
@@ -418,6 +406,7 @@ body {
   font-size: 0.85rem;
   background: var(--surface);
   border-radius: var(--radius-sm);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
 }
 
 /* History filter controls — Filter B (search + sheet) */
