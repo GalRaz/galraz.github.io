@@ -270,20 +270,25 @@ function _deriveEvents(items) {
   const events = [];
   for (const item of items) {
     if (item.source === 'splitwise') continue;
+    // Actor is whoever clicked Save in the app (`addedBy`) — *not* the payer
+    // (`paidBy`), since the payer is just whose wallet fronted the money.
+    // Duels record the player as `playedBy`. If we don't know the actor for
+    // an event, we skip it rather than guess (no fake attributions).
     const createTs = toJSDate(item.createdAt || item.playedAt || item.sortDate || item.date);
-    if (createTs && !isNaN(createTs)) {
-      events.push({ kind: 'create', actor: item.paidBy || item.playedBy || null, ts: createTs, item });
+    const createActor = item.addedBy || item.playedBy || null;
+    if (createTs && !isNaN(createTs) && createActor) {
+      events.push({ kind: 'create', actor: createActor, ts: createTs, item });
     }
-    if (item.updatedAt) {
+    if (item.updatedAt && item.editedBy) {
       const ts = toJSDate(item.updatedAt);
       if (ts && !isNaN(ts)) {
-        events.push({ kind: 'edit', actor: item.editedBy || null, ts, item });
+        events.push({ kind: 'edit', actor: item.editedBy, ts, item });
       }
     }
-    if (item.deletedAt) {
+    if (item.deletedAt && item.deletedBy) {
       const ts = toJSDate(item.deletedAt);
       if (ts && !isNaN(ts)) {
-        events.push({ kind: 'delete', actor: item.deletedBy || null, ts, item });
+        events.push({ kind: 'delete', actor: item.deletedBy, ts, item });
       }
     }
   }
