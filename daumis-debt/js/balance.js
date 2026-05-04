@@ -10,9 +10,11 @@ let _duelAvailableCache = null;
 
 // History pagination + filter state
 const HISTORY_FILTER_KEY = 'daumis-debt-history-filter';
+const HISTORY_VIEW_KEY = 'daumis-debt-history-view';
 let _allHistoryItems = [];
 let _historyShownCount = 20;
 let _historyFilter = _loadPersistedFilter();
+let _historyView = _loadPersistedView(); // 'history' | 'activity'
 // Draft state used while the sheet is open; commits to _historyFilter on Apply.
 let _filterDraft = null;
 // Calendar view state — anchor month and the in-progress range pick mode.
@@ -144,20 +146,30 @@ function _itemMatchesFacets(item, f) {
   return true;
 }
 
-function _getFilteredItems() {
-  return _allHistoryItems.filter(item =>
-    _itemMatchesFacets(item, _historyFilter) && _itemMatchesText(item, _historyFilter.text)
-  );
+/**
+ * Filter `_allHistoryItems` by the committed facets + text.
+ * Soft-deleted items (with `deletedAt` set) are excluded by default; pass
+ * `{ includeDeleted: true }` to keep them (used by the Activity feed so it
+ * can still surface a "deleted" event after the row is gone from History).
+ */
+function _getFilteredItems(opts = {}) {
+  return _allHistoryItems.filter(item => {
+    if (!opts.includeDeleted && item.deletedAt) return false;
+    return _itemMatchesFacets(item, _historyFilter) && _itemMatchesText(item, _historyFilter.text);
+  });
 }
 
 /**
  * Live count of items that *would* match if `draft` were applied.
  * Includes the search text from the committed filter (search is independent of the sheet).
+ * Soft-deleted items are excluded — Apply CTA reflects the History view, not Activity.
  */
 function _countMatches(draft) {
   const text = _historyFilter.text;
-  return _allHistoryItems.reduce((n, item) =>
-    _itemMatchesFacets(item, draft) && _itemMatchesText(item, text) ? n + 1 : n, 0);
+  return _allHistoryItems.reduce((n, item) => {
+    if (item.deletedAt) return n;
+    return _itemMatchesFacets(item, draft) && _itemMatchesText(item, text) ? n + 1 : n;
+  }, 0);
 }
 
 function _facetCount(filter) {
@@ -233,11 +245,183 @@ function _escape(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
+// ===== History/Activity view persistence =====
+
+function _loadPersistedView() {
+  try {
+    const v = localStorage.getItem(HISTORY_VIEW_KEY);
+    return v === 'activity' ? 'activity' : 'history';
+  } catch (e) { return 'history'; }
+}
+
+function _persistView(v) {
+  try { localStorage.setItem(HISTORY_VIEW_KEY, v); } catch (e) {}
+}
+
+// ===== Activity feed helpers =====
+
+/**
+ * Walk filtered items and emit one event per discrete moment: create,
+ * (optional) edit, (optional) delete. Splitwise-imported items are skipped
+ * because their createdAt is the bulk-import timestamp, not a meaningful
+ * "added" event for the user.
+ */
+function _deriveEvents(items) {
+  const events = [];
+  for (const item of items) {
+    if (item.source === 'splitwise') continue;
+    const createTs = toJSDate(item.createdAt || item.playedAt || item.sortDate || item.date);
+    if (createTs && !isNaN(createTs)) {
+      events.push({ kind: 'create', actor: item.paidBy || item.playedBy || null, ts: createTs, item });
+    }
+    if (item.updatedAt) {
+      const ts = toJSDate(item.updatedAt);
+      if (ts && !isNaN(ts)) {
+        events.push({ kind: 'edit', actor: item.editedBy || null, ts, item });
+      }
+    }
+    if (item.deletedAt) {
+      const ts = toJSDate(item.deletedAt);
+      if (ts && !isNaN(ts)) {
+        events.push({ kind: 'delete', actor: item.deletedBy || null, ts, item });
+      }
+    }
+  }
+  events.sort((a, b) => b.ts - a.ts);
+  return events;
+}
+
+/** Short relative-time string. ≥7 days falls back to an absolute "Mmm d" date. */
+function _relativeTime(date) {
+  const d = toJSDate(date);
+  if (!d || isNaN(d)) return '';
+  const diffMs = Date.now() - d.getTime();
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  if (diffSec < 60)  return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60)  return `${diffMin}m ago`;
+  const diffHr  = Math.floor(diffMin / 60);
+  if (diffHr  < 24)  return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7)   return `${diffDay}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** Day-bucket label for grouping the activity feed. */
+function _dayBucket(date) {
+  const d = toJSDate(date);
+  if (!d || isNaN(d)) return '';
+  const today = new Date();
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((t0 - dDay) / 86400000);
+  if (diffDays === 0)  return 'Today';
+  if (diffDays === 1)  return 'Yesterday';
+  if (diffDays < 7)    return d.toLocaleDateString('en-US', { weekday: 'long' });
+  if (d.getFullYear() === today.getFullYear()) {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function _eventIcon(kind, item) {
+  if (kind === 'edit')   return { glyph: '✎', cls: 'edit' };
+  if (kind === 'delete') return { glyph: '×', cls: 'del' };
+  if (item?.type === 'payment') return { glyph: '↗', cls: '' };
+  if (item?.type === 'duel')    return { glyph: '⚔', cls: '' };
+  return { glyph: categorize(item?.description).icon, cls: '' };
+}
+
+function _eventTarget(item) {
+  if (!item) return '';
+  if (item.type === 'duel') return item.game || 'a duel';
+  if (item.type === 'payment') return 'a settle-up';
+  return item.description || 'an expense';
+}
+
+function _eventVerb(kind, item) {
+  if (kind === 'edit')   return 'edited';
+  if (kind === 'delete') return 'deleted';
+  if (item?.type === 'payment') return 'settled';
+  if (item?.type === 'duel')    return 'played';
+  return 'added';
+}
+
+function _renderActivityList(events, myUid) {
+  const list = document.getElementById('history-list');
+  if (!list) return;
+  // Same <ul> element, but swap class so styles reflow as an activity list.
+  list.classList.add('activity-list');
+
+  if (events.length === 0) {
+    list.innerHTML = `<li class="activity-empty">No activity in this range.</li>`;
+    return;
+  }
+
+  let html = '';
+  let lastBucket = null;
+  for (const ev of events.slice(0, _historyShownCount)) {
+    const bucket = _dayBucket(ev.ts);
+    if (bucket !== lastBucket) {
+      html += `<li class="day-head">${_escape(bucket)}</li>`;
+      lastBucket = bucket;
+    }
+    const actorName = ev.actor === myUid ? 'You' : (ev.actor ? getUserName(ev.actor) : '—');
+    const verb   = _eventVerb(ev.kind, ev.item);
+    const target = _eventTarget(ev.item);
+    const { glyph, cls } = _eventIcon(ev.kind, ev.item);
+    let amtHTML = '';
+    if (ev.item && ev.item.amount && ev.item.currency && ev.item.type !== 'duel') {
+      const sym = CURRENCY_SYMBOLS[ev.item.currency] || ev.item.currency + ' ';
+      const amt = `${sym}${formatAmountByDigits(ev.item.amount)}`;
+      const dimCls = ev.kind === 'delete' ? ' dim' : '';
+      amtHTML = `<div class="a-amt${dimCls}">${amt}</div>`;
+    }
+    html += `
+      <li class="activity-row">
+        <div class="a-ic ${cls}">${_escape(glyph)}</div>
+        <div class="a-info">
+          <div class="a-line">
+            <span class="actor">${_escape(actorName)}</span>
+            <span class="verb"> ${verb} </span><span class="target">${_escape(target)}</span>
+          </div>
+          <div class="a-meta">${_escape(_relativeTime(ev.ts))}</div>
+        </div>
+        ${amtHTML}
+      </li>`;
+  }
+
+  list.innerHTML = html;
+
+  const remaining = events.length - _historyShownCount;
+  if (remaining > 0) {
+    const seeMore = document.createElement('li');
+    seeMore.id = 'history-see-more';
+    seeMore.textContent = `See more · ${remaining} more`;
+    seeMore.addEventListener('click', () => {
+      _historyShownCount += 20;
+      _renderActivityList(events, myUid);
+    });
+    list.appendChild(seeMore);
+  }
+}
+
 function _rerenderList(myUid, totalBalance) {
   const { balanceView, consolCurrency, consolSymbol, rateCache } = _renderHistoryOpts || {};
   const showOriginal = balanceView === 'breakdown';
   const list = document.getElementById('history-list');
   if (!list) return;
+
+  // Activity branch — derive events (including soft-deleted items) and render
+  // a separate list shape. Bail out before the per-row history rendering.
+  if (_historyView === 'activity') {
+    list.innerHTML = '';
+    const events = _deriveEvents(_getFilteredItems({ includeDeleted: true }));
+    _renderActivityList(events, myUid);
+    return;
+  }
+  // History branch — restore the default styling in case we toggled back from Activity.
+  list.classList.remove('activity-list');
 
   const filtered = _getFilteredItems();
   const visible = filtered.slice(0, _historyShownCount);
@@ -411,7 +595,16 @@ function _rerenderList(myUid, totalBalance) {
           }
           try {
             const { db } = await import('./firebase-config.js');
-            await db.collection(collection).doc(item.id).delete();
+            const fb = (typeof window !== 'undefined' && window.firebase) ? window.firebase : null;
+            const tsValue = fb ? fb.firestore.FieldValue.serverTimestamp() : new Date();
+            await db.collection(collection).doc(item.id).update({
+              deletedAt: tsValue,
+              deletedBy: myUid,
+            });
+            // Stash on the in-memory copy so we don't have to round-trip Firestore
+            // before the next render — the row will be filtered out via deletedAt.
+            item.deletedAt = new Date();
+            item.deletedBy = myUid;
             li.style.transition = 'opacity 0.3s, max-height 0.3s';
             li.style.opacity = '0';
             li.style.maxHeight = '0';
@@ -499,6 +692,32 @@ export function isHistoryFilterSheetOpen() {
 function _initFilterListeners(myUid, totalBalance) {
   if (_filtersInitialized) return;
   _filtersInitialized = true;
+
+  // --- History/Activity view toggle ---
+  const viewToggle = document.getElementById('history-view-toggle');
+  if (viewToggle) {
+    // Reflect persisted state on first paint.
+    viewToggle.querySelectorAll('.hv-btn').forEach(b => {
+      const on = b.dataset.view === _historyView;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    viewToggle.addEventListener('click', (e) => {
+      const btn = e.target.closest('.hv-btn');
+      if (!btn) return;
+      const next = btn.dataset.view === 'activity' ? 'activity' : 'history';
+      if (next === _historyView) return;
+      _historyView = next;
+      _persistView(_historyView);
+      viewToggle.querySelectorAll('.hv-btn').forEach(b => {
+        const on = b.dataset.view === _historyView;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      _historyShownCount = 20;
+      _rerenderList(myUid, totalBalance);
+    });
+  }
 
   // --- Search (live, independent of the sheet) ---
   let _searchTimer = null;

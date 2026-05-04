@@ -902,7 +902,10 @@ window.addEventListener('edit-entry', (e) => {
     document.getElementById('btn-delete-payment').addEventListener('click', async () => {
       if (!confirm('Delete this settlement? The debt will be restored.')) return;
       try {
-        await db.collection('payments').doc(editingEntry.id).delete();
+        await db.collection('payments').doc(editingEntry.id).update({
+          deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          deletedBy: currentUser.uid,
+        });
         editingEntry = null;
         showScreen('dashboard');
         const { loadDashboard } = await import('./balance.js');
@@ -973,7 +976,10 @@ window.addEventListener('edit-entry', (e) => {
     if (!confirm('Delete this entry?')) return;
     try {
       const collection = editingEntry.type === 'expense' ? 'expenses' : 'payments';
-      await db.collection(collection).doc(editingEntry.id).delete();
+      await db.collection(collection).doc(editingEntry.id).update({
+        deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        deletedBy: currentUser.uid,
+      });
       editingEntry = null;
       showScreen('dashboard', 'slide-back');
       const { loadDashboard } = await import('./balance.js');
@@ -2055,6 +2061,8 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
       await db.collection('expenses').doc(editingEntry.id).update({
         description, amount, currency, usdAmount, exchangeRate,
         paidBy: paidByUid, splitType, owedBy: owedByUid, date: expenseDate,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        editedBy: currentUser.uid,
       });
     } else {
       await db.collection('expenses').add({

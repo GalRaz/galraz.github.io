@@ -55,7 +55,10 @@
           <p>Weekly Duel available!</p>
           <button id="btn-play-duel" class="btn btn-accent">Play</button>
         </div>
-        <h3>History</h3>
+        <div class="hv-toggle" id="history-view-toggle" role="tablist" aria-label="History view">
+          <button type="button" class="hv-btn active" data-view="history" role="tab" aria-selected="true">History</button>
+          <button type="button" class="hv-btn" data-view="activity" role="tab" aria-selected="false">Activity</button>
+        </div>
         <div id="history-controls">
           <div class="hc-bar">
             <div class="hc-search">
