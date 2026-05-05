@@ -353,27 +353,9 @@ body {
 
 /* Activity feed reuses the same row chrome as the History list (.entry-icon /
    .entry-info / .entry-desc / .entry-meta / .entry-amount) so the two views
-   read identically. Only a few activity-specific tweaks live below: day
-   groupers, edit/delete icon variants, line-wrapping for long descriptions,
-   and a struck-through amount on delete events. */
-
-/* Day-grouper rows — visually a section header, not a card. Override the
-   .history-list li chrome (border-radius, shadow, surface) so the heading
-   sits flat above the list. */
-.activity-list .day-head {
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin: 14px 0 6px;
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-  padding: 0 2px;
-  overflow: visible;
-}
-.activity-list .day-head:first-child { margin-top: 4px; }
+   read identically. Only a few activity-specific tweaks live below: edit/
+   delete icon variants, line-wrapping for long descriptions, and a struck-
+   through amount on delete events. */
 
 /* Allow long descriptions to wrap onto multiple lines (History truncates
    with ellipsis; Activity should show the full text). */

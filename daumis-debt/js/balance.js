@@ -312,23 +312,6 @@ function _relativeTime(date) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-/** Day-bucket label for grouping the activity feed. */
-function _dayBucket(date) {
-  const d = toJSDate(date);
-  if (!d || isNaN(d)) return '';
-  const today = new Date();
-  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-  const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const diffDays = Math.round((t0 - dDay) / 86400000);
-  if (diffDays === 0)  return 'Today';
-  if (diffDays === 1)  return 'Yesterday';
-  if (diffDays < 7)    return d.toLocaleDateString('en-US', { weekday: 'long' });
-  if (d.getFullYear() === today.getFullYear()) {
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
 function _eventIcon(kind, item) {
   if (kind === 'edit')   return { glyph: '✎', cls: 'edit' };
   if (kind === 'delete') return { glyph: '×', cls: 'del' };
@@ -407,16 +390,7 @@ function _renderActivityList(events, myUid) {
     return { html: `${sign}${fmtConsol(item)}`, cls };
   }
 
-  let lastBucket = null;
   for (const ev of events.slice(0, _historyShownCount)) {
-    const bucket = _dayBucket(ev.ts);
-    if (bucket !== lastBucket) {
-      const dh = document.createElement('li');
-      dh.className = 'day-head';
-      dh.textContent = bucket;
-      list.appendChild(dh);
-      lastBucket = bucket;
-    }
     const item = ev.item;
     const actorName = ev.actor === myUid ? 'You' : (ev.actor ? getUserName(ev.actor) : '—');
     const verb   = _eventVerb(ev.kind, item);
