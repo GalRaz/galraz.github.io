@@ -15,7 +15,7 @@ export async function play(container, { year, week, seed }) {
     <p>Scratch your card to reveal the result!</p>
     <div class="scratch-card" id="scratch-card">
       <div class="scratch-value" id="scratch-value">
-        ${netAdjust >= 0 ? '+' : ''}$${netAdjust}
+        ${netAdjust >= 0 ? '+' : '-'}$${Math.abs(netAdjust)}
       </div>
       <canvas id="scratch-canvas" width="200" height="140"></canvas>
     </div>
