@@ -11,6 +11,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions, logger } = require('firebase-functions/v2');
 
 setGlobalOptions({
@@ -129,7 +130,7 @@ exports.notifyExpenseAdded = onDocumentCreated('expenses/{expenseId}', async (ev
   const desc = (expense.description || '').toString().slice(0, 80);
   const body = desc ? `${moneyPart} — ${desc}` : moneyPart;
 
-  await sendPushToUid(partner.uid, partner.token, {
+  await sendPushToUid(partner.uid, partner.token, withWebPushDefaults({
     notification: {
       title: `${actorName} added an expense`,
       body,
@@ -138,12 +139,184 @@ exports.notifyExpenseAdded = onDocumentCreated('expenses/{expenseId}', async (ev
       type: 'expense',
       expenseId: event.params.expenseId,
     },
+  }));
+});
+
+// ---------------------------------------------------------------------------
+// Trigger: new payment (settle-up) → push to the partner
+// ---------------------------------------------------------------------------
+exports.notifyPaymentAdded = onDocumentCreated('payments/{paymentId}', async (event) => {
+  const p = event.data?.data();
+  if (!p) return;
+
+  const actorUid = p.addedBy;
+  if (!actorUid) {
+    logger.warn('notifyPaymentAdded: no addedBy on payment', { id: event.params.paymentId });
+    return;
+  }
+
+  const [partner, actorName] = await Promise.all([
+    findPartner(actorUid),
+    findActorName(actorUid),
+  ]);
+  if (!partner) return;
+
+  const sym = symbol(p.currency);
+  const amtStr = formatAmount(p.amount);
+  const body = `${sym}${amtStr}${p.currency ? ' ' + p.currency : ''}`;
+
+  await sendPushToUid(partner.uid, partner.token, withWebPushDefaults({
+    notification: {
+      title: `${actorName} settled up`,
+      body,
+    },
+    data: {
+      type: 'payment',
+      paymentId: event.params.paymentId,
+    },
+  }));
+});
+
+// ---------------------------------------------------------------------------
+// Trigger: new duel doc → push to the partner
+// Handles both single-player games (playedBy set, result present) and two-player
+// games like RPS / Lucky Number where the first submission creates the doc with
+// `submissions: { [actor.uid]: choice }` and `result: null`.
+// ---------------------------------------------------------------------------
+exports.notifyDuelPlayed = onDocumentCreated('duels/{duelId}', async (event) => {
+  const d = event.data?.data();
+  if (!d) return;
+
+  // Actor is whoever made the first move.
+  const actorUid = d.playedBy || (d.submissions && Object.keys(d.submissions)[0]);
+  if (!actorUid) {
+    logger.warn('notifyDuelPlayed: cannot determine actor', { id: event.params.duelId });
+    return;
+  }
+
+  const [partner, actorName] = await Promise.all([
+    findPartner(actorUid),
+    findActorName(actorUid),
+  ]);
+  if (!partner) return;
+
+  const game = (d.game || 'this week\'s duel').toString();
+  let title;
+  let body;
+  if (d.result) {
+    // Single-player game (or somehow a fully-resolved doc on first write).
+    if (d.favoredUser && d.favoredUser === partner.uid) {
+      title = `${actorName} played — you won`;
+      body = `${game} · +$${d.balanceAdjust}`;
+    } else if (d.favoredUser) {
+      title = `${actorName} played — you lost`;
+      body = `${game} · −$${d.balanceAdjust}`;
+    } else {
+      title = `${actorName} played — tied`;
+      body = game;
+    }
+  } else {
+    // Two-player game waiting for the partner's submission.
+    title = `${actorName} made their move`;
+    body = `${game} · your turn`;
+  }
+
+  await sendPushToUid(partner.uid, partner.token, withWebPushDefaults({
+    notification: { title, body },
+    data: {
+      type: 'duel',
+      duelId: event.params.duelId,
+      week: String(d.week || ''),
+      year: String(d.year || ''),
+    },
+  }));
+});
+
+// ---------------------------------------------------------------------------
+// Scheduled: weekly duel reminder. Wednesday 9:00 UTC = ~17:00 KST / 15:00 BTT.
+// For each user who has push enabled AND hasn't played this week's duel,
+// send a quiet "your turn" nudge. Skipped entirely if duels are disabled.
+// ---------------------------------------------------------------------------
+function getISOWeek(date) {
+  const d = new Date(date.getTime());
+  d.setHours(0, 0, 0, 0);
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  yearStart.setHours(0, 0, 0, 0);
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+exports.weeklyDuelReminder = onSchedule({
+  schedule: '0 9 * * 3',
+  timeZone: 'Etc/UTC',
+  region: 'us-central1',
+}, async () => {
+  const db = getFirestore();
+  const now = new Date();
+  const year = now.getFullYear();
+  const week = getISOWeek(now);
+
+  // Honour the "duels disabled" setting.
+  const settingsSnap = await db.collection('settings').doc('duel').get();
+  if (settingsSnap.exists && settingsSnap.data().active === false) {
+    logger.info('weeklyDuelReminder: duels are disabled, skipping');
+    return;
+  }
+
+  // Which UIDs have already played this week (single-player playedBy OR
+  // two-player submissions key)?
+  const duelsSnap = await db.collection('duels')
+    .where('year', '==', year)
+    .where('week', '==', week)
+    .get();
+  const played = new Set();
+  duelsSnap.forEach((doc) => {
+    const data = doc.data();
+    if (data.playedBy) played.add(data.playedBy);
+    if (data.submissions) Object.keys(data.submissions).forEach((u) => played.add(u));
+  });
+
+  const usersSnap = await db.collection('users').get();
+  let pinged = 0;
+  for (const userDoc of usersSnap.docs) {
+    if (played.has(userDoc.id)) continue;
+    const data = userDoc.data();
+    if (!data.fcmToken) continue;
+
+    await sendPushToUid(userDoc.id, data.fcmToken, withWebPushDefaults({
+      notification: {
+        title: 'Weekly duel — your turn',
+        body: 'Open Daumi\'s Debt and play this week\'s game.',
+      },
+      data: {
+        type: 'duel-reminder',
+        week: String(week),
+        year: String(year),
+      },
+    }));
+    pinged += 1;
+  }
+
+  logger.info('weeklyDuelReminder: done', { week, year, pinged });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Spread the standard webpush options onto a message payload so the icon,
+ * badge, and tap-link don't have to be copy-pasted into every trigger.
+ */
+function withWebPushDefaults(payload) {
+  return {
+    ...payload,
     webpush: {
       fcmOptions: { link: 'https://galraz.github.io/daumis-debt/' },
       notification: {
         icon: 'https://galraz.github.io/daumis-debt/assets/icons/icon.png',
         badge: 'https://galraz.github.io/daumis-debt/assets/icons/icon.png',
       },
+      ...(payload.webpush || {}),
     },
-  });
-});
+  };
+}
