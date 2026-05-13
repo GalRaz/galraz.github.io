@@ -10,10 +10,11 @@ const firebaseConfig = {
 };
 
 // VAPID public key for Web Push (Firebase Cloud Messaging).
-// Generate one in Firebase Console → Project Settings → Cloud Messaging
-// → Web Push certificates → Generate key pair. Paste the PUBLIC key here.
-// Leave as null to disable push entirely (the Settings toggle will say so).
-export const VAPID_PUBLIC_KEY = null;
+// The PUBLIC half — generated in Firebase Console → Project Settings →
+// Cloud Messaging → Web Push certificates. Safe to commit. The matching
+// PRIVATE key stays in Firebase and is used by the Cloud Function (Phase 2)
+// to sign outgoing pushes.
+export const VAPID_PUBLIC_KEY = 'BHOfnrPyMkP70SGvpP_P4o4ZD5WcJJaZZUU1acBTHx9HRyw6SFxh9Z4t6NMfv3Aex8sQDLamBzGo921QKSTgZJU';
 
 firebase.initializeApp(firebaseConfig);
 
