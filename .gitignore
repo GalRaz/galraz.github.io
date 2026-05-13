@@ -5,3 +5,4 @@
 .superpowers/
 Gemfile.lock
 _site/
+functions/node_modules/
