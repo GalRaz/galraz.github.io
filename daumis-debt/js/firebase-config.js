@@ -9,6 +9,13 @@ const firebaseConfig = {
   appId: "1:632130093638:web:31be5718f150d0eb0c8047"
 };
 
+// VAPID public key for Web Push (Firebase Cloud Messaging).
+// The PUBLIC half — generated in Firebase Console → Project Settings →
+// Cloud Messaging → Web Push certificates. Safe to commit. The matching
+// PRIVATE key stays in Firebase and is used by the Cloud Function (Phase 2)
+// to sign outgoing pushes.
+export const VAPID_PUBLIC_KEY = 'BHOfnrPyMkP70SGvpP_P4o4ZD5WcJJaZZUU1acBTHx9HRyw6SFxh9Z4t6NMfv3Aex8sQDLamBzGo921QKSTgZJU';
+
 firebase.initializeApp(firebaseConfig);
 
 // Enable offline persistence — queues writes when offline, syncs when back online
