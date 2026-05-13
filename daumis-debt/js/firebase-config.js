@@ -9,6 +9,12 @@ const firebaseConfig = {
   appId: "1:632130093638:web:31be5718f150d0eb0c8047"
 };
 
+// VAPID public key for Web Push (Firebase Cloud Messaging).
+// Generate one in Firebase Console → Project Settings → Cloud Messaging
+// → Web Push certificates → Generate key pair. Paste the PUBLIC key here.
+// Leave as null to disable push entirely (the Settings toggle will say so).
+export const VAPID_PUBLIC_KEY = null;
+
 firebase.initializeApp(firebaseConfig);
 
 // Enable offline persistence — queues writes when offline, syncs when back online

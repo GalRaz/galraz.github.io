@@ -514,6 +514,73 @@ async function loadSettings() {
 
   // Load duel status
   await loadDuelSettings();
+
+  // Load push notification status
+  await loadPushSettings();
+}
+
+async function loadPushSettings() {
+  const btn = document.getElementById('btn-toggle-push');
+  const hint = document.getElementById('push-hint');
+  if (!btn) return;
+
+  try {
+    const push = await import('./push.js');
+    const state = await push.getPushState(currentUser);
+
+    switch (state) {
+      case 'on':
+        btn.textContent = 'Turn off';
+        btn.className = 'btn btn-logout';
+        btn.disabled = false;
+        btn.onclick = async () => {
+          btn.disabled = true; btn.textContent = 'Turning off…';
+          try { await push.disablePush(currentUser); }
+          catch (e) { console.error(e); }
+          finally { await loadPushSettings(); }
+        };
+        break;
+      case 'off':
+        btn.textContent = 'Turn on';
+        btn.className = 'btn btn-secondary';
+        btn.disabled = false;
+        btn.onclick = async () => {
+          btn.disabled = true; btn.textContent = 'Asking permission…';
+          try {
+            await push.enablePush(currentUser);
+            await loadPushSettings();
+          } catch (e) {
+            console.warn('enablePush failed:', e.message);
+            hint.textContent = `Couldn't enable: ${e.message}. Check the browser's site settings.`;
+            btn.textContent = 'Turn on';
+            btn.disabled = false;
+          }
+        };
+        break;
+      case 'denied':
+        btn.textContent = 'Blocked';
+        btn.disabled = true;
+        btn.className = 'btn btn-secondary';
+        hint.textContent = "You've blocked notifications for this site. Re-enable them in your browser's site settings, then come back.";
+        break;
+      case 'unsupported':
+        btn.textContent = 'Not supported';
+        btn.disabled = true;
+        btn.className = 'btn btn-secondary';
+        hint.textContent = "This browser doesn't support push. On iOS, install the app to home screen first (iOS 16.4+).";
+        break;
+      case 'no-vapid':
+        btn.textContent = 'Not configured';
+        btn.disabled = true;
+        btn.className = 'btn btn-secondary';
+        hint.textContent = 'Server setup pending — VAPID key not yet configured.';
+        break;
+    }
+  } catch (err) {
+    console.warn('loadPushSettings failed:', err);
+    btn.textContent = 'Unavailable';
+    btn.disabled = true;
+  }
 }
 
 async function loadRecurringList() {
