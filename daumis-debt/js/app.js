@@ -520,66 +520,72 @@ async function loadSettings() {
 }
 
 async function loadPushSettings() {
-  const btn = document.getElementById('btn-toggle-push');
+  const wrap = document.getElementById('toggle-push-wrap');
+  const input = document.getElementById('toggle-push');
   const hint = document.getElementById('push-hint');
-  if (!btn) return;
+  if (!wrap || !input) return;
+
+  // Helper to put the toggle in a final state.
+  const setState = ({ checked, disabled, hintText, busy = false }) => {
+    input.checked = checked;
+    input.disabled = !!disabled;
+    wrap.classList.toggle('is-disabled', !!disabled);
+    wrap.classList.toggle('is-busy', !!busy);
+    if (hintText) hint.textContent = hintText;
+  };
 
   try {
     const push = await import('./push.js');
     const state = await push.getPushState(currentUser);
 
+    // Default hint copy when the toggle is interactive.
+    const DEFAULT_HINT = 'Get a buzz when your partner adds an expense, settles a debt, or plays the weekly duel.';
+
     switch (state) {
       case 'on':
-        btn.textContent = 'Turn off';
-        btn.className = 'btn btn-logout';
-        btn.disabled = false;
-        btn.onclick = async () => {
-          btn.disabled = true; btn.textContent = 'Turning off…';
-          try { await push.disablePush(currentUser); }
-          catch (e) { console.error(e); }
-          finally { await loadPushSettings(); }
-        };
+        setState({ checked: true, disabled: false, hintText: DEFAULT_HINT });
         break;
       case 'off':
-        btn.textContent = 'Turn on';
-        btn.className = 'btn btn-secondary';
-        btn.disabled = false;
-        btn.onclick = async () => {
-          btn.disabled = true; btn.textContent = 'Asking permission…';
-          try {
-            await push.enablePush(currentUser);
-            await loadPushSettings();
-          } catch (e) {
-            console.warn('enablePush failed:', e.message);
-            hint.textContent = `Couldn't enable: ${e.message}. Check the browser's site settings.`;
-            btn.textContent = 'Turn on';
-            btn.disabled = false;
-          }
-        };
+        setState({ checked: false, disabled: false, hintText: DEFAULT_HINT });
         break;
       case 'denied':
-        btn.textContent = 'Blocked';
-        btn.disabled = true;
-        btn.className = 'btn btn-secondary';
-        hint.textContent = "You've blocked notifications for this site. Re-enable them in your browser's site settings, then come back.";
+        setState({
+          checked: false, disabled: true,
+          hintText: "You've blocked notifications for this site. Re-enable them in your browser's site settings, then come back.",
+        });
         break;
       case 'unsupported':
-        btn.textContent = 'Not supported';
-        btn.disabled = true;
-        btn.className = 'btn btn-secondary';
-        hint.textContent = "This browser doesn't support push. On iOS, install the app to home screen first (iOS 16.4+).";
+        setState({
+          checked: false, disabled: true,
+          hintText: "This browser doesn't support push. On iOS, install the app to home screen first (iOS 16.4+).",
+        });
         break;
       case 'no-vapid':
-        btn.textContent = 'Not configured';
-        btn.disabled = true;
-        btn.className = 'btn btn-secondary';
-        hint.textContent = 'Server setup pending — VAPID key not yet configured.';
+        setState({
+          checked: false, disabled: true,
+          hintText: 'Server setup pending — VAPID key not yet configured.',
+        });
         break;
     }
+
+    // Single change handler — replace any previous one so re-runs of
+    // loadPushSettings() don't double-bind.
+    input.onchange = async (e) => {
+      const wantsOn = e.target.checked;
+      setState({ checked: wantsOn, disabled: true, busy: true });
+      try {
+        if (wantsOn) await push.enablePush(currentUser);
+        else        await push.disablePush(currentUser);
+        await loadPushSettings();
+      } catch (err) {
+        console.warn('push toggle failed:', err?.message || err);
+        hint.textContent = `Couldn't ${wantsOn ? 'enable' : 'disable'} notifications: ${err?.message || err}. Try again.`;
+        setState({ checked: !wantsOn, disabled: false });
+      }
+    };
   } catch (err) {
     console.warn('loadPushSettings failed:', err);
-    btn.textContent = 'Unavailable';
-    btn.disabled = true;
+    setState({ checked: false, disabled: true, hintText: 'Notifications unavailable.' });
   }
 }
 

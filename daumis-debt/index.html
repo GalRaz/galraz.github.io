@@ -272,10 +272,15 @@
           <p class="settings-hint" id="duel-status-hint">Loading...</p>
           <button id="btn-toggle-duel" class="btn btn-secondary">...</button>
         </div>
-        <div class="settings-group">
-          <label class="settings-label">Push notifications</label>
-          <p class="settings-hint" id="push-hint">Get a buzz when your partner adds an expense, settles a debt, or plays the weekly duel.</p>
-          <button id="btn-toggle-push" class="btn btn-secondary">Loading…</button>
+        <div class="settings-group settings-row" id="push-settings-row">
+          <div class="settings-row-text">
+            <label class="settings-label" for="toggle-push">Push notifications</label>
+            <p class="settings-hint" id="push-hint">Get a buzz when your partner adds an expense, settles a debt, or plays the weekly duel.</p>
+          </div>
+          <label class="switch is-disabled" id="toggle-push-wrap" aria-label="Push notifications">
+            <input type="checkbox" id="toggle-push" disabled>
+            <span class="switch-slider"></span>
+          </label>
         </div>
         <div class="settings-group" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--surface-2)">
           <button id="btn-logout" class="btn btn-logout">Log Out</button>

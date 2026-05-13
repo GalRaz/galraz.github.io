@@ -777,6 +777,75 @@ body {
 
 /* Settings */
 .settings-group { display: flex; flex-direction: column; gap: 6px; }
+
+/* Horizontal settings row — label/hint on the left, control on the right.
+   Used by the push-notifications toggle so it sits inline next to its hint. */
+.settings-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+}
+.settings-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* iOS-style toggle switch. <label class="switch"> wraps a hidden
+   checkbox and a .switch-slider span that becomes the visible track. */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.switch input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.switch-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-2);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+.switch-slider::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.switch input:checked + .switch-slider {
+  background: var(--accent);
+}
+.switch input:checked + .switch-slider::before {
+  transform: translateX(18px);
+}
+.switch.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.switch.is-busy .switch-slider::before {
+  animation: switchBusy 1.2s ease-in-out infinite;
+}
+@keyframes switchBusy {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
 .settings-label { font-size: 0.95rem; font-weight: 600; }
 .settings-hint { font-size: 0.8rem; color: var(--text-muted); }
 .settings-input {
