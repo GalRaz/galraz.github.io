@@ -120,24 +120,13 @@ function bindForegroundHandler() {
   if (_foregroundBound) return;
   if (!window.firebase?.messaging) return;
   const messaging = firebase.messaging();
-  messaging.onMessage((payload) => {
-    const { title, body } = payload?.notification || {};
-    if (!title && !body) return;
-    try {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.showNotification(title || "Daumi's Debt", {
-          body: body || '',
-          icon: '/daumis-debt/assets/icons/icon.png',
-          badge: '/daumis-debt/assets/icons/icon.png',
-          data: payload?.data || {},
-        });
-      });
-    } catch (e) {
-      // Some browsers won't let an in-page script call showNotification;
-      // fall back to a constructor-style Notification.
-      new Notification(title || "Daumi's Debt", { body: body || '' });
-    }
-  });
+  // Intentionally a no-op: when a push has a `notification` payload, the FCM
+  // Web SDK fires BOTH onBackgroundMessage (in the SW) and onMessage (in the
+  // page) on the same event. The SW will already display the system
+  // notification — so if we also call showNotification here, the user sees
+  // two banners for every push. The app's Firestore listeners will update
+  // the in-app UI on their own.
+  messaging.onMessage(() => {});
   _foregroundBound = true;
 }
 
