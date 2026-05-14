@@ -10,16 +10,31 @@ service cloud.firestore {
       return request.resource.data.addedBy == request.auth.uid;
     }
 
+    // Soft-delete is allowed for either partner (shared ledger), but a
+    // regular field edit is still restricted to the original adder so one
+    // partner can't silently rewrite the other's entries.
+    function isSoftDeleteOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['deletedAt', 'deletedBy']) &&
+        request.resource.data.deletedBy == request.auth.uid;
+    }
+
     match /expenses/{doc} {
       allow read: if isAllowedUser();
       allow create: if isAllowedUser() && isOwnEntry();
-      allow update, delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
+      allow update: if isAllowedUser() && (
+        resource.data.addedBy == request.auth.uid || isSoftDeleteOnly()
+      );
+      allow delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
     }
 
     match /payments/{doc} {
       allow read: if isAllowedUser();
       allow create: if isAllowedUser() && isOwnEntry();
-      allow update, delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
+      allow update: if isAllowedUser() && (
+        resource.data.addedBy == request.auth.uid || isSoftDeleteOnly()
+      );
+      allow delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
     }
 
     match /duels/{doc} {
