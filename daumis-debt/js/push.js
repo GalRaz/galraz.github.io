@@ -101,7 +101,58 @@ export async function enablePush(currentUser) {
     fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
+  // Foreground handler: when a push arrives while the app is open and
+  // focused, FCM routes the payload here instead of the service worker's
+  // onBackgroundMessage. Without this, the push is silent. Show the same
+  // system notification ourselves so the UX matches the background case.
+  bindForegroundHandler();
+
   return token;
+}
+
+let _foregroundBound = false;
+function bindForegroundHandler() {
+  if (_foregroundBound) return;
+  if (!window.firebase?.messaging) return;
+  const messaging = firebase.messaging();
+  messaging.onMessage((payload) => {
+    const { title, body } = payload?.notification || {};
+    if (!title && !body) return;
+    try {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title || "Daumi's Debt", {
+          body: body || '',
+          icon: '/daumis-debt/assets/icons/icon.png',
+          badge: '/daumis-debt/assets/icons/icon.png',
+          data: payload?.data || {},
+        });
+      });
+    } catch (e) {
+      // Some browsers won't let an in-page script call showNotification;
+      // fall back to a constructor-style Notification.
+      new Notification(title || "Daumi's Debt", { body: body || '' });
+    }
+  });
+  _foregroundBound = true;
+}
+
+/**
+ * Re-bind the foreground handler on every app load (not just when the user
+ * first opts in). If they already have a token, the SDK can be loaded and
+ * the handler attached so foreground pushes don't get dropped.
+ */
+export async function rehydrateForegroundHandler(currentUser) {
+  if (!pushIsSupported() || !VAPID_PUBLIC_KEY || !currentUser) return;
+  if (Notification.permission !== 'granted') return;
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid).get();
+    if (!snap.exists || !snap.data().fcmToken) return;
+    await loadMessagingSdk();
+    await getOrRegisterSw();
+    bindForegroundHandler();
+  } catch (e) {
+    console.warn('rehydrateForegroundHandler failed:', e?.message || e);
+  }
 }
 
 /** Remove the token (so the Cloud Function stops addressing this user). */

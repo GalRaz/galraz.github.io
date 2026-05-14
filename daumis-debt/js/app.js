@@ -2430,6 +2430,12 @@ async function loadInsights(period) {
 async function showApp() {
   showScreen('dashboard');
 
+  // Wire up the foreground push handler so pushes that arrive while the app
+  // is open & focused still surface as system notifications. (Background
+  // pushes are handled by firebase-messaging-sw.js.) Fire-and-forget — never
+  // block the dashboard render on this.
+  import('./push.js').then(p => p.rehydrateForegroundHandler(currentUser)).catch(() => {});
+
   const balanceMod = await import('./balance.js');
 
   // Paint last-known balance from localStorage while Firestore loads. This
