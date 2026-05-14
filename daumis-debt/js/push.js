@@ -11,7 +11,12 @@ import { db, VAPID_PUBLIC_KEY } from './firebase-config.js';
 
 const MESSAGING_SDK_URL = 'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js';
 const SW_PATH = '/daumis-debt/firebase-messaging-sw.js';
-const SW_SCOPE = '/daumis-debt/';
+// Dedicated sub-scope so the FCM SW can coexist with the app's offline-cache
+// SW (sw.js), which is registered at scope '/daumis-debt/'. Two SWs cannot
+// share a scope — the second registration silently replaces the first, which
+// is what was killing background push delivery (the token was bound to an SW
+// that got unregistered on the next page load).
+const SW_SCOPE = '/daumis-debt/fcm-push-scope/';
 
 let _messaging = null;
 let _swReg = null;
@@ -147,9 +152,25 @@ export async function rehydrateForegroundHandler(currentUser) {
   try {
     const snap = await db.collection('users').doc(currentUser.uid).get();
     if (!snap.exists || !snap.data().fcmToken) return;
-    await loadMessagingSdk();
-    await getOrRegisterSw();
+    const oldToken = snap.data().fcmToken;
+    const messaging = await loadMessagingSdk();
+    const swReg = await getOrRegisterSw();
     bindForegroundHandler();
+    // The SW scope changed (was `/daumis-debt/` — conflicting with sw.js —
+    // now `/daumis-debt/fcm-push-scope/`), so the previously-stored token
+    // is bound to an SW that no longer exists. Re-mint the token against
+    // the current SW registration and write it back if it differs.
+    const freshToken = await messaging.getToken({
+      vapidKey: VAPID_PUBLIC_KEY,
+      serviceWorkerRegistration: swReg,
+    }).catch(() => null);
+    if (freshToken && freshToken !== oldToken) {
+      await db.collection('users').doc(currentUser.uid).set({
+        fcmToken: freshToken,
+        fcmTokenUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      console.info('FCM token refreshed after SW scope change');
+    }
   } catch (e) {
     console.warn('rehydrateForegroundHandler failed:', e?.message || e);
   }
