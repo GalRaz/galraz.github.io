@@ -25,12 +25,30 @@ const messaging = firebase.messaging();
 // Background pushes (app not focused). The display payload is whatever the
 // Cloud Function sends in `notification`; if none, fall back to a generic
 // "Daumi's Debt — something changed" message so we never silently drop a push.
+//
+// IMPORTANT: when the payload includes a `notification` field, the browser's
+// Push API can also auto-display the notification on its own. If our handler
+// ALSO calls showNotification with no `tag`, the user sees two banners. We
+// give every notification a stable tag derived from the doc id (or the
+// week+year for the duel reminder) so the auto-display and this handler
+// dedupe — second call replaces the first instead of stacking.
+function tagFor(data) {
+  const d = data || {};
+  if (d.expenseId) return `expense-${d.expenseId}`;
+  if (d.paymentId) return `payment-${d.paymentId}`;
+  if (d.duelId) return `duel-${d.duelId}`;
+  if (d.type === 'duel-reminder') return `duel-reminder-${d.week || ''}-${d.year || ''}`;
+  return 'daumis-debt';
+}
+
 messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload?.notification || {};
   return self.registration.showNotification(title || "Daumi's Debt", {
     body: body || 'Something changed.',
     icon: '/daumis-debt/assets/icons/icon.png',
     badge: '/daumis-debt/assets/icons/icon.png',
+    tag: tagFor(payload?.data),
+    renotify: false,
     data: payload?.data || {},
   });
 });

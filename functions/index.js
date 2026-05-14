@@ -306,7 +306,22 @@ exports.weeklyDuelReminder = onSchedule({
 /**
  * Spread the standard webpush options onto a message payload so the icon,
  * badge, and tap-link don't have to be copy-pasted into every trigger.
+ *
+ * Also stamps a stable `tag` derived from the payload's data ids. The
+ * browser's Push API can auto-display a notification when the payload has
+ * a `notification` field, AND our SW's onBackgroundMessage also calls
+ * showNotification — without a tag, the user gets two banners. With a
+ * matching tag on both paths, the second call replaces the first.
  */
+function tagForData(data) {
+  const d = data || {};
+  if (d.expenseId) return `expense-${d.expenseId}`;
+  if (d.paymentId) return `payment-${d.paymentId}`;
+  if (d.duelId) return `duel-${d.duelId}`;
+  if (d.type === 'duel-reminder') return `duel-reminder-${d.week || ''}-${d.year || ''}`;
+  return 'daumis-debt';
+}
+
 function withWebPushDefaults(payload) {
   return {
     ...payload,
@@ -315,6 +330,8 @@ function withWebPushDefaults(payload) {
       notification: {
         icon: 'https://galraz.github.io/daumis-debt/assets/icons/icon.png',
         badge: 'https://galraz.github.io/daumis-debt/assets/icons/icon.png',
+        tag: tagForData(payload.data),
+        renotify: false,
       },
       ...(payload.webpush || {}),
     },
