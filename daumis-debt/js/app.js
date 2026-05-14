@@ -2426,6 +2426,62 @@ async function loadInsights(period) {
   }
 }
 
+// --- Push deep-link routing ---
+// `firebase-messaging-sw.js` either opens a window at `#/<route>` (cold
+// start) or posts {kind:'push-route', route} to a focused tab. Both paths
+// land here. Routes:
+//   #/expense/{id} → dashboard, scroll to + flash the row
+//   #/payment/{id} → dashboard, scroll to + flash the row
+//   #/duel         → weekly duel screen
+function handlePushRoute(hashOrRoute) {
+  if (!hashOrRoute) return false;
+  // Accept both "#/expense/abc" and "/daumis-debt/#/expense/abc"
+  const hashIdx = hashOrRoute.indexOf('#/');
+  if (hashIdx === -1) return false;
+  const route = hashOrRoute.slice(hashIdx + 2); // strip "#/"
+  const [kind, id] = route.split('/');
+
+  // Clear the hash so back-nav and reloads don't keep replaying the route.
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {}
+
+  if (kind === 'duel') {
+    showScreen('dashboard');
+    import('./duel.js').then(m => m.startDuel?.()).catch((e) =>
+      console.warn('Failed to open duel from push route', e));
+    return true;
+  }
+  if ((kind === 'expense' || kind === 'payment') && id) {
+    showScreen('dashboard');
+    // Wait briefly so the history list is rendered before we try to find
+    // the row. balance.loadDashboard() resolves before render is painted.
+    setTimeout(() => flashHistoryRow(id), 400);
+    return true;
+  }
+  return false;
+}
+
+function flashHistoryRow(id, attempt = 0) {
+  const row = document.querySelector(`#history-list li[data-id="${id}"]`);
+  if (!row) {
+    // Row may not have been rendered yet (still loading, or below the
+    // "see more" cut-off). Retry a few times, then give up quietly.
+    if (attempt < 6) return setTimeout(() => flashHistoryRow(id, attempt + 1), 300);
+    return;
+  }
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  row.classList.add('flash-row');
+  setTimeout(() => row.classList.remove('flash-row'), 1800);
+}
+
+// In-app navigations sent by the SW after notificationclick on a focused tab.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.kind === 'push-route' && event.data?.route) {
+      handlePushRoute(event.data.route);
+    }
+  });
+}
+
 // --- App entry ---
 async function showApp() {
   showScreen('dashboard');
@@ -2473,6 +2529,13 @@ async function showApp() {
     await balanceMod.loadDashboard(true);
   }
   hideSplash();
+
+  // Cold-start push deep-link: if we were opened from a notification tap,
+  // the SW set location.hash before we booted. Now that the dashboard is
+  // rendered, navigate to the requested screen / row.
+  if (location.hash && location.hash.startsWith('#/')) {
+    handlePushRoute(location.hash);
+  }
 
   // Background refresh so server data eventually reconciles with the cache.
   // Skipped when we just fetched from the network above.

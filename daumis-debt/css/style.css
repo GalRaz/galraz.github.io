@@ -1896,3 +1896,18 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   color: var(--text);
   box-shadow: none;
 }
+
+/* Brief highlight when a row is opened from a push-notification deep-link.
+   Pulses the accent color twice so it catches the eye without being noisy. */
+@keyframes flash-row {
+  0%   { background: transparent; }
+  20%  { background: var(--accent-soft); }
+  40%  { background: transparent; }
+  60%  { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
+#history-list li.flash-row {
+  animation: flash-row 1.6s ease-out;
+  border-radius: 12px;
+}
+

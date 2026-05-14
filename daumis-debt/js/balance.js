@@ -499,6 +499,9 @@ function _rerenderList(myUid, totalBalance) {
   visible.forEach((item) => {
     try {
       const li = document.createElement('li');
+      // Tag the row so push-notification deep-links (#/expense/{id},
+      // #/payment/{id}) can find and flash it.
+      if (item.id) li.dataset.id = item.id;
       const dateStr = formatDate(item.date);
       const impact = itemImpact(item, myUid);
       const isCredit = impact >= 0;
