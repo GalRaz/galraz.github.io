@@ -2230,6 +2230,8 @@ async function loadInsights(period) {
       const rawExpenses = [];
       expSnap.forEach(doc => {
         const d = doc.data();
+        // Skip soft-deleted entries so insights numbers match the dashboard.
+        if (d.deletedAt || d.balanceExcluded) return;
         let date;
         try {
           date = d.date?.toDate ? d.date.toDate() : (d.date?.seconds ? new Date(d.date.seconds * 1000) : new Date(d.date));
@@ -2336,6 +2338,7 @@ async function loadInsights(period) {
     let galWins = 0, daumWins = 0;
     duelSnap.forEach(doc => {
       const d = doc.data();
+      if (d.deletedAt || d.balanceExcluded) return;
       if (!d.result || !d.balanceAdjust) return;
       if (d.favoredUser === currentUser.uid) galWins++;
       else if (d.favoredUser) daumWins++;

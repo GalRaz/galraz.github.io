@@ -1518,14 +1518,27 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
     const consolCurrency = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
     let symbol = CURRENCY_SYMBOLS[consolCurrency] || consolCurrency;
 
-    // Compute per-currency balances (source of truth)
+    // Compute per-currency balances (source of truth).
+    //
+    // Audit trail: every item that contributes to the running total is
+    // pushed onto `balanceContributions`. After the loop we log the
+    // breakdown to the console + persist a hash so a future drift
+    // (e.g. soft-deleted item silently included) is easy to spot.
     const currencyBalances = {};
+    const balanceContributions = [];
+    let skippedDeleted = 0;
+    let skippedExcluded = 0;
     for (const item of items) {
-      if (item.balanceExcluded) continue;
+      // Skip flags must come BEFORE summing. Bugs here are how phantom
+      // balances appear: a soft-deleted 100k JPY entry that's still
+      // counted will silently warp the dashboard.
+      if (item.balanceExcluded) { skippedExcluded++; continue; }
+      if (item.deletedAt) { skippedDeleted++; continue; }
       if (item.type === 'duel') {
         const impact = itemImpact(item, user.uid);
         if (impact !== 0) {
           currencyBalances['USD'] = (currencyBalances['USD'] || 0) + impact;
+          balanceContributions.push({ id: item.id, type: 'duel', currency: 'USD', delta: impact });
         }
       } else if (item.currency) {
         const impact = itemImpact(item, user.uid);
@@ -1535,9 +1548,24 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
             ? item.amount * sign
             : (item.splitType === 'even' ? item.amount / 2 : item.amount) * sign;
           currencyBalances[item.currency] = (currencyBalances[item.currency] || 0) + originalAmount;
+          balanceContributions.push({ id: item.id, type: item.type, currency: item.currency, delta: originalAmount });
         }
       }
     }
+    // Expose for inspection: in the dev console, run
+    //   window.__balanceAudit.last  → array of every contributing item
+    //   window.__balanceAudit.totals → per-currency totals
+    // Helps catch silent drift (deleted items leaking back in, etc.).
+    try {
+      window.__balanceAudit = {
+        last: balanceContributions,
+        totals: { ...currencyBalances },
+        skippedDeleted,
+        skippedExcluded,
+        totalItems: items.length,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (_) {}
 
     // Compute consolidated balance: fetch all exchange rates in parallel
     // Filter out dust balances (< 0.10 USD equivalent)
@@ -1837,7 +1865,7 @@ export async function computeCurrencyBalances() {
 
   expSnap.forEach((doc) => {
     const d = doc.data();
-    if (d.balanceExcluded) return;
+    if (d.balanceExcluded || d.deletedAt) return;
     d.type = 'expense';
     const impact = itemImpact(d, user.uid);
     balance += impact;
@@ -1850,7 +1878,7 @@ export async function computeCurrencyBalances() {
 
   paySnap.forEach((doc) => {
     const d = doc.data();
-    if (d.balanceExcluded) return;
+    if (d.balanceExcluded || d.deletedAt) return;
     d.type = 'payment';
     const impact = itemImpact(d, user.uid);
     balance += impact;
@@ -1863,7 +1891,7 @@ export async function computeCurrencyBalances() {
 
   duelSnap.forEach((doc) => {
     const d = doc.data();
-    if (d.balanceExcluded) return;
+    if (d.balanceExcluded || d.deletedAt) return;
     d.type = 'duel';
     const impact = itemImpact(d, user.uid);
     balance += impact;
