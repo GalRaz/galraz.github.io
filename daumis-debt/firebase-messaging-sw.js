@@ -22,16 +22,14 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Background pushes (app not focused). The display payload is whatever the
-// Cloud Function sends in `notification`; if none, fall back to a generic
-// "Daumi's Debt — something changed" message so we never silently drop a push.
+// Background pushes (app not focused). The Cloud Function sends data-only
+// payloads (no `notification` field) so this handler is the SINGLE source
+// of displayed notifications — preventing the FCM Web SDK's auto-display
+// from doubling up on top of our showNotification call.
 //
-// IMPORTANT: when the payload includes a `notification` field, the browser's
-// Push API can also auto-display the notification on its own. If our handler
-// ALSO calls showNotification with no `tag`, the user sees two banners. We
-// give every notification a stable tag derived from the doc id (or the
-// week+year for the duel reminder) so the auto-display and this handler
-// dedupe — second call replaces the first instead of stacking.
+// Title and body live inside `payload.data` (FCM data values are always
+// strings, which is fine). Tag remains for collapse-replace if the same
+// doc id is pushed more than once.
 function tagFor(data) {
   const d = data || {};
   if (d.expenseId) return `expense-${d.expenseId}`;
@@ -42,14 +40,16 @@ function tagFor(data) {
 }
 
 messaging.onBackgroundMessage((payload) => {
-  const { title, body } = payload?.notification || {};
-  return self.registration.showNotification(title || "Daumi's Debt", {
-    body: body || 'Something changed.',
+  const data = payload?.data || {};
+  const title = data.title || "Daumi's Debt";
+  const body = data.body || 'Something changed.';
+  return self.registration.showNotification(title, {
+    body,
     icon: '/daumis-debt/assets/icons/icon.png',
     badge: '/daumis-debt/assets/icons/icon.png',
-    tag: tagFor(payload?.data),
+    tag: tagFor(data),
     renotify: false,
-    data: payload?.data || {},
+    data,
   });
 });
 

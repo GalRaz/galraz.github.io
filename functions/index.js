@@ -131,11 +131,9 @@ exports.notifyExpenseAdded = onDocumentCreated('expenses/{expenseId}', async (ev
   const body = desc ? `${moneyPart} — ${desc}` : moneyPart;
 
   await sendPushToUid(partner.uid, partner.token, withWebPushDefaults({
-    notification: {
+    data: {
       title: `${actorName} added an expense`,
       body,
-    },
-    data: {
       type: 'expense',
       expenseId: event.params.expenseId,
     },
@@ -166,11 +164,9 @@ exports.notifyPaymentAdded = onDocumentCreated('payments/{paymentId}', async (ev
   const body = `${sym}${amtStr}${p.currency ? ' ' + p.currency : ''}`;
 
   await sendPushToUid(partner.uid, partner.token, withWebPushDefaults({
-    notification: {
+    data: {
       title: `${actorName} settled up`,
       body,
-    },
-    data: {
       type: 'payment',
       paymentId: event.params.paymentId,
     },
@@ -222,8 +218,9 @@ exports.notifyDuelPlayed = onDocumentCreated('duels/{duelId}', async (event) => 
   }
 
   await sendPushToUid(partner.uid, partner.token, withWebPushDefaults({
-    notification: { title, body },
     data: {
+      title,
+      body,
       type: 'duel',
       duelId: event.params.duelId,
       week: String(d.week || ''),
@@ -283,11 +280,9 @@ exports.weeklyDuelReminder = onSchedule({
     if (!data.fcmToken) continue;
 
     await sendPushToUid(userDoc.id, data.fcmToken, withWebPushDefaults({
-      notification: {
+      data: {
         title: 'Weekly duel — your turn',
         body: 'Open Daumi\'s Debt and play this week\'s game.',
-      },
-      data: {
         type: 'duel-reminder',
         week: String(week),
         year: String(year),
@@ -307,11 +302,15 @@ exports.weeklyDuelReminder = onSchedule({
  * Spread the standard webpush options onto a message payload so the icon,
  * badge, and tap-link don't have to be copy-pasted into every trigger.
  *
- * Also stamps a stable `tag` derived from the payload's data ids. The
- * browser's Push API can auto-display a notification when the payload has
- * a `notification` field, AND our SW's onBackgroundMessage also calls
- * showNotification — without a tag, the user gets two banners. With a
- * matching tag on both paths, the second call replaces the first.
+ * We send DATA-ONLY payloads (title/body live inside `data`, not at the
+ * top-level `notification` field). With a `notification` field, the FCM
+ * Web SDK auto-displays a notification AND fires onBackgroundMessage —
+ * the two paths produced duplicate banners that even matching `tag`s
+ * couldn't dedupe on iOS PWA. Data-only is the only delivery path, so
+ * the SW's onBackgroundMessage is the single source of truth.
+ *
+ * Tag remains for collapse-replace within the SW handler itself, so a
+ * repeated push for the same doc id still produces only one banner.
  */
 function tagForData(data) {
   const d = data || {};
