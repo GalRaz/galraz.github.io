@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daumis-debt-v41';
+const CACHE_NAME = 'daumis-debt-v42';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -41,6 +41,11 @@ self.addEventListener('fetch', (e) => {
       e.request.url.includes('gstatic.com/firebasejs')) {
     return;
   }
+  // NEVER cache the FCM service worker — the browser's own SW update
+  // check fetches it via the network layer, and a stale cached copy
+  // here will mask new versions, leaving users on outdated FCM logic
+  // (e.g. reading title/body from the old payload field).
+  if (e.request.url.includes('/firebase-messaging-sw.js')) return;
   // Only cache GET requests
   if (e.request.method !== 'GET') return;
 

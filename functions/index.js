@@ -299,40 +299,17 @@ exports.weeklyDuelReminder = onSchedule({
 // ---------------------------------------------------------------------------
 
 /**
- * Spread the standard webpush options onto a message payload so the icon,
- * badge, and tap-link don't have to be copy-pasted into every trigger.
+ * Pure data-only payloads only — title/body live inside `data`, and we
+ * deliberately don't add a `webpush.notification` block. Any presence of
+ * a notification config (even just icon/badge) causes FCM to treat the
+ * message as a notification-message and auto-display a banner on top of
+ * the SW's showNotification call, producing duplicates that matching
+ * `tag`s couldn't dedupe on iOS PWA. The SW's onBackgroundMessage is the
+ * single source of displayed notifications.
  *
- * We send DATA-ONLY payloads (title/body live inside `data`, not at the
- * top-level `notification` field). With a `notification` field, the FCM
- * Web SDK auto-displays a notification AND fires onBackgroundMessage —
- * the two paths produced duplicate banners that even matching `tag`s
- * couldn't dedupe on iOS PWA. Data-only is the only delivery path, so
- * the SW's onBackgroundMessage is the single source of truth.
- *
- * Tag remains for collapse-replace within the SW handler itself, so a
- * repeated push for the same doc id still produces only one banner.
+ * Kept as a function so triggers can opt into future server-side defaults
+ * without each one needing to know the rules.
  */
-function tagForData(data) {
-  const d = data || {};
-  if (d.expenseId) return `expense-${d.expenseId}`;
-  if (d.paymentId) return `payment-${d.paymentId}`;
-  if (d.duelId) return `duel-${d.duelId}`;
-  if (d.type === 'duel-reminder') return `duel-reminder-${d.week || ''}-${d.year || ''}`;
-  return 'daumis-debt';
-}
-
 function withWebPushDefaults(payload) {
-  return {
-    ...payload,
-    webpush: {
-      fcmOptions: { link: 'https://galraz.github.io/daumis-debt/' },
-      notification: {
-        icon: 'https://galraz.github.io/daumis-debt/assets/icons/icon.png',
-        badge: 'https://galraz.github.io/daumis-debt/assets/icons/icon.png',
-        tag: tagForData(payload.data),
-        renotify: false,
-      },
-      ...(payload.webpush || {}),
-    },
-  };
+  return payload;
 }
