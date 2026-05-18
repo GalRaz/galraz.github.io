@@ -39,6 +39,8 @@ export async function processRecurring(currentUser) {
       const next = new Date(nextDue);
       if (r.frequency === 'weekly') {
         next.setDate(next.getDate() + 7);
+      } else if (r.frequency === 'yearly') {
+        next.setFullYear(next.getFullYear() + 1);
       } else {
         const originalDay = r.originalDay || nextDue.getDate();
         next.setDate(1); // avoid day overflow when advancing month
@@ -74,6 +76,8 @@ export async function createRecurring({ description, amount, currency, paidBy, s
     nextDue = new Date(base);
     if (frequency === 'weekly') {
       nextDue.setDate(nextDue.getDate() + 7);
+    } else if (frequency === 'yearly') {
+      nextDue.setFullYear(nextDue.getFullYear() + 1);
     } else {
       nextDue.setMonth(nextDue.getMonth() + 1);
     }

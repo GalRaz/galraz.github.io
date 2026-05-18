@@ -512,7 +512,7 @@ function _rerenderList(myUid, totalBalance) {
       if (item.type === 'expense') {
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
         const splitLabel = item.splitType === 'even' ? 'split' : 'full';
-        const metaLine = `${dateStr} · ${paidByName} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
+        const metaLine = `${dateStr} · ${_escape(paidByName)} paid ${fullSym}${item.amount.toLocaleString()} · ${splitLabel}`;
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.splitType === 'even' ? item.amount / 2 : item.amount, item.currency)}`;
@@ -522,14 +522,14 @@ function _rerenderList(myUid, totalBalance) {
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
-            <div class="entry-desc">${item.description || 'Expense'}</div>
+            <div class="entry-desc">${_escape(item.description || 'Expense')}</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       } else if (item.type === 'payment') {
         const paidToName = item.paidTo === myUid ? getUserName(myUid) : getUserName(item.paidTo);
         const fullSym = CURRENCY_SYMBOLS[item.currency] || item.currency + ' ';
-        const metaLine = `${dateStr} · ${paidByName} paid ${paidToName} · ${fullSym}${item.amount.toLocaleString()}`;
+        const metaLine = `${dateStr} · ${_escape(paidByName)} paid ${_escape(paidToName)} · ${fullSym}${item.amount.toLocaleString()}`;
         let displayAmt;
         if (showOriginal && item.currency) {
           displayAmt = `${sign}${fmtCurrency(item.amount, item.currency)}`;
@@ -1984,7 +1984,7 @@ function renderOnThisDay(items) {
         <span class="otd-tag">On this day · ${timeLabel}</span>
         <button class="otd-dismiss" id="otd-dismiss">×</button>
       </div>
-      <div class="otd-desc">${memory.description}</div>
+      <div class="otd-desc">${_escape(memory.description)}</div>
       <div class="otd-details">
         <span class="otd-date">${dateStr}</span>
         <span class="otd-amount">${amount}</span>

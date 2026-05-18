@@ -3,6 +3,10 @@ import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
 import { categorize } from './balance.js';
 
+function _escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
 /**
  * Save or update the current user's profile in the `users` collection.
  * Called on every login so partner lookups always have the latest email + name.
@@ -831,7 +835,7 @@ window.addEventListener('edit-recurring', (e) => {
     <div class="form" style="gap:14px">
       <div class="toggle-group">
         <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Description</label>
-        <input type="text" id="recur-desc" class="settings-input" value="${data.description || ''}">
+        <input type="text" id="recur-desc" class="settings-input" value="${_escapeHtml(data.description || '')}">
       </div>
       <div class="toggle-group">
         <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Amount</label>
@@ -1572,10 +1576,10 @@ function openCalendarSheet() {
     const first = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0).getDate();
     const prevLastDay = new Date(year, month, 0).getDate();
-    const startDow = first.getDay(); // 0=Sun
+    const startDow = (first.getDay() + 6) % 7; // 0=Mon
     const todayIso = new Date().toISOString().split('T')[0];
 
-    const dayHeaders = ['S','M','T','W','T','F','S'].map(d => `<div class="d-h">${d}</div>`).join('');
+    const dayHeaders = ['M','T','W','T','F','S','S'].map(d => `<div class="d-h">${d}</div>`).join('');
     let cells = '';
     // Previous month's trailing days
     for (let i = startDow - 1; i >= 0; i--) {
@@ -2251,34 +2255,11 @@ async function loadInsights(period) {
       ? expenses.filter(e => e.date >= thirtyDaysAgo)
       : expenses;
 
-    function categorizeLocal(desc) {
-      if (!desc) return { icon: '$', label: 'other' };
-      const d = desc.toLowerCase();
-      const cats = [
-        { keywords: ['grocery','groceries','supermarket','market','produce','trader joe','whole foods','lawson','conbini','7/11','7-11','jmart','vegg','fruit','egg','milk','bread','rice','olive oil','seaweed','detergent','snack'], icon: '🛒', label: 'groceries' },
-        { keywords: ['restaurant','dinner','lunch','breakfast','cafe','coffee','eat','sushi','pizza','burger','ramen','noodle','brunch','bistro','datshi','thai','korean','japanese','indian','chinese','mexican','italian','pastry','bakery','bar','pub','beer','wine','drink','cocktail','boba','bubble tea','tea','matcha','latte','cappuccino','capuccino','falafel','kebab','hummus','salad','momo','dosa','paneer','shabu','chipotle','mcdo','ice cream','cookie','chocolate','yogurt','smoothie','soho','munch','dimsum','wok'], icon: '🍽️', label: 'dining' },
-        { keywords: ['flight','flights','airline','airport','plane','boarding','eurowings','eva air','air'], icon: '✈️', label: 'flights' },
-        { keywords: ['hotel','hostel','airbnb','accommodation','stay','booking','resort','room upgrade'], icon: '🏨', label: 'lodging' },
-        { keywords: ['uber','lyft','taxi','cab','bus','train','metro','subway','transport','transit','grab','bolt','driver','sim card','data'], icon: '🚕', label: 'transport' },
-        { keywords: ['gas','fuel','petrol','parking','car','rental','toll','suv'], icon: '⛽', label: 'auto' },
-        { keywords: ['movie','cinema','ticket','concert','show','museum','park','tour','attraction','entertainment','game','entrance','festival','spa','massage','hot stone','spotify'], icon: '🎬', label: 'entertainment' },
-        { keywords: ['rent','electric','electricity','water','internet','wifi','utility','utilities','bill','phone','laundry','household','house stuff','machine','fitlab'], icon: '🏠', label: 'housing' },
-        { keywords: ['doctor','hospital','medicine','pharmacy','health','medical','dental','drugstore'], icon: '💊', label: 'health' },
-        { keywords: ['clothes','clothing','shoes','shirt','dress','shopping','mall','store','shop','uniqlo'], icon: '🛍️', label: 'shopping' },
-        { keywords: ['gift','present','birthday','anniversary','bday','tip'], icon: '🎁', label: 'gifts' },
-        { keywords: ['splitwise','balance','transfer','settle','cash','money exchange','pay off'], icon: '📊', label: 'balance' },
-      ];
-      for (const cat of cats) {
-        if (cat.keywords.some(kw => d.includes(kw))) return cat;
-      }
-      return { icon: '$', label: 'other' };
-    }
-
     // --- Category breakdown ---
     const catTotals = {};
     const catIcons = {};
     filtered.forEach(e => {
-      const cat = categorizeLocal(e.description);
+      const cat = categorize(e.description);
       if (!catTotals[cat.label]) { catTotals[cat.label] = 0; catIcons[cat.label] = cat.icon; }
       catTotals[cat.label] += (e.usdAmount || e.amount || 0);
     });
@@ -2329,7 +2310,7 @@ async function loadInsights(period) {
 
     const catCounts = {};
     filtered.forEach(e => {
-      const cat = categorizeLocal(e.description);
+      const cat = categorize(e.description);
       catCounts[cat.label] = (catCounts[cat.label] || 0) + 1;
     });
     const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
