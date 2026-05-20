@@ -76,6 +76,12 @@ async function getOrRegisterSw() {
   const existing = await navigator.serviceWorker.getRegistration(SW_SCOPE);
   if (existing && existing.active && existing.active.scriptURL.endsWith('firebase-messaging-sw.js')) {
     _swReg = existing;
+    // Force an SW update check on every app boot. iOS PWAs otherwise only
+    // re-check every ~24h, leaving devices stuck on old FCM SW versions
+    // (e.g., the pre-data-only build that produced "Something changed"
+    // fallbacks). update() is a no-op if the script byte-matches the
+    // active one, so this is cheap.
+    existing.update().catch(() => {});
     return existing;
   }
   _swReg = await navigator.serviceWorker.register(SW_PATH, { scope: SW_SCOPE });
