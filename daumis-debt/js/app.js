@@ -607,7 +607,7 @@ async function loadRecurringList() {
       const sym = getCurrencySymbol(item.currency);
       const nextDue = item.nextDue?.toDate ? item.nextDue.toDate() : new Date(item.nextDue);
       const dateStr = nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const freqLabel = item.frequency === 'weekly' ? 'Weekly' : 'Monthly';
+      const freqLabel = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' }[item.frequency] || 'Monthly';
       const div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;cursor:pointer;';
       div.innerHTML = `
@@ -847,6 +847,7 @@ window.addEventListener('edit-recurring', (e) => {
         <div class="toggle" id="recur-frequency">
           <button type="button" class="toggle-btn ${data.frequency === 'weekly' ? 'active' : ''}" data-value="weekly">Weekly</button>
           <button type="button" class="toggle-btn ${data.frequency === 'monthly' ? 'active' : ''}" data-value="monthly">Monthly</button>
+          <button type="button" class="toggle-btn ${data.frequency === 'yearly' ? 'active' : ''}" data-value="yearly">Yearly</button>
         </div>
       </div>
       <div class="toggle-group">

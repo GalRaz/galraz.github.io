@@ -2,8 +2,38 @@ import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
 
 /**
+ * Advance a due date by one interval of the given frequency.
+ * For monthly/yearly we pin to the original day-of-month (clamped to the
+ * target month's length) so e.g. a charge set up on the 31st doesn't drift
+ * earlier each month.
+ */
+export function advanceDate(from, frequency, originalDay) {
+  const next = new Date(from);
+  if (frequency === 'weekly') {
+    next.setDate(next.getDate() + 7);
+  } else if (frequency === 'yearly') {
+    const day = originalDay || from.getDate();
+    next.setDate(1); // avoid day overflow when advancing
+    next.setFullYear(next.getFullYear() + 1);
+    const daysInMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(day, daysInMonth));
+  } else { // monthly (default)
+    const day = originalDay || from.getDate();
+    next.setDate(1); // avoid day overflow when advancing month
+    next.setMonth(next.getMonth() + 1);
+    const daysInMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(day, daysInMonth));
+  }
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+/**
  * Check for due recurring expenses and create them.
- * Called on each app open.
+ * Called on each app open. Both partners run this, so creation must be
+ * idempotent: we write the generated expense at a DETERMINISTIC doc id
+ * (recurringId + due-timestamp). If both devices race, the second .set()
+ * just overwrites the first — no duplicate charge.
  */
 export async function processRecurring(currentUser) {
   const now = new Date();
@@ -14,42 +44,37 @@ export async function processRecurring(currentUser) {
 
   for (const doc of snapshot.docs) {
     const r = doc.data();
-    const nextDue = r.nextDue?.toDate ? r.nextDue.toDate() : new Date(r.nextDue);
+    let nextDue = r.nextDue?.toDate ? r.nextDue.toDate() : new Date(r.nextDue);
 
     if (nextDue > now) continue; // not yet due
 
-    // Create the expense
+    // A charge could be overdue by more than one interval (e.g. nobody
+    // opened the app for two months). Catch up one interval at a time so
+    // each missed period produces its own expense.
     try {
-      const { usdAmount, exchangeRate } = await convertToUSD(r.amount, r.currency);
-      await db.collection('expenses').add({
-        description: r.description + ' (recurring)',
-        amount: r.amount,
-        currency: r.currency,
-        usdAmount,
-        exchangeRate,
-        paidBy: r.paidBy,
-        splitType: r.splitType,
-        owedBy: r.owedBy,
-        date: nextDue,
-        addedBy: r.addedBy,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      while (nextDue <= now) {
+        const { usdAmount, exchangeRate } = await convertToUSD(r.amount, r.currency);
+        // Deterministic id → idempotent across both partners racing.
+        const chargeId = `rec_${doc.id}_${nextDue.getTime()}`;
+        await db.collection('expenses').doc(chargeId).set({
+          description: r.description + ' (recurring)',
+          amount: r.amount,
+          currency: r.currency,
+          usdAmount,
+          exchangeRate,
+          paidBy: r.paidBy,
+          splitType: r.splitType,
+          owedBy: r.owedBy,
+          date: nextDue,
+          addedBy: r.addedBy,
+          recurringId: doc.id,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
 
-      // Calculate next due date
-      const next = new Date(nextDue);
-      if (r.frequency === 'weekly') {
-        next.setDate(next.getDate() + 7);
-      } else {
-        const originalDay = r.originalDay || nextDue.getDate();
-        next.setDate(1); // avoid day overflow when advancing month
-        next.setMonth(next.getMonth() + 1);
-        const daysInMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-        next.setDate(Math.min(originalDay, daysInMonth));
+        nextDue = advanceDate(nextDue, r.frequency, r.originalDay);
+        created++;
       }
-      next.setHours(0, 0, 0, 0);
-
-      await doc.ref.update({ nextDue: next });
-      created++;
+      await doc.ref.update({ nextDue });
     } catch (err) {
       console.error('Failed to process recurring expense:', r.description, err);
     }
@@ -68,19 +93,12 @@ export async function createRecurring({ description, amount, currency, paidBy, s
 
   if (base > now) {
     // Future start: first occurrence is the start date itself
-    nextDue = base;
+    nextDue = new Date(base);
+    nextDue.setHours(0, 0, 0, 0);
   } else {
     // Started today/past: next occurrence is one interval from the base date
-    nextDue = new Date(base);
-    if (frequency === 'weekly') {
-      nextDue.setDate(nextDue.getDate() + 7);
-    } else {
-      nextDue.setMonth(nextDue.getMonth() + 1);
-    }
+    nextDue = advanceDate(base, frequency, base.getDate());
   }
-
-  // Normalize to midnight local time so charges fire at start of day
-  nextDue.setHours(0, 0, 0, 0);
 
   await db.collection('recurring').add({
     description,
