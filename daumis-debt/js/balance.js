@@ -26,7 +26,7 @@ let _renderHistoryOpts = null; // last displayOpts passed to renderHistory, for 
 function _emptyTime() { return { kind: 'all' }; }
 
 function _loadPersistedFilter() {
-  const fallback = { text: '', type: '', time: _emptyTime() };
+  const fallback = { text: '', type: '', currency: '', time: _emptyTime() };
   try {
     const raw = localStorage.getItem(HISTORY_FILTER_KEY);
     if (!raw) return _migrateLegacyFilter(fallback);
@@ -34,6 +34,7 @@ function _loadPersistedFilter() {
     return {
       text: typeof f.text === 'string' ? f.text : '',
       type: f.type === 'expense' || f.type === 'payment' || f.type === 'duel' ? f.type : '',
+      currency: typeof f.currency === 'string' ? f.currency : '',
       time: _normalizeTime(f.time)
     };
   } catch (e) {
@@ -55,6 +56,7 @@ function _migrateLegacyFilter(fallback) {
       const migrated = {
         text: typeof f.text === 'string' ? f.text : '',
         type: f.type || '',
+        currency: typeof f.currency === 'string' ? f.currency : '',
         time: { kind: 'range', from: _toISODate(from), to: _toISODate(to) }
       };
       _persistFilter(migrated);
@@ -138,6 +140,7 @@ function _itemMatchesText(item, q) {
 
 function _itemMatchesFacets(item, f) {
   if (f.type && item.type !== f.type) return false;
+  if (f.currency && item.currency !== f.currency) return false;
   const rng = resolveTimeRange(f.time);
   if (rng) {
     const d = toJSDate(item.date || item.sortDate);
@@ -175,6 +178,7 @@ function _countMatches(draft) {
 function _facetCount(filter) {
   let n = 0;
   if (filter.type) n++;
+  if (filter.currency) n++;
   if (filter.time && filter.time.kind !== 'all') n++;
   return n;
 }
@@ -201,6 +205,9 @@ function _renderActiveTags() {
   if (_historyFilter.type) {
     const label = { expense: 'Expenses', payment: 'Payments', duel: 'Duels' }[_historyFilter.type] || _historyFilter.type;
     tags.push({ facet: 'type', label });
+  }
+  if (_historyFilter.currency) {
+    tags.push({ facet: 'currency', label: _historyFilter.currency });
   }
   if (_historyFilter.time && _historyFilter.time.kind !== 'all') {
     tags.push({ facet: 'time', label: _timeLabel(_historyFilter.time) });
@@ -468,7 +475,7 @@ function _rerenderList(myUid, totalBalance) {
       <button type="button" class="empty-clear" id="history-empty-clear">Clear filters</button>`;
     list.appendChild(li);
     li.querySelector('#history-empty-clear').addEventListener('click', () => {
-      _historyFilter = { text: '', type: '', time: _emptyTime() };
+      _historyFilter = { text: '', type: '', currency: '', time: _emptyTime() };
       const searchInput = document.getElementById('history-search');
       if (searchInput) searchInput.value = '';
       _persistFilter(_historyFilter);
@@ -808,7 +815,7 @@ function _initFilterListeners(myUid, totalBalance) {
     tagsHost.addEventListener('click', (e) => {
       const clearAll = e.target.closest('#history-clear-all');
       if (clearAll) {
-        _historyFilter = { text: _historyFilter.text, type: '', time: _emptyTime() };
+        _historyFilter = { text: _historyFilter.text, type: '', currency: '', time: _emptyTime() };
         _applyFilters(myUid, totalBalance);
         return;
       }
@@ -816,6 +823,7 @@ function _initFilterListeners(myUid, totalBalance) {
       if (!tag) return;
       const facet = tag.dataset.facet;
       if (facet === 'type') _historyFilter.type = '';
+      else if (facet === 'currency') _historyFilter.currency = '';
       else if (facet === 'time') _historyFilter.time = _emptyTime();
       _applyFilters(myUid, totalBalance);
     });
@@ -829,7 +837,7 @@ function _initFilterListeners(myUid, totalBalance) {
 
   if (scrim) scrim.addEventListener('click', () => _closeFilterSheet(false, myUid, totalBalance));
   if (resetBtn) resetBtn.addEventListener('click', () => {
-    _filterDraft = { text: _historyFilter.text, type: '', time: _emptyTime() };
+    _filterDraft = { text: _historyFilter.text, type: '', currency: '', time: _emptyTime() };
     _calMode = 'start';
     _calAnchor = _firstOfMonth(new Date());
     _renderSheet();
@@ -851,6 +859,14 @@ function _initFilterListeners(myUid, totalBalance) {
     const btn = e.target.closest('.hf-pill');
     if (!btn || !_filterDraft) return;
     _filterDraft.type = btn.dataset.val;
+    _renderSheet();
+  });
+
+  // Currency pills (delegated — the pill list is rebuilt on each render).
+  sheet.querySelector('[data-grp="currency"]').addEventListener('click', (e) => {
+    const btn = e.target.closest('.hf-pill');
+    if (!btn || !_filterDraft) return;
+    _filterDraft.currency = btn.dataset.val || '';
     _renderSheet();
   });
 
@@ -996,6 +1012,9 @@ function _renderSheet() {
     });
   }
 
+  // --- Currency pills (built from currencies actually present) ---
+  _renderCurrencyFacetPills();
+
   // --- Time pills ---
   const timeGrp = document.querySelector('[data-grp="time"]');
   if (timeGrp) {
@@ -1052,6 +1071,32 @@ function _renderSheet() {
 
   // --- Apply CTA ---
   _updateApplyCTA();
+}
+
+/**
+ * Build the currency facet pills from the currencies actually present in the
+ * history. Hidden entirely when there's only one currency (nothing to filter).
+ * Uses event delegation on the container, so rebuilding innerHTML is safe.
+ */
+function _renderCurrencyFacetPills() {
+  const grp = document.querySelector('[data-grp="currency"]');
+  if (!grp || !_filterDraft) return;
+  const wrap = grp.closest('.hf-grp');
+  const present = [...new Set(_allHistoryItems.filter(i => i.currency).map(i => i.currency))].sort();
+  // Keep the selected currency selectable even if nothing currently matches it.
+  if (_filterDraft.currency && !present.includes(_filterDraft.currency)) present.unshift(_filterDraft.currency);
+  if (present.length < 2) {
+    if (wrap) wrap.classList.add('hidden');
+    grp.innerHTML = '';
+    return;
+  }
+  if (wrap) wrap.classList.remove('hidden');
+  const sel = _filterDraft.currency || '';
+  const pill = (val, label) => {
+    const on = (val || '') === sel;
+    return `<button type="button" class="hf-pill${on ? ' on' : ''}" data-val="${_escape(val)}" aria-pressed="${on ? 'true' : 'false'}">${_escape(label)}</button>`;
+  };
+  grp.innerHTML = pill('', 'All') + present.map(c => pill(c, c)).join('');
 }
 
 function _updateApplyCTA() {
