@@ -617,9 +617,7 @@ async function loadRecurringList() {
         </div>
         <span style="color:var(--text-muted);font-size:1rem">›</span>`;
       div.addEventListener('click', () => {
-        // Pass nextDue as date for the detail view
-        item.date = nextDue;
-        window.dispatchEvent(new CustomEvent('edit-recurring', { detail: { data: item, fromSettings: true } }));
+        window.dispatchEvent(new CustomEvent('edit-entry', { detail: { type: 'recurring', data: item } }));
       });
       container.appendChild(div);
     });
@@ -800,151 +798,10 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   }
 });
 
-// --- Edit recurring ---
-window.addEventListener('edit-recurring', (e) => {
-  const { data, fromSettings } = e.detail;
-
-  showScreen('add', 'slide-forward');
-  const title = document.getElementById('add-title');
-  title.textContent = 'Edit Recurring';
-
-  // Hide entry type toggle and form
-  const entToggle = document.getElementById('entry-type');
-  if (entToggle) entToggle.style.display = 'none';
-  document.getElementById('form-entry').style.display = 'none';
-
-  let container = document.getElementById('settle-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'settle-container';
-    document.getElementById('form-entry').parentNode.insertBefore(container, document.getElementById('form-entry'));
-  }
-
-  const nextDate = data.date instanceof Date ? data.date : new Date(data.date);
-  const partnerName = getUserName(getPartnerUid());
-
-  // Build editable form
-  container.innerHTML = `
-    <div style="text-align:center;padding:20px 0 16px">
-      <div style="font-size:2rem;margin-bottom:6px">🔄</div>
-    </div>
-    <div class="form" style="gap:14px">
-      <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Description</label>
-        <input type="text" id="recur-desc" class="settings-input" value="${data.description || ''}">
-      </div>
-      <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Amount</label>
-        <div style="display:flex;gap:8px">
-          <input type="number" id="recur-amount" class="settings-input" style="flex:1" value="${data.amount}" step="0.01" inputmode="decimal">
-          <select id="recur-currency" class="settings-input" style="width:110px;text-align:center">
-            ${ALL_CURRENCIES.map(c => `<option value="${c.code}" ${c.code === data.currency ? 'selected' : ''}>${c.label}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Frequency</label>
-        <div class="toggle" id="recur-frequency">
-          <button type="button" class="toggle-btn ${data.frequency === 'weekly' ? 'active' : ''}" data-value="weekly">Weekly</button>
-          <button type="button" class="toggle-btn ${data.frequency === 'monthly' ? 'active' : ''}" data-value="monthly">Monthly</button>
-          <button type="button" class="toggle-btn ${data.frequency === 'yearly' ? 'active' : ''}" data-value="yearly">Yearly</button>
-        </div>
-      </div>
-      <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Who is paying</label>
-        <div class="toggle" id="recur-paid-by">
-          <button type="button" class="toggle-btn ${data.paidBy === currentUser.uid ? 'active' : ''}" data-value="self">Me</button>
-          <button type="button" class="toggle-btn ${data.paidBy !== currentUser.uid ? 'active' : ''}" data-value="partner">${partnerName}</button>
-        </div>
-      </div>
-      <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Split</label>
-        <div class="toggle" id="recur-split">
-          <button type="button" class="toggle-btn ${data.splitType === 'even' ? 'active' : ''}" data-value="even">Split evenly</button>
-          <button type="button" class="toggle-btn ${data.splitType === 'full' ? 'active' : ''}" data-value="full">Owed fully</button>
-        </div>
-      </div>
-      <div class="toggle-group">
-        <label class="settings-label" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600">Next charge</label>
-        <input type="date" id="recur-next-date" class="settings-input" value="${nextDate.toISOString().split('T')[0]}">
-      </div>
-      <button class="btn btn-primary" id="btn-save-recurring">Save Changes</button>
-      <button class="btn btn-delete" id="btn-cancel-recurring">Cancel Recurring</button>
-    </div>`;
-  container.style.display = '';
-
-  // Wire up toggle buttons
-  container.querySelectorAll('.toggle').forEach(toggle => {
-    toggle.querySelectorAll('.toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        toggle.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-  });
-
-  // Save
-  document.getElementById('btn-save-recurring').addEventListener('click', async () => {
-    const btn = document.getElementById('btn-save-recurring');
-    const desc = document.getElementById('recur-desc').value.trim();
-    const amount = parseFloat(document.getElementById('recur-amount').value);
-    if (!desc || !amount || amount <= 0) { alert('Please fill in all fields.'); return; }
-
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
-    try {
-      const paidByVal = document.querySelector('#recur-paid-by .toggle-btn.active').dataset.value;
-      await db.collection('recurring').doc(data.id).update({
-        description: desc,
-        amount: amount,
-        currency: document.getElementById('recur-currency').value,
-        frequency: document.querySelector('#recur-frequency .toggle-btn.active').dataset.value,
-        paidBy: paidByVal === 'self' ? currentUser.uid : getPartnerUid(),
-        owedBy: paidByVal === 'self' ? getPartnerUid() : currentUser.uid,
-        splitType: document.querySelector('#recur-split .toggle-btn.active').dataset.value,
-        nextDue: new Date(document.getElementById('recur-next-date').value + 'T12:00:00')
-      });
-      btn.textContent = 'Saved!';
-      setTimeout(() => {
-        if (fromSettings) {
-          showScreen('settings');
-          loadSettings();
-        } else {
-          goBack();
-        }
-      }, 500);
-    } catch (err) {
-      console.error('Save recurring failed:', err);
-      alert('Failed to save.');
-      btn.textContent = 'Save Changes';
-      btn.disabled = false;
-    }
-  });
-
-  // Cancel
-  document.getElementById('btn-cancel-recurring').addEventListener('click', async () => {
-    if (!confirm(`Cancel recurring "${data.description}"? Future charges will stop.`)) return;
-    try {
-      const { deactivateRecurring } = await import('./recurring.js');
-      await deactivateRecurring(data.id);
-      if (fromSettings) {
-        showScreen('settings');
-        loadSettings();
-      } else {
-        goBack();
-      }
-    } catch (err) {
-      console.error('Cancel recurring failed:', err);
-      alert('Failed to cancel.');
-    }
-  });
-});
-
 // --- Edit entry ---
 window.addEventListener('edit-entry', (e) => {
   const { type, data } = e.detail;
-  editingEntry = { id: data.id, type };
+  editingEntry = { id: data.id, type, data };
 
   // Payments get a detail view with delete, not the full edit form
   if (type === 'payment') {
@@ -992,10 +849,14 @@ window.addEventListener('edit-entry', (e) => {
     return;
   }
 
-  // Expense edit — open screen, then populate fields
+  // Expense OR recurring template — both use the unified edit form. A
+  // recurring template is just an expense that also carries a frequency,
+  // so the only differences are: the recurring row starts expanded, the
+  // date field maps to nextDue, and save/delete target the recurring doc.
+  const isRecurringEdit = type === 'recurring';
   openAddScreen({ editing: true });
 
-  // Pre-fill
+  // Pre-fill shared fields
   document.getElementById('entry-desc').value = data.description || '';
   document.getElementById('entry-amount').value = data.amount || '';
   setActiveCurrency(data.currency || 'USD');
@@ -1012,15 +873,23 @@ window.addEventListener('edit-entry', (e) => {
   };
   renderSplitSentence();
 
-  // Set date
-  const dateObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+  // Date: expenses store `date`; recurring templates store the next charge
+  // in `nextDue`. Either way the date field shows when the (next) charge lands.
+  const rawDate = data.date ?? data.nextDue;
+  const dateObj = rawDate?.toDate ? rawDate.toDate() : new Date(rawDate);
   const iso = dateObj.toISOString().split('T')[0];
   document.getElementById('entry-date').value = iso;
   applyDateChip(iso);
 
-  // Hide the recurring row when editing an existing expense
+  // Recurring row stays visible while editing. For a recurring template it
+  // opens pre-filled with the current frequency; for a plain expense it sits
+  // collapsed so the user can convert it into a recurring charge.
   const recRow = document.getElementById('recur-row');
-  if (recRow) recRow.style.display = 'none';
+  if (recRow) recRow.style.display = '';
+  recurringState = isRecurringEdit
+    ? { active: true, frequency: data.frequency || 'monthly' }
+    : { active: false, frequency: 'monthly' };
+  renderRecurringRow();
 
   // Trigger input derivations
   onDescInput();
@@ -1029,7 +898,7 @@ window.addEventListener('edit-entry', (e) => {
   // Edit-mode UI: title + button label + trash icon in the header (top-left,
   // immediately after the back button — destructive action stays out of the
   // way of the primary Save flow rather than sitting under it).
-  document.getElementById('add-title').textContent = 'Edit expense';
+  document.getElementById('add-title').textContent = isRecurringEdit ? 'Edit recurring' : 'Edit expense';
   const saveBtn = document.getElementById('btn-save-entry');
   saveBtn.textContent = 'Save changes';
 
@@ -1047,6 +916,19 @@ window.addEventListener('edit-entry', (e) => {
     header.appendChild(deleteBtn);
   }
   deleteBtn.onclick = async () => {
+    if (isRecurringEdit) {
+      if (!confirm(`Cancel recurring "${data.description}"? Future charges will stop.`)) return;
+      try {
+        const { deactivateRecurring } = await import('./recurring.js');
+        await deactivateRecurring(editingEntry.id);
+        editingEntry = null;
+        showScreen('settings'); loadSettings();
+      } catch (err) {
+        console.error('Cancel recurring failed:', err);
+        alert('Failed to cancel recurring.');
+      }
+      return;
+    }
     if (!confirm('Delete this entry?')) return;
     try {
       const collection = editingEntry.type === 'expense' ? 'expenses' : 'payments';
@@ -1661,15 +1543,23 @@ function renderRecurringRow() {
   row.classList.add('open');
   const dateIso = document.getElementById('entry-date').value || new Date().toISOString().split('T')[0];
   const base = new Date(dateIso + 'T12:00:00');
-  let next = new Date(base);
-  if (recurringState.frequency === 'weekly') next.setDate(next.getDate() + 7);
-  else if (recurringState.frequency === 'yearly') next.setFullYear(next.getFullYear() + 1);
-  else next.setMonth(next.getMonth() + 1);
-  const nextLabel = next.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // When editing a recurring template, the date field already IS the next
+  // charge date (nextDue), so show it directly. For a new/converted expense,
+  // the date is the first charge and the next occurrence is one interval out.
+  const editingRecurring = editingEntry && editingEntry.type === 'recurring';
+  let previewDate = new Date(base);
+  if (!editingRecurring) {
+    if (recurringState.frequency === 'weekly') previewDate.setDate(previewDate.getDate() + 7);
+    else if (recurringState.frequency === 'yearly') previewDate.setFullYear(previewDate.getFullYear() + 1);
+    else previewDate.setMonth(previewDate.getMonth() + 1);
+  }
+  const nextLabel = previewDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const recurLabel = editingRecurring ? 'Repeats' : 'Repeat this expense';
+  const previewLabel = editingRecurring ? 'Next charge' : 'Next occurrence';
 
   row.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <span class="recur-label">Repeat this expense</span>
+      <span class="recur-label">${recurLabel}</span>
       <span class="plus" id="recur-close" style="transform:rotate(45deg);cursor:pointer">+</span>
     </div>
     <div class="recur-toggle" id="recur-freq">
@@ -1677,7 +1567,7 @@ function renderRecurringRow() {
       <button type="button" data-f="monthly" class="${recurringState.frequency === 'monthly' ? 'active' : ''}">Monthly</button>
       <button type="button" data-f="yearly" class="${recurringState.frequency === 'yearly' ? 'active' : ''}">Yearly</button>
     </div>
-    <div style="font-size:10.5px;color:var(--text-muted)">Next occurrence: <strong>${nextLabel}</strong></div>
+    <div style="font-size:10.5px;color:var(--text-muted)">${previewLabel}: <strong>${nextLabel}</strong></div>
   `;
   row.onclick = null;
   document.getElementById('recur-close').addEventListener('click', (ev) => {
@@ -2121,22 +2011,45 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
     const expenseDate = new Date(date + 'T12:00:00');
     const isFuture = expenseDate > new Date();
 
-    const isRecurring = !editingEntry && recurringState.active;
+    const editingRecurring = editingEntry && editingEntry.type === 'recurring';
+    const editingExpense = editingEntry && editingEntry.type === 'expense';
     const freq = recurringState.frequency;
+    // Covers a brand-new recurring AND converting an existing expense into one.
+    const madeRecurring = recurringState.active;
 
-    if (isFuture && isRecurring) {
-      const { createRecurring } = await import('./recurring.js');
-      await createRecurring({
-        description, amount, currency, paidBy: paidByUid, splitType,
-        owedBy: owedByUid, frequency: freq,
-        addedBy: currentUser.uid, startDate: expenseDate,
+    if (editingRecurring) {
+      // Editing a recurring template: the date field is the next charge date.
+      // No expense is written here — processRecurring mints charges on schedule.
+      await db.collection('recurring').doc(editingEntry.id).update({
+        description, amount, currency,
+        paidBy: paidByUid, splitType, owedBy: owedByUid,
+        frequency: freq,
+        nextDue: expenseDate,
+        originalDay: expenseDate.getDate(),
       });
-    } else if (editingEntry && editingEntry.type === 'expense') {
+    } else if (editingExpense) {
       await db.collection('expenses').doc(editingEntry.id).update({
         description, amount, currency, usdAmount, exchangeRate,
         paidBy: paidByUid, splitType, owedBy: owedByUid, date: expenseDate,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         editedBy: currentUser.uid,
+      });
+      // Converting a one-off expense into a recurring one: keep the edited
+      // expense as the first charge and spin up a template for the rest.
+      if (madeRecurring) {
+        const { createRecurring } = await import('./recurring.js');
+        await createRecurring({
+          description, amount, currency, paidBy: paidByUid, splitType,
+          owedBy: owedByUid, frequency: freq,
+          addedBy: currentUser.uid, startDate: expenseDate,
+        });
+      }
+    } else if (isFuture && madeRecurring) {
+      const { createRecurring } = await import('./recurring.js');
+      await createRecurring({
+        description, amount, currency, paidBy: paidByUid, splitType,
+        owedBy: owedByUid, frequency: freq,
+        addedBy: currentUser.uid, startDate: expenseDate,
       });
     } else {
       await db.collection('expenses').add({
@@ -2145,7 +2058,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
         addedBy: currentUser.uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
-      if (isRecurring && !isFuture) {
+      if (madeRecurring && !isFuture) {
         const { createRecurring } = await import('./recurring.js');
         await createRecurring({
           description, amount, currency, paidBy: paidByUid, splitType,
@@ -2162,17 +2075,23 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
       if (!used.includes(currency)) { used.push(currency); localStorage.setItem('daumis-debt-used-currencies', JSON.stringify(used)); }
     } catch (e) {}
 
-    _pendingNewEntry = { description, at: Date.now(), isRecurring };
     const wasEditing = !!editingEntry;
     editingEntry = null;
 
-    // Navigate to dashboard and refresh
-    showScreen('dashboard', 'slide-back');
-    const { loadDashboard } = await import('./balance.js');
-    invalidateAllCaches();
-    await loadDashboard(true);
-    glowMostRecentHistoryRow();
-    showDashboardToast(isRecurring ? 'Recurring saved' : (wasEditing ? 'Updated' : 'Added · balance updated'));
+    if (editingRecurring) {
+      // Recurring-template edits return to Settings, where they were opened from.
+      showScreen('settings');
+      loadSettings();
+      showDashboardToast('Recurring updated');
+    } else {
+      _pendingNewEntry = { description, at: Date.now(), isRecurring: madeRecurring };
+      showScreen('dashboard', 'slide-back');
+      const { loadDashboard } = await import('./balance.js');
+      invalidateAllCaches();
+      await loadDashboard(true);
+      glowMostRecentHistoryRow();
+      showDashboardToast(madeRecurring ? 'Recurring saved' : (wasEditing ? 'Updated' : 'Added · balance updated'));
+    }
   } catch (err) {
     console.error('Error saving entry:', err);
     alert('Failed to save. Check your connection.');
