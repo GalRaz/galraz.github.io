@@ -854,10 +854,16 @@ window.addEventListener('edit-entry', (e) => {
   // so the only differences are: the recurring row starts expanded, the
   // date field maps to nextDue, and save/delete target the recurring doc.
   const isRecurringEdit = type === 'recurring';
+  // A history expense that came from a recurring series carries a recurringId
+  // (or a legacy "(recurring)" suffix). Editing it should also reflect that
+  // it's recurring, not look like a plain one-off.
+  const isRecurringChargeEdit = type === 'expense' &&
+    !!(data.recurringId || /\(recurring\)\s*$/i.test(data.description || ''));
   openAddScreen({ editing: true });
 
-  // Pre-fill shared fields
-  document.getElementById('entry-desc').value = data.description || '';
+  // Pre-fill shared fields. Strip the legacy "(recurring)" suffix so the
+  // description field shows the clean name (the recurring row marks it instead).
+  document.getElementById('entry-desc').value = (data.description || '').replace(/\s*\(recurring\)\s*$/i, '');
   document.getElementById('entry-amount').value = data.amount || '';
   setActiveCurrency(data.currency || 'USD');
   renderCurrencyPills();
@@ -881,15 +887,26 @@ window.addEventListener('edit-entry', (e) => {
   document.getElementById('entry-date').value = iso;
   applyDateChip(iso);
 
-  // Recurring row stays visible while editing. For a recurring template it
-  // opens pre-filled with the current frequency; for a plain expense it sits
-  // collapsed so the user can convert it into a recurring charge.
+  // Recurring row stays visible while editing. It opens pre-filled with the
+  // frequency for a recurring template OR a recurring charge; for a plain
+  // expense it sits collapsed so the user can convert it into a recurring one.
   const recRow = document.getElementById('recur-row');
   if (recRow) recRow.style.display = '';
-  recurringState = isRecurringEdit
+  recurringState = (isRecurringEdit || isRecurringChargeEdit)
     ? { active: true, frequency: data.frequency || 'monthly' }
     : { active: false, frequency: 'monthly' };
   renderRecurringRow();
+  // Legacy charges may not carry `frequency`; recover it from the linked
+  // template so the row shows the right interval.
+  if (isRecurringChargeEdit && !data.frequency && data.recurringId) {
+    import('./recurring.js')
+      .then(({ getRecurring }) => getRecurring())
+      .then(list => {
+        const t = list.find(r => r.id === data.recurringId);
+        if (t && t.frequency) { recurringState.frequency = t.frequency; renderRecurringRow(); }
+      })
+      .catch(() => {});
+  }
 
   // Trigger input derivations
   onDescInput();
@@ -2028,15 +2045,29 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
         originalDay: expenseDate.getDate(),
       });
     } else if (editingExpense) {
+      const editData = editingEntry.data || {};
+      const recurringId = editData.recurringId || null;
+      // Was this charge part of a series? (link, or legacy "(recurring)" suffix)
+      const wasRecurringCharge = !!(recurringId || /\(recurring\)\s*$/i.test(editData.description || ''));
       await db.collection('expenses').doc(editingEntry.id).update({
         description, amount, currency, usdAmount, exchangeRate,
         paidBy: paidByUid, splitType, owedBy: owedByUid, date: expenseDate,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         editedBy: currentUser.uid,
       });
-      // Converting a one-off expense into a recurring one: keep the edited
-      // expense as the first charge and spin up a template for the rest.
-      if (madeRecurring) {
+      if (recurringId && madeRecurring) {
+        // This charge is linked to a series. Propagate edits to the template
+        // so future charges match — never create a duplicate. (If the user
+        // collapsed the recurring row we leave the series alone; cancel it
+        // from Settings or swipe-delete → "all".)
+        await db.collection('recurring').doc(recurringId).update({
+          description, amount, currency,
+          paidBy: paidByUid, owedBy: owedByUid, splitType,
+          frequency: freq,
+        }).catch((e) => console.warn('Could not sync recurring template:', e));
+      } else if (madeRecurring && !wasRecurringCharge) {
+        // Converting a one-off expense into a recurring one: keep the edited
+        // expense as the first charge and spin up a template for the rest.
         const { createRecurring } = await import('./recurring.js');
         await createRecurring({
           description, amount, currency, paidBy: paidByUid, splitType,
@@ -2090,7 +2121,7 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
       invalidateAllCaches();
       await loadDashboard(true);
       glowMostRecentHistoryRow();
-      showDashboardToast(madeRecurring ? 'Recurring saved' : (wasEditing ? 'Updated' : 'Added · balance updated'));
+      showDashboardToast(wasEditing ? 'Updated' : (madeRecurring ? 'Recurring saved' : 'Added · balance updated'));
     }
   } catch (err) {
     console.error('Error saving entry:', err);

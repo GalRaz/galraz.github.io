@@ -252,6 +252,17 @@ function _escape(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
+// A history item is a recurring charge if it carries a recurringId (new
+// charges) or still has the legacy " (recurring)" description suffix (older
+// charges created before the suffix was dropped).
+export function isRecurringCharge(item) {
+  return !!(item && (item.recurringId || /\(recurring\)\s*$/i.test(item.description || '')));
+}
+// Strip the legacy suffix for display/editing — the recurring badge marks it now.
+export function stripRecurringSuffix(desc) {
+  return (desc || '').replace(/\s*\(recurring\)\s*$/i, '');
+}
+
 // ===== History/Activity view persistence =====
 
 function _loadPersistedView() {
@@ -526,10 +537,13 @@ function _rerenderList(myUid, totalBalance) {
         } else {
           displayAmt = `${sign}${fmtConsol(item, impact)}`;
         }
+        const recurring = isRecurringCharge(item);
+        const descText = stripRecurringSuffix(item.description) || 'Expense';
+        const recurBadge = recurring ? ' <span class="recur-badge" title="Recurring">\u{1F501}</span>' : '';
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
-            <div class="entry-desc">${item.description || 'Expense'}</div>
+            <div class="entry-desc">${descText}${recurBadge}</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -619,7 +633,7 @@ function _rerenderList(myUid, totalBalance) {
         }, { passive: false });
 
         async function handleDelete() {
-          const isRecurring = item.description?.includes('(recurring)');
+          const isRecurring = isRecurringCharge(item);
           const collection = item.type === 'expense' ? 'expenses' : 'payments';
           if (isRecurring) {
             const choice = prompt('This is a recurring expense.\nType "one" to delete just this one, or "all" to cancel all future charges.');
@@ -627,9 +641,16 @@ function _rerenderList(myUid, totalBalance) {
             if (choice.toLowerCase() === 'all') {
               try {
                 const { getRecurring, deactivateRecurring } = await import('./recurring.js');
-                const recurrings = await getRecurring();
-                const match = recurrings.find(r => item.description.replace(' (recurring)', '') === r.description);
-                if (match) await deactivateRecurring(match.id);
+                // Prefer the explicit link; fall back to description match for
+                // legacy charges that predate recurringId.
+                if (item.recurringId) {
+                  await deactivateRecurring(item.recurringId);
+                } else {
+                  const recurrings = await getRecurring();
+                  const base = stripRecurringSuffix(item.description);
+                  const match = recurrings.find(r => r.description === base);
+                  if (match) await deactivateRecurring(match.id);
+                }
               } catch (e) { console.warn('Could not cancel recurring:', e); }
             }
             if (choice.toLowerCase() !== 'one' && choice.toLowerCase() !== 'all') { content.style.transform = ''; deleteText.style.transform = ''; return; }

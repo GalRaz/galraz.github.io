@@ -57,7 +57,9 @@ export async function processRecurring(currentUser) {
         // Deterministic id → idempotent across both partners racing.
         const chargeId = `rec_${doc.id}_${nextDue.getTime()}`;
         await db.collection('expenses').doc(chargeId).set({
-          description: r.description + ' (recurring)',
+          // No " (recurring)" suffix — the recurring badge in History marks
+          // these now, and recurringId/frequency make the charge self-describing.
+          description: r.description,
           amount: r.amount,
           currency: r.currency,
           usdAmount,
@@ -68,6 +70,7 @@ export async function processRecurring(currentUser) {
           date: nextDue,
           addedBy: r.addedBy,
           recurringId: doc.id,
+          frequency: r.frequency,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
