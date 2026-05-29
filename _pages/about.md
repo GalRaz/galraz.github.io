@@ -7,7 +7,7 @@ redirect_from:
   - /about.html
 ---
 
-Hi! This is Gal. I'm a Researcher at the [Henkaku Center at Chiba Institute of Technology](https://www.henkaku.center/en). Most recently, I worked as a Project Manager for [Gelephu Mindfulness City](https://gmc.bt/) in Bhutan.
+Hi! This is Gal. I'm a Researcher at the [Henkaku Center at Chiba Institute of Technology](https://www.henkaku.center/en) and Scientific Director of [Dabtong House](https://dabtonghouse.org), an independent non-profit in Bhutan that serves as the in-country home for long-running projects connecting Bhutan and Japan. Previously, I worked as a Project Manager for [Gelephu Mindfulness City](https://gmc.bt/) in Bhutan.
 
 I was a PhD student in the [Department of Brain and Cognitive Sciences at MIT](https://bcs.mit.edu/) working with [Rebecca Saxe](https://saxelab.mit.edu/) and [Mike Frank](https://web.stanford.edu/~mcfrank/), where I studied [computational mechanisms of visual attention](https://elifesciences.org/reviewed-preprints/102713) and built [automated tools for behavioral testing](https://psycnet.apa.org/fulltext/2024-97072-001.html).
 
