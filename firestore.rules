@@ -10,30 +10,22 @@ service cloud.firestore {
       return request.resource.data.addedBy == request.auth.uid;
     }
 
-    // Soft-delete is allowed for either partner (shared ledger), but a
-    // regular field edit is still restricted to the original adder so one
-    // partner can't silently rewrite the other's entries.
-    function isSoftDeleteOnly() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['deletedAt', 'deletedBy']) &&
-        request.resource.data.deletedBy == request.auth.uid;
-    }
+    // Shared two-person ledger: either partner can edit or soft-delete any
+    // entry. The save handler stamps `editedBy` + `updatedAt` (and `deletedBy`
+    // on soft-delete) so there's still an audit trail of who changed what.
+    // Hard delete stays restricted to the original adder.
 
     match /expenses/{doc} {
       allow read: if isAllowedUser();
       allow create: if isAllowedUser() && isOwnEntry();
-      allow update: if isAllowedUser() && (
-        resource.data.addedBy == request.auth.uid || isSoftDeleteOnly()
-      );
+      allow update: if isAllowedUser();
       allow delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
     }
 
     match /payments/{doc} {
       allow read: if isAllowedUser();
       allow create: if isAllowedUser() && isOwnEntry();
-      allow update: if isAllowedUser() && (
-        resource.data.addedBy == request.auth.uid || isSoftDeleteOnly()
-      );
+      allow update: if isAllowedUser();
       allow delete: if isAllowedUser() && resource.data.addedBy == request.auth.uid;
     }
 
