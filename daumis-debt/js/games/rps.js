@@ -1,6 +1,16 @@
 import { db } from '../firebase-config.js';
 import { getCurrentUser, getPartnerUid, getUserName } from '../app.js';
 import { recordDuelResult, getCurrentWeekInfo } from '../duel.js';
+import { setDuelAvailableCache, invalidateDataCache } from '../balance.js';
+
+// Two-player games update the duel doc in-place (rather than via
+// recordDuelResult), so they have to invalidate the duel-available cache
+// themselves — otherwise the dashboard "play this week's duel" banner
+// stays up until the cache naturally expires.
+function _markPlayed() {
+  setDuelAvailableCache(false);
+  invalidateDataCache();
+}
 
 const CHOICES = { rock: '✊', paper: '✋', scissors: '✌️' };
 const BEATS = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
@@ -102,6 +112,7 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
             favoredUser: favoredUser || null,
             playedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+          _markPlayed();
         } else {
           await recordDuelResult({
             game: 'rps',
@@ -131,6 +142,7 @@ function setupChoiceHandlers(container, { year, week, seed, duelDocRef, partnerS
             playedAt: null
           });
         }
+        _markPlayed();
 
         const resultEl = document.getElementById('rps-result');
         resultEl.innerHTML = `<div class="duel-result">You picked ${CHOICES[myChoice]}. Waiting for ${getUserName(partnerUid) || 'partner'}...</div>`;

@@ -86,7 +86,19 @@ export async function isDuelAvailable() {
     .where('week', '==', week)
     .get();
   if (snapshot.empty) return true;
-  return !snapshot.docs.some(doc => doc.data().playedBy === user.uid);
+  // The user has "played" this week if any duel doc indicates so:
+  //   - playedBy === user.uid (single-player games like coin-flip, wheel)
+  //   - result is set (two-player game is fully resolved → week is done for both)
+  //   - submissions[user.uid] is set (two-player game pending partner; user's
+  //     turn is over). Without this branch lucky-number / RPS left the banner
+  //     up even after both partners played.
+  return !snapshot.docs.some(doc => {
+    const d = doc.data();
+    if (d.playedBy === user.uid) return true;
+    if (d.result) return true;
+    if (d.submissions && d.submissions[user.uid] != null) return true;
+    return false;
+  });
 }
 
 /** Start the weekly duel. */
