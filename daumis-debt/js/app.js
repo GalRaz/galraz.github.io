@@ -309,6 +309,82 @@ const ALL_CURRENCIES = [
   { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' }
 ];
 
+// Maps the device's IANA timezone to a default currency, so logging an expense
+// while travelling pre-selects the local currency. Privacy-preserving: reads
+// only the timezone (no GPS, no permission prompt, no network), and it updates
+// automatically when the phone changes timezone abroad. This only sets the
+// DEFAULT — the user can always pick another currency, and the picker UI is
+// unchanged. Only currencies present in ALL_CURRENCIES are returned.
+const TZ_CURRENCY = {
+  // East & Southeast Asia
+  'Asia/Tokyo': 'JPY',
+  'Asia/Seoul': 'KRW',
+  'Asia/Bangkok': 'THB',
+  'Asia/Thimphu': 'BTN',
+  'Asia/Taipei': 'TWD',
+  'Asia/Shanghai': 'CNY', 'Asia/Urumqi': 'CNY', 'Asia/Chongqing': 'CNY', 'Asia/Harbin': 'CNY',
+  'Asia/Hong_Kong': 'HKD',
+  'Asia/Macau': 'HKD', // pataca unsupported; HKD is the practical proxy
+  'Asia/Singapore': 'SGD',
+  'Asia/Kuala_Lumpur': 'MYR', 'Asia/Kuching': 'MYR',
+  'Asia/Jakarta': 'IDR', 'Asia/Pontianak': 'IDR', 'Asia/Makassar': 'IDR', 'Asia/Jayapura': 'IDR',
+  'Asia/Manila': 'PHP',
+  'Asia/Kolkata': 'INR', 'Asia/Calcutta': 'INR',
+  // Middle East
+  'Asia/Jerusalem': 'ILS', 'Asia/Tel_Aviv': 'ILS',
+  'Europe/Istanbul': 'TRY', 'Asia/Istanbul': 'TRY',
+  // Europe — non-euro
+  'Europe/London': 'GBP', 'Europe/Belfast': 'GBP', 'Europe/Guernsey': 'GBP',
+  'Europe/Jersey': 'GBP', 'Europe/Isle_of_Man': 'GBP',
+  'Europe/Zurich': 'CHF',
+  'Europe/Stockholm': 'SEK',
+  'Europe/Oslo': 'NOK',
+  'Europe/Copenhagen': 'DKK',
+  'Europe/Warsaw': 'PLN',
+  'Europe/Prague': 'CZK',
+  'Europe/Budapest': 'HUF',
+  // Europe — eurozone
+  'Europe/Berlin': 'EUR', 'Europe/Paris': 'EUR', 'Europe/Madrid': 'EUR', 'Europe/Rome': 'EUR',
+  'Europe/Amsterdam': 'EUR', 'Europe/Brussels': 'EUR', 'Europe/Vienna': 'EUR', 'Europe/Lisbon': 'EUR',
+  'Europe/Dublin': 'EUR', 'Europe/Athens': 'EUR', 'Europe/Helsinki': 'EUR', 'Europe/Luxembourg': 'EUR',
+  'Europe/Bratislava': 'EUR', 'Europe/Ljubljana': 'EUR', 'Europe/Tallinn': 'EUR', 'Europe/Riga': 'EUR',
+  'Europe/Vilnius': 'EUR', 'Europe/Malta': 'EUR', 'Europe/Zagreb': 'EUR', 'Europe/Andorra': 'EUR',
+  'Europe/Monaco': 'EUR', 'Europe/San_Marino': 'EUR', 'Europe/Vatican': 'EUR',
+  // North America
+  'America/New_York': 'USD', 'America/Detroit': 'USD', 'America/Chicago': 'USD', 'America/Denver': 'USD',
+  'America/Phoenix': 'USD', 'America/Los_Angeles': 'USD', 'America/Anchorage': 'USD', 'America/Adak': 'USD',
+  'America/Boise': 'USD', 'America/Indiana/Indianapolis': 'USD', 'America/Kentucky/Louisville': 'USD',
+  'Pacific/Honolulu': 'USD',
+  'America/Toronto': 'CAD', 'America/Vancouver': 'CAD', 'America/Edmonton': 'CAD', 'America/Winnipeg': 'CAD',
+  'America/Halifax': 'CAD', 'America/St_Johns': 'CAD', 'America/Montreal': 'CAD', 'America/Regina': 'CAD',
+  'America/Mexico_City': 'MXN', 'America/Cancun': 'MXN', 'America/Monterrey': 'MXN', 'America/Tijuana': 'MXN',
+  'America/Merida': 'MXN', 'America/Chihuahua': 'MXN', 'America/Mazatlan': 'MXN',
+  // South America
+  'America/Sao_Paulo': 'BRL', 'America/Bahia': 'BRL', 'America/Fortaleza': 'BRL',
+  'America/Recife': 'BRL', 'America/Manaus': 'BRL',
+  // Oceania
+  'Australia/Sydney': 'AUD', 'Australia/Melbourne': 'AUD', 'Australia/Brisbane': 'AUD', 'Australia/Perth': 'AUD',
+  'Australia/Adelaide': 'AUD', 'Australia/Darwin': 'AUD', 'Australia/Hobart': 'AUD', 'Australia/Canberra': 'AUD',
+  'Pacific/Auckland': 'NZD',
+  // Africa
+  'Africa/Johannesburg': 'ZAR',
+};
+
+/**
+ * The currency that matches where the user currently is, derived from the
+ * device timezone. Returns a supported currency code, or null if the timezone
+ * isn't mapped / can't be read (callers fall back to last-used → USD).
+ */
+function currencyFromLocation() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz) return null;
+    const code = TZ_CURRENCY[tz];
+    if (code && ALL_CURRENCIES.some(c => c.code === code)) return code;
+  } catch (e) {}
+  return null;
+}
+
 // All categories — used to populate the override sheet (categorize is imported from balance.js)
 const ALL_CATEGORIES = [
   { label: 'groceries', icon: '🛒', display: 'Groceries' },
@@ -402,8 +478,15 @@ function openAddScreen({ editing = false, prefill = null } = {}) {
   chip.classList.add('hidden');
   chip.textContent = '';
 
-  // Default currency
-  const defaultCurrency = (prefill && prefill.currency) || localStorage.getItem('daumis-debt-last-currency') || 'USD';
+  // Default currency. Priority: an explicit prefill, then the currency for the
+  // user's current location (device timezone), then the last currency they
+  // used, then USD. Location wins over last-used so logging an expense while
+  // travelling defaults to the local currency — the picker is unchanged and
+  // the user can still select any other currency.
+  const defaultCurrency = (prefill && prefill.currency)
+    || currencyFromLocation()
+    || localStorage.getItem('daumis-debt-last-currency')
+    || 'USD';
   setActiveCurrency(defaultCurrency);
   renderCurrencyPills();
 
@@ -1022,6 +1105,10 @@ function getTopCurrencies() {
   const out = [];
   const seen = new Set();
   const push = (c) => { if (c && !seen.has(c) && ALL_CURRENCIES.some(x => x.code === c)) { out.push(c); seen.add(c); } };
+
+  // Local currency for where the user is right now (device timezone) leads,
+  // so the location-matched currency is always a visible, tappable pill.
+  push(currencyFromLocation());
 
   const last = localStorage.getItem('daumis-debt-last-currency');
   push(last);
