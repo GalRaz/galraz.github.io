@@ -2682,6 +2682,14 @@ if ('serviceWorker' in navigator) {
       // Check for updates immediately on load, then every 60 seconds
       reg.update();
       setInterval(() => reg.update(), 60000);
+      // iOS suspends backgrounded PWAs, which pauses the interval above — a
+      // returning user can then run stale code indefinitely (this is why a
+      // shipped fix sometimes never reaches the phone). Re-check for a new
+      // service worker every time the app comes back to the foreground so
+      // updates land on the next open, not just while it's actively running.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
     })
     .catch((err) => console.error('SW registration failed:', err));
 
