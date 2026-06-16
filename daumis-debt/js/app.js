@@ -693,12 +693,18 @@ async function loadRecurringList() {
       const freqLabel = { weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' }[item.frequency] || 'Monthly';
       const div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;cursor:pointer;';
-      div.innerHTML = `
-        <div>
-          <div style="font-size:0.9rem;font-weight:500">${item.description}</div>
-          <div style="font-size:0.75rem;color:var(--text-muted)">${sym}${item.amount.toLocaleString()} · ${freqLabel} · next: ${dateStr}</div>
-        </div>
-        <span style="color:var(--text-muted);font-size:1rem">›</span>`;
+      const descDiv = document.createElement('div');
+      descDiv.style.cssText = 'font-size:0.9rem;font-weight:500';
+      descDiv.textContent = item.description;
+      const metaDiv = document.createElement('div');
+      metaDiv.style.cssText = 'font-size:0.75rem;color:var(--text-muted)';
+      metaDiv.textContent = `${sym}${item.amount.toLocaleString()} · ${freqLabel} · next: ${dateStr}`;
+      const wrap = document.createElement('div');
+      wrap.append(descDiv, metaDiv);
+      const chevron = document.createElement('span');
+      chevron.style.cssText = 'color:var(--text-muted);font-size:1rem';
+      chevron.textContent = '›';
+      div.append(wrap, chevron);
       div.addEventListener('click', () => {
         window.dispatchEvent(new CustomEvent('edit-entry', { detail: { type: 'recurring', data: item } }));
       });
@@ -904,13 +910,24 @@ window.addEventListener('edit-entry', (e) => {
     const paidByName = data.paidBy === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidBy);
     const paidToName = data.paidTo === currentUser.uid ? getUserName(currentUser.uid) : getUserName(data.paidTo);
 
-    container.innerHTML = `
-      <div style="text-align:center;padding:30px 0 20px">
-        <div style="font-size:2rem;font-weight:700;color:var(--text);margin-bottom:8px">${sym}${data.amount.toLocaleString()}</div>
-        <div style="font-size:0.85rem;color:var(--text-muted)">${data.currency} · ${dateStr}</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${paidByName} paid ${paidToName}</div>
-      </div>
-      <button class="btn btn-delete" id="btn-delete-payment">Delete Settlement</button>`;
+    container.textContent = '';
+    const detail = document.createElement('div');
+    detail.style.cssText = 'text-align:center;padding:30px 0 20px';
+    const amtDiv = document.createElement('div');
+    amtDiv.style.cssText = 'font-size:2rem;font-weight:700;color:var(--text);margin-bottom:8px';
+    amtDiv.textContent = `${sym}${data.amount.toLocaleString()}`;
+    const curDiv = document.createElement('div');
+    curDiv.style.cssText = 'font-size:0.85rem;color:var(--text-muted)';
+    curDiv.textContent = `${data.currency} · ${dateStr}`;
+    const whoDiv = document.createElement('div');
+    whoDiv.style.cssText = 'font-size:0.85rem;color:var(--text-muted);margin-top:4px';
+    whoDiv.textContent = `${paidByName} paid ${paidToName}`;
+    detail.append(amtDiv, curDiv, whoDiv);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-delete';
+    delBtn.id = 'btn-delete-payment';
+    delBtn.textContent = 'Delete Settlement';
+    container.append(detail, delBtn);
     container.style.display = '';
 
     document.getElementById('btn-delete-payment').addEventListener('click', async () => {
@@ -988,7 +1005,7 @@ window.addEventListener('edit-entry', (e) => {
         const t = list.find(r => r.id === data.recurringId);
         if (t && t.frequency) { recurringState.frequency = t.frequency; renderRecurringRow(); }
       })
-      .catch(() => {});
+      .catch((err) => console.warn('Failed to recover recurring frequency:', err));
   }
 
   // Trigger input derivations
@@ -1074,6 +1091,10 @@ function setEntryType(type) {
     title.textContent = editingEntry ? 'Edit expense' : 'Add expense';
   }
   updatePartnerNames();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
 function getCurrencySymbol(code) {
@@ -1399,7 +1420,12 @@ async function renderSplitSentence() {
     } catch (e) {}
   }
 
-  outcome.innerHTML = `${owedBy} ${verb} <strong>${owedStr}</strong>${fx}`;
+  outcome.textContent = '';
+  outcome.append(
+    `${owedBy} ${verb} `,
+    Object.assign(document.createElement('strong'), { textContent: owedStr }),
+    fx
+  );
 }
 
 function formatAmt(v) {
@@ -1786,9 +1812,10 @@ async function renderSettleUp() {
     const iOweNet = totalConsolSigned < 0;
     // The hero headline — use "you" on the viewer's side so the sentence
     // reads naturally regardless of the viewer's display name.
+    const escapedPartner = escapeHtml(partnerName);
     const label = iOweNet
-      ? `You owe ${partnerName}, net`
-      : `${partnerName} owes you, net`;
+      ? `You owe ${escapedPartner}, net`
+      : `${escapedPartner} owes you, net`;
 
     // Per-row meta: just direction. Percentages were removed because rows can
     // point in opposite directions ("you owe €100" + "they owe you $100"),
@@ -1836,7 +1863,7 @@ async function renderSettleUp() {
 
 function renderSettleZero({ firstLoad = false, settledCount = 0 } = {}) {
   const container = document.getElementById('settle-container');
-  const partnerName = getUserName(getPartnerUid());
+  const partnerName = escapeHtml(getUserName(getPartnerUid()));
   const body = firstLoad
     ? `All settled. Nothing to pay.`
     : `You don’t owe ${partnerName} a yen. ${partnerName} doesn’t owe you a yen.`;
@@ -1868,7 +1895,7 @@ function onMarkPaidClick(currency) {
   const abs = Math.round(Math.abs(amount) * 100) / 100;
   const usdAbs = Math.abs(usdSigned);
   const sym = getCurrencySymbol(currency).trim() || currency;
-  const partnerName = getUserName(getPartnerUid());
+  const partnerName = escapeHtml(getUserName(getPartnerUid()));
   const consol = localStorage.getItem('daumis-debt-consol-currency') || 'USD';
   const consolSym = getCurrencySymbol(consol).trim() || consol;
   const iOweThis = amount < 0;
@@ -1909,8 +1936,10 @@ async function confirmMarkPaid(currency, abs, usdAbs) {
     const { convertToUSD } = await import('./exchange.js');
     const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
     const curBalance = _settleCurrencyBalances[currency] || 0;
-    const paidBy = curBalance < 0 ? currentUser.uid : getPartnerUid();
-    const paidTo = curBalance < 0 ? getPartnerUid() : currentUser.uid;
+    const partner = getPartnerUid();
+    if (!partner) { alert('Partner not found. Both users must log in first.'); return; }
+    const paidBy = curBalance < 0 ? currentUser.uid : partner;
+    const paidTo = curBalance < 0 ? partner : currentUser.uid;
 
     const docRef = await db.collection('payments').add({
       amount: abs,
@@ -2014,11 +2043,13 @@ async function settleEverything() {
   const count = _settleDebts.length;
   try {
     const { convertToUSD } = await import('./exchange.js');
+    const partner = getPartnerUid();
+    if (!partner) { alert('Partner not found. Both users must log in first.'); return; }
     for (const [currency, amount] of _settleDebts) {
       const abs = Math.round(Math.abs(amount) * 100) / 100;
       const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
-      const paidBy = amount < 0 ? currentUser.uid : getPartnerUid();
-      const paidTo = amount < 0 ? getPartnerUid() : currentUser.uid;
+      const paidBy = amount < 0 ? currentUser.uid : partner;
+      const paidTo = amount < 0 ? partner : currentUser.uid;
       await db.collection('payments').add({
         amount: abs,
         currency,
@@ -2110,8 +2141,10 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
 
   try {
     const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
-    const paidByUid = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
-    const owedByUid = owedByValue === 'self' ? currentUser.uid : getPartnerUid();
+    const partner = getPartnerUid();
+    if (!partner) { alert('Partner not found. Both users must log in first.'); return; }
+    const paidByUid = paidByValue === 'self' ? currentUser.uid : partner;
+    const owedByUid = owedByValue === 'self' ? currentUser.uid : partner;
     const expenseDate = new Date(date + 'T12:00:00');
     const isFuture = expenseDate > new Date();
 

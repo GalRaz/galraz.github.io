@@ -543,8 +543,8 @@ function _rerenderList(myUid, totalBalance) {
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
-            <div class="entry-desc">${descText}${recurBadge}</div>
-            <div class="entry-meta">${metaLine}</div>
+            <div class="entry-desc">${_escape(descText)}${recurBadge}</div>
+            <div class="entry-meta">${_escape(metaLine)}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       } else if (item.type === 'payment') {
@@ -561,7 +561,7 @@ function _rerenderList(myUid, totalBalance) {
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
             <div class="entry-desc">Settle up</div>
-            <div class="entry-meta">${metaLine}</div>
+            <div class="entry-meta">${_escape(metaLine)}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       } else if (item.type === 'duel') {
@@ -578,8 +578,8 @@ function _rerenderList(myUid, totalBalance) {
         contentHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
-            <div class="entry-desc">${item.game || 'Duel'}</div>
-            <div class="entry-meta">${duelMeta}</div>
+            <div class="entry-desc">${_escape(item.game || 'Duel')}</div>
+            <div class="entry-meta">${_escape(duelMeta)}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       }
