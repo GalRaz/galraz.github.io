@@ -29,7 +29,7 @@ const CURRENCY_SYMBOLS = {
   KRW: '₩', CNY: '¥', INR: '₹', AUD: 'A$', CAD: 'C$', CHF: 'Fr', SGD: 'S$',
   HKD: 'HK$', NZD: 'NZ$', SEK: 'kr', NOK: 'kr', DKK: 'kr', MXN: '$',
   BRL: 'R$', PLN: 'zł', CZK: 'Kč', HUF: 'Ft', ILS: '₪', TRY: '₺', ZAR: 'R',
-  PHP: '₱', MYR: 'RM', IDR: 'Rp',
+  PHP: '₱', MYR: 'RM', IDR: 'Rp', QAR: 'QR ',
 };
 
 function symbol(code) {

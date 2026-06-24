@@ -306,7 +306,8 @@ const ALL_CURRENCIES = [
   { code: 'CZK', label: 'Kč CZK' }, { code: 'HUF', label: 'Ft HUF' },
   { code: 'ILS', label: '₪ ILS' }, { code: 'TRY', label: '₺ TRY' },
   { code: 'ZAR', label: 'R ZAR' }, { code: 'PHP', label: '₱ PHP' },
-  { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' }
+  { code: 'MYR', label: 'RM MYR' }, { code: 'IDR', label: 'Rp IDR' },
+  { code: 'QAR', label: 'QR QAR' }
 ];
 
 // Maps the device's IANA timezone to a default currency, so logging an expense
@@ -328,6 +329,7 @@ const TZ_CURRENCY = {
   'Asia/Singapore': 'SGD',
   'Asia/Kuala_Lumpur': 'MYR', 'Asia/Kuching': 'MYR',
   'Asia/Jakarta': 'IDR', 'Asia/Pontianak': 'IDR', 'Asia/Makassar': 'IDR', 'Asia/Jayapura': 'IDR',
+  'Asia/Qatar': 'QAR',
   'Asia/Manila': 'PHP',
   'Asia/Kolkata': 'INR', 'Asia/Calcutta': 'INR',
   // Middle East
@@ -1081,7 +1083,7 @@ function getCurrencySymbol(code) {
     USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu ', TWD:'NT$', KRW:'₩',
     CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
     SEK:'kr', NOK:'kr', DKK:'kr', MXN:'$', BRL:'R$', PLN:'zł', CZK:'Kč', HUF:'Ft',
-    ILS:'₪', TRY:'₺', ZAR:'R', PHP:'₱', MYR:'RM', IDR:'Rp'
+    ILS:'₪', TRY:'₺', ZAR:'R', PHP:'₱', MYR:'RM', IDR:'Rp', QAR:'QR '
   };
   return symbols[code] || code + ' ';
 }
