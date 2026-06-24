@@ -79,7 +79,11 @@ export async function play(container, { year, week, seed }) {
     document.getElementById('scratch-hint').textContent = '';
 
     const resultEl = document.getElementById('scratch-result');
-    const partnerUid = getPartnerUid() || 'partner';
+    const partnerUid = getPartnerUid();
+    if (!partnerUid) {
+      document.getElementById('scratch-result').innerHTML = `<div class="duel-result">Partner has not logged in yet.</div>`;
+      return;
+    }
 
     let favoredUser = null;
     if (netAdjust > 0) {

@@ -24,7 +24,11 @@ export async function play(container, { year, week, seed }) {
       coinEl.textContent = isHeads ? 'H' : 'T';
 
       const resultEl = document.getElementById('flip-result');
-      const partnerUid = getPartnerUid() || 'partner';
+      const partnerUid = getPartnerUid();
+      if (!partnerUid) {
+        document.getElementById('flip-result').innerHTML = `<div class="duel-result">Partner has not logged in yet.</div>`;
+        return;
+      }
       const favoredUser = isHeads ? user.uid : partnerUid;
 
       if (isHeads) {

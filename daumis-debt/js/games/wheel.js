@@ -96,7 +96,11 @@ export async function play(container, { year, week, seed }) {
         requestAnimationFrame(animate);
       } else {
         const resultEl = document.getElementById('spin-result');
-        const partnerUid = getPartnerUid() || 'partner';
+        const partnerUid = getPartnerUid();
+        if (!partnerUid) {
+          document.getElementById('spin-result').innerHTML = `<div class="duel-result">Partner has not logged in yet.</div>`;
+          return;
+        }
 
         let favoredUser = null;
         if (resultSlice.value > 0) {

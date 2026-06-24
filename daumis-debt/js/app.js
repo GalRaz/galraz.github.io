@@ -67,6 +67,10 @@ startSplashCycle();
 // Safety: force hide splash after 10 seconds no matter what
 setTimeout(() => { hideSplash(); }, 10000);
 
+function _escape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
 // --- State ---
 let currentUser = null;
 const userNames = {};
@@ -908,7 +912,7 @@ window.addEventListener('edit-entry', (e) => {
       <div style="text-align:center;padding:30px 0 20px">
         <div style="font-size:2rem;font-weight:700;color:var(--text);margin-bottom:8px">${sym}${data.amount.toLocaleString()}</div>
         <div style="font-size:0.85rem;color:var(--text-muted)">${data.currency} · ${dateStr}</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${paidByName} paid ${paidToName}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">${_escape(paidByName)} paid ${_escape(paidToName)}</div>
       </div>
       <button class="btn btn-delete" id="btn-delete-payment">Delete Settlement</button>`;
     container.style.display = '';
@@ -1906,11 +1910,13 @@ function onMarkPaidClick(currency) {
 
 async function confirmMarkPaid(currency, abs, usdAbs) {
   try {
+    const partnerUid = getPartnerUid();
+    if (!partnerUid) { alert('Partner has not logged in yet.'); return; }
     const { convertToUSD } = await import('./exchange.js');
     const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
     const curBalance = _settleCurrencyBalances[currency] || 0;
-    const paidBy = curBalance < 0 ? currentUser.uid : getPartnerUid();
-    const paidTo = curBalance < 0 ? getPartnerUid() : currentUser.uid;
+    const paidBy = curBalance < 0 ? currentUser.uid : partnerUid;
+    const paidTo = curBalance < 0 ? partnerUid : currentUser.uid;
 
     const docRef = await db.collection('payments').add({
       amount: abs,
@@ -2013,12 +2019,14 @@ function onSettleAllClick() {
 async function settleEverything() {
   const count = _settleDebts.length;
   try {
+    const partnerUid = getPartnerUid();
+    if (!partnerUid) { alert('Partner has not logged in yet.'); return; }
     const { convertToUSD } = await import('./exchange.js');
     for (const [currency, amount] of _settleDebts) {
       const abs = Math.round(Math.abs(amount) * 100) / 100;
       const { usdAmount, exchangeRate } = await convertToUSD(abs, currency);
-      const paidBy = amount < 0 ? currentUser.uid : getPartnerUid();
-      const paidTo = amount < 0 ? getPartnerUid() : currentUser.uid;
+      const paidBy = amount < 0 ? currentUser.uid : partnerUid;
+      const paidTo = amount < 0 ? partnerUid : currentUser.uid;
       await db.collection('payments').add({
         amount: abs,
         currency,
@@ -2109,9 +2117,14 @@ document.getElementById('form-entry').addEventListener('submit', async (e) => {
   saveBtn.innerHTML = `<span class="spinner"></span> Saving…`;
 
   try {
+    const partnerUid = getPartnerUid();
+    if ((!partnerUid) && (paidByValue === 'partner' || owedByValue === 'partner')) {
+      alert('Partner has not logged in yet. Both users must sign in before logging shared expenses.');
+      return;
+    }
     const { usdAmount, exchangeRate } = await convertToUSD(amount, currency);
-    const paidByUid = paidByValue === 'self' ? currentUser.uid : getPartnerUid();
-    const owedByUid = owedByValue === 'self' ? currentUser.uid : getPartnerUid();
+    const paidByUid = paidByValue === 'self' ? currentUser.uid : partnerUid;
+    const owedByUid = owedByValue === 'self' ? currentUser.uid : partnerUid;
     const expenseDate = new Date(date + 'T12:00:00');
     const isFuture = expenseDate > new Date();
 

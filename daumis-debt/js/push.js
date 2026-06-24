@@ -81,7 +81,7 @@ async function getOrRegisterSw() {
     // (e.g., the pre-data-only build that produced "Something changed"
     // fallbacks). update() is a no-op if the script byte-matches the
     // active one, so this is cheap.
-    existing.update().catch(() => {});
+    existing.update().catch(e => console.warn('SW update check failed:', e));
     return existing;
   }
   _swReg = await navigator.serviceWorker.register(SW_PATH, { scope: SW_SCOPE });

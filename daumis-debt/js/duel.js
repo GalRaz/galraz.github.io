@@ -2,6 +2,10 @@ import { db } from './firebase-config.js';
 import { getCurrentUser, showScreen, getPartnerUid, getUserName } from './app.js';
 import { invalidateDataCache, setDuelAvailableCache } from './balance.js';
 
+function _escape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
 const GAMES = ['coin-flip', 'wheel', 'rps', 'lucky-number', 'scratch-card'];
 const GAME_NAMES = {
   'coin-flip': 'Coin Flip',
@@ -203,10 +207,10 @@ async function renderDuelHistory(container) {
       const tie = !d.favoredUser;
       const resultClass = tie ? 'result-tie' : iWon ? 'result-win' : 'result-loss';
       const resultText = tie ? 'Tie' : iWon ? `+$${d.balanceAdjust}` : `−$${d.balanceAdjust}`;
-      const whoWon = tie ? 'Tie' : iWon ? `${myName} wins` : `${partnerName} wins`;
+      const whoWon = tie ? 'Tie' : iWon ? `${_escape(myName)} wins` : `${_escape(partnerName)} wins`;
       return `<div class="history-row">
         <div>
-          <div class="history-game">${d.game || 'Duel'}</div>
+          <div class="history-game">${_escape(d.game || 'Duel')}</div>
           <div class="history-date">Week ${d.week} · ${whoWon}</div>
         </div>
         <div class="${resultClass}">${resultText}</div>
@@ -216,13 +220,13 @@ async function renderDuelHistory(container) {
     container.innerHTML = `
       <div class="duel-score-card">
         <div class="duel-score-player">
-          <div class="duel-score-name">${myName}</div>
+          <div class="duel-score-name">${_escape(myName)}</div>
           <div class="duel-score-val${myWins >= partnerWins ? ' winning' : ''}">${myWins}</div>
           <div class="duel-score-note">${myBalance > 0 ? balanceNote : ''}</div>
         </div>
         <div class="duel-score-vs">vs</div>
         <div class="duel-score-player">
-          <div class="duel-score-name">${partnerName}</div>
+          <div class="duel-score-name">${_escape(partnerName)}</div>
           <div class="duel-score-val${partnerWins > myWins ? ' winning' : ''}">${partnerWins}</div>
           <div class="duel-score-note">${myBalance < 0 ? balanceNote.replace('-', '') + ' ahead' : ''}</div>
         </div>
