@@ -3,6 +3,8 @@ import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
 import { categorize } from './balance.js';
 
+const _esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 /**
  * Save or update the current user's profile in the `users` collection.
  * Called on every login so partner lookups always have the latest email + name.
@@ -697,7 +699,7 @@ async function loadRecurringList() {
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;cursor:pointer;';
       div.innerHTML = `
         <div>
-          <div style="font-size:0.9rem;font-weight:500">${item.description}</div>
+          <div style="font-size:0.9rem;font-weight:500">${_esc(item.description)}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${sym}${item.amount.toLocaleString()} · ${freqLabel} · next: ${dateStr}</div>
         </div>
         <span style="color:var(--text-muted);font-size:1rem">›</span>`;
