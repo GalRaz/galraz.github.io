@@ -1,6 +1,7 @@
 import { db } from './firebase-config.js';
 import { getCurrentUser, showScreen, getPartnerUid, getUserName } from './app.js';
 import { invalidateDataCache, setDuelAvailableCache } from './balance.js';
+import { hasPlayedThisWeek } from './duel-logic.js';
 
 const GAMES = ['coin-flip', 'wheel', 'rps', 'lucky-number', 'scratch-card'];
 const GAME_NAMES = {
@@ -86,19 +87,10 @@ export async function isDuelAvailable() {
     .where('week', '==', week)
     .get();
   if (snapshot.empty) return true;
-  // The user has "played" this week if any duel doc indicates so:
-  //   - playedBy === user.uid (single-player games like coin-flip, wheel)
-  //   - result is set (two-player game is fully resolved → week is done for both)
-  //   - submissions[user.uid] is set (two-player game pending partner; user's
-  //     turn is over). Without this branch lucky-number / RPS left the banner
-  //     up even after both partners played.
-  return !snapshot.docs.some(doc => {
-    const d = doc.data();
-    if (d.playedBy === user.uid) return true;
-    if (d.result) return true;
-    if (d.submissions && d.submissions[user.uid] != null) return true;
-    return false;
-  });
+  // Gating logic lives in duel-logic.js so it can be unit-tested without
+  // Firebase. Single-player docs (coin-flip/wheel/scratch-card) gate only
+  // their own playedBy; shared two-player docs gate both once resolved.
+  return !hasPlayedThisWeek(snapshot.docs.map(doc => doc.data()), user.uid);
 }
 
 /** Start the weekly duel. */

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daumis-debt-v51';
+const CACHE_NAME = 'daumis-debt-v52';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   '/daumis-debt/js/exchange.js',
   '/daumis-debt/js/balance.js',
   '/daumis-debt/js/duel.js',
+  '/daumis-debt/js/duel-logic.js',
   '/daumis-debt/js/recurring.js',
   '/daumis-debt/js/games/coin-flip.js',
   '/daumis-debt/js/games/wheel.js',
