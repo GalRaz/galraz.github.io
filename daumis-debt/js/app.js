@@ -1529,6 +1529,11 @@ function applyDateChip(iso) {
     const d = new Date(iso + 'T12:00:00');
     pickChip.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+
+  // Changing the date changes the recurring "Next occurrence" preview, which
+  // is derived from entry-date. Re-render the row so it stays in sync instead
+  // of only refreshing when the frequency is toggled.
+  renderRecurringRow();
 }
 
 document.querySelectorAll('#d-chips .d-chip').forEach(btn => {
