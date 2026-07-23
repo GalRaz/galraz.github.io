@@ -30,6 +30,16 @@ test('single-player: partner who has NOT played can still play (regression)', ()
   assert.equal(hasPlayedThisWeek([galCoinFlip], DAUM), false);
 });
 
+const galCoinFlipBothPlayed = {
+  ...galCoinFlip,
+  alsoPlayedBy: DAUM,
+};
+
+test('single-player: alsoPlayedBy gates the second player', () => {
+  assert.equal(hasPlayedThisWeek([galCoinFlipBothPlayed], DAUM), true);
+  assert.equal(hasPlayedThisWeek([galCoinFlipBothPlayed], GAL), true);
+});
+
 // --- Two-player games (rps / lucky-number) ---
 // Shared doc with submissions from both; no playedBy. Once result is set the
 // week is done for BOTH.

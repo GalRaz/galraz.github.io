@@ -11,9 +11,10 @@
  */
 export function hasPlayedThisWeek(duelDocsData, uid) {
   return duelDocsData.some((d) => {
-    // Single-player games (coin-flip / wheel / scratch-card) record a
-    // per-player doc tagged with playedBy — it gates ONLY that player.
-    if (d.playedBy) return d.playedBy === uid;
+    // Single-player games (coin-flip / wheel / scratch-card) record one doc
+    // with playedBy set to whoever played first. If the partner played
+    // second, their uid is in alsoPlayedBy.
+    if (d.playedBy) return d.playedBy === uid || d.alsoPlayedBy === uid;
     // A shared two-player duel (rps / lucky-number) has no playedBy. Once its
     // result is set the week is resolved for BOTH partners.
     if (d.result) return true;

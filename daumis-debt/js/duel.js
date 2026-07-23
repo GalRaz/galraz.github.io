@@ -137,22 +137,44 @@ export async function startDuel() {
 /**
  * Record duel result to Firestore.
  * Called by individual game modules when the game completes.
+ *
+ * For single-player games, only one doc per (year, week) carries the balance
+ * adjustment. If the partner already played, we mark ourselves on their doc
+ * instead of creating a duplicate — this prevents double-counting.
  */
 export async function recordDuelResult({ game, result, balanceAdjust, favoredUser, seed, year, week }) {
   const user = getCurrentUser();
-  await db.collection('duels').add({
-    year,
-    week,
-    game: GAME_NAMES[game] || game,
-    result,
-    balanceAdjust: Math.abs(balanceAdjust),
-    favoredUser,
-    playedBy: user.uid,
-    playedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    seed,
-    submissions: null
+
+  const existing = await db.collection('duels')
+    .where('year', '==', year)
+    .where('week', '==', week)
+    .get();
+
+  const partnerDoc = existing.docs.find(doc => {
+    const d = doc.data();
+    return d.playedBy && d.playedBy !== user.uid;
   });
-  // Duel is now played — clear banner cache and dashboard data cache
+
+  if (partnerDoc) {
+    await partnerDoc.ref.update({
+      alsoPlayedBy: user.uid,
+      alsoPlayedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } else {
+    await db.collection('duels').add({
+      year,
+      week,
+      game: GAME_NAMES[game] || game,
+      result,
+      balanceAdjust: Math.abs(balanceAdjust),
+      favoredUser,
+      playedBy: user.uid,
+      playedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      seed,
+      submissions: null
+    });
+  }
+
   setDuelAvailableCache(false);
   invalidateDataCache();
 }
@@ -173,7 +195,18 @@ async function renderDuelHistory(container) {
 
     if (snap.empty) return;
 
-    const duels = snap.docs.map(d => d.data()).filter(d => d.result);
+    // Deduplicate single-player docs by (year, week) so historical data
+    // with two per-player docs doesn't inflate the score.
+    const _seen = new Set();
+    const duels = snap.docs.map(d => d.data()).filter(d => {
+      if (!d.result) return false;
+      if (d.playedBy) {
+        const key = `${d.year}-${d.week}`;
+        if (_seen.has(key)) return false;
+        _seen.add(key);
+      }
+      return true;
+    });
 
     // Compute cumulative score (wins)
     let myWins = 0, partnerWins = 0, myBalance = 0;

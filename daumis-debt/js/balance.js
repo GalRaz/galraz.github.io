@@ -1570,9 +1570,17 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
       } catch (e) { console.error('Bad payment doc:', doc.id, e); }
     });
 
+    // Deduplicate single-player duel docs by (year, week) so historical
+    // data with two per-player docs doesn't double-count the adjustment.
+    const _seenDuelWeeks = new Set();
     duelSnap.forEach((doc) => {
       try {
         const d = doc.data();
+        if (d.playedBy) {
+          const key = `${d.year}-${d.week}`;
+          if (_seenDuelWeeks.has(key)) return;
+          _seenDuelWeeks.add(key);
+        }
         items.push(buildItem(d, doc.id, 'duel', 'playedAt'));
       } catch (e) { console.error('Bad duel doc:', doc.id, e); }
     });
@@ -1955,9 +1963,15 @@ export async function computeCurrencyBalances() {
     }
   });
 
+  const _seenDuelWeeks2 = new Set();
   duelSnap.forEach((doc) => {
     const d = doc.data();
     if (d.balanceExcluded || d.deletedAt) return;
+    if (d.playedBy) {
+      const key = `${d.year}-${d.week}`;
+      if (_seenDuelWeeks2.has(key)) return;
+      _seenDuelWeeks2.add(key);
+    }
     d.type = 'duel';
     const impact = itemImpact(d, user.uid);
     balance += impact;
