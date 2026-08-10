@@ -24,11 +24,11 @@ author:
   avatar           : "me_yosemite.png"
   name             : "Gal Raz"
   pronouns         : # example: "she/her"  
-  bio              : "Researcher at Henkaku Center"
+  bio              : "Dabtong House · Technology Commons Alliance · Henkaku Center"
   location         : "Thimphu, Bhutan"
   employer         : #"MIT"
   uri              : # URL
-  email            : "galraz@mit.edu" 
+  email            : "galraz@gmail.com"
 
   # Academic websites
   arxiv            : # URL - Update with the correct link to your profile
@@ -56,7 +56,7 @@ author:
   keybase          : # Username
   instagram        : # Username
   lastfm           : # Username
-  linkedin         : "gal-raz-phd-0796aab4"
+  linkedin         : "gal-raz-0796aab4"
   mastodon         : # URL
   medium           : # URL
   pinterest        : # Username
@@ -196,22 +196,6 @@ kramdown:
   enable_coderay: false
 
 
-# Collections
-collections:
-  teaching:
-    output: true
-    permalink: /:collection/:path/
-  publications:
-    output: true
-    permalink: /:collection/:path/
-  portfolio:
-    output: true
-    permalink: /:collection/:path/
-  talks:
-    output: true
-    permalink: /:collection/:path/
-
-
 # Defaults
 defaults:
   # _posts
@@ -232,41 +216,6 @@ defaults:
     values:
       layout: single
       author_profile: true
-  # _teaching
-  - scope:
-      path: ""
-      type: teaching
-    values:
-      layout: single
-      author_profile: true
-      share: true
-      comments: true
-  # _publications
-  - scope:
-      path: ""
-      type: publications
-    values:
-      layout: single
-      author_profile: true
-      share: true
-      comments: true
-  # _portfolio
-  - scope:
-      path: ""
-      type: portfolio
-    values:
-      layout: single
-      author_profile: true
-      share: true
-      comment: true
-  # _talks
-  - scope:
-      path: ""
-      type: talks
-    values:
-      layout: talk
-      author_profile: true
-      share: true
 
 
 # Sass/SCSS
