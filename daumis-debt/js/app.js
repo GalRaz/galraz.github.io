@@ -62,10 +62,12 @@ function hideSplash() {
   if (app) app.style.display = '';
 }
 
-startSplashCycle();
-
-// Safety: force hide splash after 10 seconds no matter what
-setTimeout(() => { hideSplash(); }, 10000);
+// Splash screen removed — reveal the app shell immediately. The screen
+// stays blank (cream) only for the split second until Firebase resolves
+// auth and showScreen() paints the dashboard or the sign-in view.
+// hideSplash() is kept (and null-guarded) since it's called on every
+// boot path and still handles the `#app` reveal.
+hideSplash();
 
 // --- State ---
 let currentUser = null;
@@ -88,6 +90,13 @@ auth.onAuthStateChanged((user) => {
     showApp().catch((err) => {
       console.error('showApp failed:', err);
       hideSplash();
+      // Surface the failure on the balance card instead of hanging on
+      // "Loading..." forever — makes data-load errors visible & reportable.
+      const label = document.querySelector('#balance-display .balance-label');
+      if (label) {
+        label.textContent = '⚠️ Could not load data: ' +
+          ((err && (err.code || err.message)) || 'unknown error');
+      }
     });
   } else {
     currentUser = null;
@@ -2531,6 +2540,15 @@ if ('serviceWorker' in navigator) {
 }
 
 // --- App entry ---
+// Update the balance label with a load-progress stage — but only while it
+// still shows a loading state, never clobbering real data.
+function setLoadStage(txt) {
+  const label = document.querySelector('#balance-display .balance-label');
+  if (label && /loading|syncing|crunching/i.test(label.textContent)) {
+    label.textContent = txt;
+  }
+}
+
 async function showApp() {
   showScreen('dashboard');
 
@@ -2546,6 +2564,12 @@ async function showApp() {
   // stamps real numbers into the DOM so they're already visible the moment
   // the splash hides, regardless of how fast Firestore responds.
   balanceMod.paintCachedBalance();
+
+  // Hide the splash as soon as the dashboard shell is painted — cached
+  // numbers (or a loading state) are already visible, and fresh data pops
+  // in when it arrives. Waiting for the full network load here made every
+  // app open feel slow.
+  hideSplash();
 
   // Load user profiles (cache-first).
   const userProfilesPromise = (async () => {
@@ -2574,9 +2598,9 @@ async function showApp() {
   await userProfilesPromise;
   const cacheResult = await balanceMod.loadDashboard(false, { source: 'cache' });
   if (cacheResult && cacheResult.cacheEmpty) {
+    setLoadStage('Syncing with cloud…');
     await balanceMod.loadDashboard(true);
   }
-  hideSplash();
 
   // Cold-start push deep-link: if we were opened from a notification tap,
   // the SW set location.hash before we booted. Now that the dashboard is
@@ -2681,8 +2705,24 @@ export function setPartnerInfo(uid, name) {
   userNames[uid] = name;
 }
 
+// Local development: never use the service worker on localhost. Its
+// stale-while-revalidate cache masks edits (you'd see old HTML/CSS until a
+// second reload). Skip registration and unregister any existing SW + clear
+// its caches so local iteration always serves fresh files. Production
+// (any non-localhost host) is completely unaffected.
+const IS_LOCAL_DEV = ['localhost', '127.0.0.1'].includes(location.hostname);
+
+if (IS_LOCAL_DEV && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((reg) => reg.unregister());
+  });
+  if (window.caches && caches.keys) {
+    caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+  }
+}
+
 // Register service worker for PWA + auto-reload on updates
-if ('serviceWorker' in navigator) {
+if (!IS_LOCAL_DEV && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('/daumis-debt/sw.js', { updateViaCache: 'none' })
     .then((reg) => {
       console.log('SW registered');

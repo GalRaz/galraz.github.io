@@ -1528,6 +1528,11 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
         _snapshotCache = snaps;
       } else {
         _snapshotCache = await fetchCollections(source);
+        // Progress beacon: data has arrived, now computing/rates.
+        try {
+          const lbl = balanceEl && balanceEl.querySelector('.balance-label');
+          if (lbl && /loading|syncing/i.test(lbl.textContent)) lbl.textContent = 'Crunching numbers…';
+        } catch (_) {}
       }
     }
     const { expSnap, paySnap, duelSnap } = _snapshotCache;
@@ -1808,6 +1813,14 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
 
   } catch (err) {
     console.error('Error loading dashboard:', err);
+    // Surface the failure on the balance card — a silent catch here leaves
+    // the user staring at "Loading..." forever with no clue why.
+    try {
+      const label = balanceEl && balanceEl.querySelector('.balance-label');
+      if (label && /loading|syncing|crunching/i.test(label.textContent)) {
+        label.textContent = '⚠️ ' + ((err && (err.message || err.code)) || 'Could not load data');
+      }
+    } catch (_) {}
   }
 }
 

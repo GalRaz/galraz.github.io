@@ -26,6 +26,14 @@ function saveRates() {
  * so we use INR rate as a proxy.
  * Falls back to localStorage-cached rates when offline.
  */
+// Fetch with a hard timeout — a hung request (DNS sinkhole, blocking proxy,
+// flaky network) must never stall the dashboard forever.
+function fetchWithTimeout(url, ms = 5000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(t));
+}
+
 export async function getExchangeRate(currency) {
   if (currency === 'USD') return 1;
 
@@ -37,7 +45,7 @@ export async function getExchangeRate(currency) {
 
   // Try frankfurter.app first (ECB data, supports most major currencies)
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://api.frankfurter.app/latest?from=${queryCurrency}&to=USD`
     );
     if (response.ok) {
@@ -53,7 +61,7 @@ export async function getExchangeRate(currency) {
 
   // Fallback: open.er-api.com (supports TWD and other currencies frankfurter doesn't)
   try {
-    const fallback = await fetch(`https://open.er-api.com/v6/latest/${queryCurrency}`);
+    const fallback = await fetchWithTimeout(`https://open.er-api.com/v6/latest/${queryCurrency}`);
     if (fallback.ok) {
       const fbData = await fallback.json();
       const rate = fbData.rates.USD;
