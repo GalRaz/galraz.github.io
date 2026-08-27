@@ -1,4 +1,10 @@
-const CACHE_NAME = 'daumis-debt-v52';
+// Local development kill-switch: on localhost this SW must never cache.
+// It unregisters itself, wipes every cache, and reloads its clients so a
+// stale SW from an earlier session can't serve old files during dev.
+// Production hosts are completely unaffected.
+const IS_LOCAL_DEV = ['localhost', '127.0.0.1'].includes(self.location.hostname);
+
+const CACHE_NAME = 'daumis-debt-v53';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -20,11 +26,23 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+  if (IS_LOCAL_DEV) { self.skipWaiting(); return; }
   e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
+  if (IS_LOCAL_DEV) {
+    // Self-destruct: wipe caches, unregister, hard-reload every open tab.
+    e.waitUntil((async () => {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+      await self.registration.unregister();
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach((c) => c.navigate(c.url));
+    })());
+    return;
+  }
   e.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
@@ -34,6 +52,8 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
+  // Local dev: never intercept anything.
+  if (IS_LOCAL_DEV) return;
   // Let API calls go straight to network (no SW interference)
   if (e.request.url.includes('firestore.googleapis.com') ||
       e.request.url.includes('frankfurter.app') ||

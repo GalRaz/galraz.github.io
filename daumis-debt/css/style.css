@@ -1912,3 +1912,354 @@ h3 { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
   border-radius: 12px;
 }
 
+/* ============================================================
+   POCKET POP THEME 🎮
+   Game-Boy-Color energy, smooth & modern (no pixels).
+   Cream paper, teal + coral + sunny yellow, chunky ink
+   outlines, hard offset shadows, pressed-button states.
+   CSS-only: zero images, zero font downloads.
+   ============================================================ */
+
+:root {
+  --bg: #fdf6e9;
+  --surface: #ffffff;
+  --surface-2: #f6ecd8;
+  --surface-3: #eadfc4;
+  --accent: #12a4b4;
+  --accent-soft: rgba(18, 164, 180, 0.12);
+  --text: #26221f;
+  --text-muted: #8a7f6f;
+  --green: #2e9e5b;
+  --green-soft: rgba(46, 158, 91, 0.12);
+  --red: #d94a35;
+  --red-soft: rgba(217, 74, 53, 0.1);
+  --gold: #c8860d;
+  --ink: #26221f;
+  --coral: #ff6b57;
+  --sunny: #ffc63f;
+  --mint: #8fe3a8;
+  --lavender: #c9b8ff;
+  --font-round: ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Hiragino Maru Gothic ProN', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* --- Rounded display type for the fun bits --- */
+h2, .screen-header h2, .duel-game h2,
+.balance-amount, .entry-amount, .fab {
+  font-family: var(--font-round);
+}
+
+/* --- Righteous all-caps nameplate for the app titles --- */
+.splash-title, .auth-container h1, .app-title {
+  font-family: 'Righteous', var(--font-round);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.auth-container h1 { font-size: 2.2rem; }
+.app-title { font-size: 1.45rem; }
+
+/* --- Splash: sticker icon --- */
+.splash-icon {
+  border: 3px solid var(--ink);
+  border-radius: 24px;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+/* --- Buttons: chunky cartridge buttons with press-down --- */
+.btn {
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+  font-weight: 700;
+}
+.btn:active {
+  opacity: 1;
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--ink);
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-accent { background: var(--sunny); color: var(--ink); border-radius: 16px; }
+.btn-icon {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.btn-icon:active { transform: translate(2px, 2px); box-shadow: 0 0 0 var(--ink); }
+
+/* --- Balance card: the teal "screen" --- */
+.balance-card {
+  background: var(--accent);
+  border: 2.5px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.balance-label { color: rgba(255, 255, 255, 0.85); }
+.balance-amount { color: #fff; letter-spacing: -0.5px; }
+.balance-amount.positive { color: #ffffff; }
+.balance-amount.negative { color: #ffdcd4; }
+.balance-quote { color: rgba(255, 255, 255, 0.82); }
+.balance-hint { color: rgba(255, 255, 255, 0.7); }
+.balance-breakdown { border-top: 1px solid rgba(255, 255, 255, 0.35); }
+.balance-breakdown .currency-line { color: rgba(255, 255, 255, 0.9); }
+.balance-breakdown .currency-line.positive { color: #d9ffe6; }
+.balance-breakdown .currency-line.negative { color: #ffd9d0; }
+
+/* --- On This Day polaroid: joins the sticker family --- */
+.otd-polaroid { border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+
+/* --- Duel banner: sunny quest banner --- */
+.duel-banner {
+  background: var(--sunny);
+  border: 2.5px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.duel-banner p { color: var(--ink); }
+.duel-banner .btn {
+  background: var(--ink); color: #fff;
+  border-radius: 999px; box-shadow: 2px 2px 0 rgba(38, 34, 31, 0.35);
+}
+
+/* --- History: sticker cards --- */
+.history-list { padding-bottom: 90px; }
+.history-list li {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  margin-bottom: 10px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.swipe-content { background: var(--surface); }
+.swipe-delete { background: var(--coral); color: var(--ink); font-weight: 700; }
+.entry-icon {
+  background: var(--sunny);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  font-size: 1.05rem;
+}
+.entry-icon.expense { color: var(--ink); }
+.entry-icon.payment { background: var(--mint); color: var(--ink); }
+.entry-icon.duel { background: var(--lavender); color: var(--ink); }
+.entry-amount.credit { color: var(--green); }
+.entry-amount.debit { color: var(--red); }
+
+/* --- History/Activity toggle: pill buttons --- */
+.hv-toggle { background: transparent; padding: 0; gap: 8px; }
+.hv-btn {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: none;
+}
+.hv-btn.active {
+  background: var(--sunny);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+/* --- Search + filter: outlined pills --- */
+.hc-search, .hc-filter-btn {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  box-shadow: none;
+}
+.hc-search:focus-within { border-color: var(--accent); box-shadow: none; }
+.hc-filter-btn.active { background: var(--accent-soft); }
+.hc-filter-badge { background: var(--coral); color: #fff; }
+
+/* --- FAB: the big coral A-button --- */
+.fab {
+  background: var(--coral);
+  border: 2.5px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+  transition: transform 0.1s, box-shadow 0.1s;
+  /* Optically center the plus: the rounded fallback font (Hiragino Maru on
+     Chrome/macOS) renders "+" off-center, so use the system sans and nudge. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 2.6rem;
+  line-height: 1;
+  padding: 0 0 3px 0;
+}
+.fab:active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+
+/* --- Forms: outlined fields --- */
+.form input, .form select {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+}
+.form input:focus, .form select:focus {
+  box-shadow: none;
+  border-color: var(--accent);
+}
+.toggle {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+.toggle-btn { border-radius: 999px; }
+.toggle-btn.active { background: var(--sunny); color: var(--ink); font-weight: 700; }
+#entry-type .toggle-btn.active { background: var(--accent); color: #fff; }
+.split-option {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  color: var(--text-muted);
+}
+.split-option.active {
+  background: #d5f1f4;
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* --- Filter sheet: pop-up tray --- */
+.hf-sheet {
+  background: var(--bg);
+  border: 2.5px solid var(--ink);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+}
+.hf-pill {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+.hf-pill.on { background: var(--accent); border-color: var(--ink); color: #fff; }
+.hf-apply {
+  border: 2.5px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  border-radius: 16px;
+  font-weight: 700;
+}
+
+/* ============================================================
+   OUTLINED STICKERS — add-expense screen + insights sweep
+   White cards with ink outlines + offset shadows on cream.
+   Contrast comes from edges, not surface color.
+   ============================================================ */
+
+/* Expense / Settle-up toggle */
+#screen-add .ent-toggle {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+#screen-add .ent-toggle button { border-radius: 999px; }
+
+/* Amount block */
+#screen-add .amt {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+#screen-add .amt-label { color: var(--text-muted); }
+#screen-add .amt-val::placeholder { color: rgba(38, 34, 31, 0.22); }
+#screen-add .amt-val.ph { color: rgba(38, 34, 31, 0.22); }
+
+/* Currency pills */
+#screen-add .cur-pill {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+#screen-add .cur-pill.active { background: var(--accent); border-color: var(--ink); color: #fff; }
+#screen-add .cur-pill.more { background: transparent; border-style: dashed; }
+
+/* Description — the outlined input IS the card; kill the old white wrapper */
+#screen-add .desc {
+  background: transparent;
+  padding: 0;
+}
+#screen-add .desc input {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 13px 14px;
+}
+#screen-add .desc input:focus { border-color: var(--accent); }
+
+/* Split block */
+#screen-add .a-seg-wrap {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 14px;
+}
+#screen-add .a-seg-label { color: var(--text-muted); }
+#screen-add .a-seg {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+#screen-add .a-seg button { border-radius: 999px; }
+
+/* Payment direction */
+#screen-add .split {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 14px;
+}
+#screen-add .split-label { color: var(--text-muted); }
+
+/* Date chips */
+#screen-add .d-chip {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+#screen-add .d-chip.active { background: var(--accent); color: #fff; }
+
+/* Recurring */
+#screen-add .recur-row {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+}
+#screen-add .recur-row .recur-label { color: var(--ink); }
+#screen-add .recur-row .plus { color: var(--accent); }
+
+/* Save → sunny A-button */
+#screen-add .save button {
+  background: var(--sunny);
+  color: var(--ink);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+#screen-add .save button:not([disabled]):active {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 var(--ink);
+}
+#screen-add .save button.disabled,
+#screen-add .save button[disabled] {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-color: var(--hairline, rgba(38,34,31,0.3));
+  border: 2px solid rgba(38, 34, 31, 0.25);
+  box-shadow: none;
+}
+
+/* --- Insights sweep: sticker cards + outlined time filter --- */
+.time-filter {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+}
+.time-btn { border-radius: 999px; }
+.insight-card {
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
