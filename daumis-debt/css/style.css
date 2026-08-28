@@ -2177,6 +2177,7 @@ h2, .screen-header h2, .duel-game h2,
 #screen-add .desc {
   background: transparent;
   padding: 0;
+  position: relative;
 }
 #screen-add .desc input {
   background: var(--surface);
@@ -2185,6 +2186,20 @@ h2, .screen-header h2, .duel-game h2,
   padding: 13px 14px;
 }
 #screen-add .desc input:focus { border-color: var(--accent); }
+/* Auto-detected category chip: anchored inside the input's right edge so it
+   reads as part of the field (the old flex layout left it floating outside
+   the outlined input, effectively invisible). */
+#screen-add .desc-chip {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  border: 1.5px solid var(--ink);
+}
+#screen-add .desc:has(.desc-chip:not(.hidden)) input { padding-right: 110px; }
 
 /* Split block */
 #screen-add .a-seg-wrap {
@@ -2266,6 +2281,22 @@ body.is-syncing::before {
 @keyframes syncSlide {
   from { left: -40%; }
   to { left: 100%; }
+}
+/* Finish sweep: when the fetch completes, run the bar once to the right
+   edge instead of vanishing mid-slide. */
+body.sync-done::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 30%;
+  width: 38%; height: 4px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  z-index: 400;
+  animation: syncFinish 0.4s ease-out forwards;
+}
+@keyframes syncFinish {
+  from { left: 30%; opacity: 1; }
+  to { left: 100%; opacity: 1; }
 }
 
 /* --- Insights sweep: sticker cards + outlined time filter --- */

@@ -1324,8 +1324,8 @@ export function categorize(description) {
   const d = description.toLowerCase();
 
   const categories = [
-    { keywords: ['grocery', 'groceries', 'supermarket', 'market', 'produce', 'trader joe', 'whole foods', 'lawson', 'conbini', '7/11', '7-11', 'jmart', 'vegg', 'fruit', 'egg', 'milk', 'bread', 'rice', 'olive oil', 'seaweed', 'detergent', 'snack'], icon: '🛒', label: 'groceries' },
-    { keywords: ['restaurant', 'dinner', 'lunch', 'breakfast', 'cafe', 'coffee', 'eat', 'sushi', 'pizza', 'burger', 'ramen', 'noodle', 'brunch', 'bistro', 'datshi', 'thai', 'korean', 'japanese', 'indian', 'chinese', 'mexican', 'italian', 'pastry', 'bakery', 'bar', 'pub', 'beer', 'wine', 'drink', 'cocktail', 'boba', 'bubble tea', 'tea', 'matcha', 'latte', 'cappuccino', 'capuccino', 'falafel', 'kebab', 'hummus', 'salad', 'momo', 'dosa', 'paneer', 'shabu', 'chipotle', 'mcdo', 'ice cream', 'cookie', 'chocolate', 'yogurt', 'smoothie', 'soho', 'munch', 'dimsum', 'wok'], icon: '🍽️', label: 'dining' },
+    { keywords: ['grocery', 'groceries', 'supermarket', 'market', 'produce', 'trader joe', 'whole foods', 'lawson', 'conbini', '7/11', '7-11', 'jmart', 'vegg', 'fruit', 'egg', 'milk', 'bread', 'rice', 'olive oil', 'seaweed', 'detergent', 'snack', 'lincos', 'aeon', 'seiyu', 'donki', 'don quijote', 'gyomu', 'costco', 'family mart', 'famima', 'ministop'], icon: '🛒', label: 'groceries' },
+    { keywords: ['restaurant', 'dinner', 'lunch', 'breakfast', 'cafe', 'coffee', 'eat', 'sushi', 'pizza', 'burger', 'ramen', 'noodle', 'brunch', 'bistro', 'datshi', 'thai', 'korean', 'japanese', 'indian', 'chinese', 'mexican', 'italian', 'pastry', 'bakery', 'bar', 'pub', 'beer', 'wine', 'drink', 'cocktail', 'boba', 'bubble tea', 'tea', 'matcha', 'latte', 'cappuccino', 'capuccino', 'falafel', 'kebab', 'hummus', 'salad', 'momo', 'dosa', 'paneer', 'shabu', 'chipotle', 'mcdo', 'ice cream', 'cookie', 'chocolate', 'yogurt', 'smoothie', 'soho', 'munch', 'dimsum', 'wok', 'acai', 'açaí', 'poke', 'juice', 'izakaya', 'yakitori', 'curry', 'udon', 'soba', 'tempura', 'bento', 'onigiri', 'gyoza', 'katsu', 'starbucks', 'frappe'], icon: '🍽️', label: 'dining' },
     { keywords: ['flight', 'flights', 'airline', 'airport', 'plane', 'boarding', 'eurowings', 'eva air', 'air'], icon: '✈️', label: 'flights' },
     { keywords: ['hotel', 'hostel', 'airbnb', 'accommodation', 'stay', 'booking', 'resort', 'room upgrade'], icon: '🏨', label: 'lodging' },
     { keywords: ['uber', 'lyft', 'taxi', 'cab', 'bus', 'train', 'metro', 'subway', 'transport', 'transit', 'grab', 'bolt', 'driver', 'sim card', 'data'], icon: '🚕', label: 'transport' },
@@ -1549,6 +1549,26 @@ function itemImpact(item, myUid) {
 /**
  * Load and render the dashboard.
  */
+// Top-of-screen network indicator. On finish, swap the looping slide for a
+// one-shot sweep to the right edge (sync-done) so the bar visibly completes
+// instead of vanishing mid-slide.
+let _syncDoneTimer = null;
+function _syncBar(on) {
+  const b = document.body;
+  if (on) {
+    if (_syncDoneTimer) { clearTimeout(_syncDoneTimer); _syncDoneTimer = null; }
+    b.classList.remove('sync-done');
+    b.classList.add('is-syncing');
+  } else if (b.classList.contains('is-syncing')) {
+    b.classList.remove('is-syncing');
+    b.classList.add('sync-done');
+    _syncDoneTimer = setTimeout(() => {
+      b.classList.remove('sync-done');
+      _syncDoneTimer = null;
+    }, 450);
+  }
+}
+
 async function fetchCollections(source) {
   const opts = source ? { source } : undefined;
   const [expSnap, paySnap, duelSnap] = await Promise.all([
@@ -1578,11 +1598,11 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
       } else {
         // Network fetch — show the top sync bar so a slow connection is
         // visibly "working" rather than frozen.
-        document.body.classList.add('is-syncing');
+        _syncBar(true);
         try {
           _snapshotCache = await fetchCollections(source);
         } finally {
-          document.body.classList.remove('is-syncing');
+          _syncBar(false);
         }
         // Progress beacon: data has arrived, now computing/rates.
         try {
