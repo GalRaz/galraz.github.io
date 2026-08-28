@@ -1576,7 +1576,14 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
         }
         _snapshotCache = snaps;
       } else {
-        _snapshotCache = await fetchCollections(source);
+        // Network fetch — show the top sync bar so a slow connection is
+        // visibly "working" rather than frozen.
+        document.body.classList.add('is-syncing');
+        try {
+          _snapshotCache = await fetchCollections(source);
+        } finally {
+          document.body.classList.remove('is-syncing');
+        }
         // Progress beacon: data has arrived, now computing/rates.
         try {
           const lbl = balanceEl && balanceEl.querySelector('.balance-label');
@@ -1846,8 +1853,8 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
     } catch (_) {}
     quoteEl.textContent = getBalanceQuote(consolidatedBalance, swing);
 
-    // Apply mood theme
-    applyMood(consolidatedBalance);
+    // Apply mood theme — swing-aware so the emoji burst reacts to big jumps
+    applyMood(consolidatedBalance, swing);
 
     // Persist rendered balance for instant paint on next app open.
     // Always save the consolidated view — if the user has toggled to
@@ -1906,20 +1913,35 @@ const EMOJI_TIERS = {
     { max: 5000, emojis: ['🍾','👑','💰','😏','💅'] },
     { max: Infinity, emojis: ['👑','🏆','💎','🍾','🎩','💰','🤑','👑'] }
   ],
-  settled: ['🧘','☮️','🌿']
+  settled: ['🧘','☮️','🌿'],
+  // Reactions to a big CHANGE in the balance (not the level)
+  swingUp: ['🎉','🤑','🙌','✨','💸','🥳'],
+  swingDown: ['😱','💥','🚨','🥲','📉','🫣']
 };
 
-function applyMood(balance) {
+// Don't restart the burst on every re-render (cache paint → network refresh
+// → background refresh all call applyMood). Only burst when the mood
+// actually changed — this was the "glitchy" mid-flight restart.
+let _lastMoodKey = null;
+
+function applyMood(balance, swing) {
   const abs = Math.abs(balance);
 
-  // Pick emojis based on direction and tier
+  // Pick emojis based on direction and tier — a big swing overrides the
+  // level-based set so the emojis react to the jump itself.
   let emojis;
-  if (abs < 1) {
+  if (swing) {
+    emojis = swing === 'up' ? EMOJI_TIERS.swingUp : EMOJI_TIERS.swingDown;
+  } else if (abs < 1) {
     emojis = EMOJI_TIERS.settled;
   } else {
     const tiers = balance < 0 ? EMOJI_TIERS.owe : EMOJI_TIERS.owed;
     emojis = (tiers.find(t => abs < t.max) || tiers[tiers.length - 1]).emojis;
   }
+
+  const moodKey = (swing || 'level') + ':' + Math.round(balance);
+  if (moodKey === _lastMoodKey) return;
+  _lastMoodKey = moodKey;
 
   // Emojis — burst for 7 seconds then fade
   let emojiContainer = document.getElementById('emoji-burst');
@@ -1931,14 +1953,16 @@ function applyMood(balance) {
     emojiContainer.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:100;overflow:hidden;transition:opacity 1s;';
     document.body.appendChild(emojiContainer);
 
-    for (let i = 0; i < emojis.length * 2; i++) {
+    // Bigger burst for swings — the jump deserves more drama than the level.
+    const count = emojis.length * (swing ? 3 : 2);
+    for (let i = 0; i < count; i++) {
       const emoji = document.createElement('span');
       emoji.textContent = emojis[i % emojis.length];
       emoji.style.cssText = `
         position:absolute;
-        font-size:${1 + Math.random() * 0.8}rem;
+        font-size:${1.4 + Math.random() * 1.2}rem;
         left:${5 + Math.random() * 85}%;
-        bottom:-30px;
+        bottom:-40px;
         opacity:0;
         animation: emojiBurst ${2.5 + Math.random() * 2.5}s ease-out ${Math.random() * 3}s forwards;
       `;

@@ -724,8 +724,9 @@ body {
 }
 @keyframes emojiBurst {
   0% { opacity: 0; transform: translateY(0) rotate(0deg) scale(0.5); }
-  20% { opacity: 0.8; transform: translateY(-80px) rotate(10deg) scale(1); }
-  100% { opacity: 0; transform: translateY(-500px) rotate(30deg) scale(0.8); }
+  12% { opacity: 1; transform: translateY(-60px) rotate(6deg) scale(1.05); }
+  70% { opacity: 1; transform: translateY(-360px) rotate(20deg) scale(1); }
+  100% { opacity: 0; transform: translateY(-520px) rotate(30deg) scale(0.9); }
 }
 
 .entry-type { display: none; }
@@ -2248,6 +2249,23 @@ h2, .screen-header h2, .duel-game h2,
   border-color: var(--hairline, rgba(38,34,31,0.3));
   border: 2px solid rgba(38, 34, 31, 0.25);
   box-shadow: none;
+}
+
+/* --- Network sync indicator: sliding teal bar at the very top while a
+   network fetch is in flight, so slow connections don't feel frozen --- */
+body.is-syncing::before {
+  content: "";
+  position: fixed;
+  top: 0; left: -40%;
+  width: 38%; height: 4px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  z-index: 400;
+  animation: syncSlide 1.1s ease-in-out infinite;
+}
+@keyframes syncSlide {
+  from { left: -40%; }
+  to { left: 100%; }
 }
 
 /* --- Insights sweep: sticker cards + outlined time filter --- */
