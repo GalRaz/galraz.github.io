@@ -1998,13 +1998,13 @@ h2, .screen-header h2, .duel-game h2,
 .balance-label { color: rgba(255, 255, 255, 0.85); }
 .balance-amount { color: #fff; letter-spacing: -0.5px; }
 .balance-amount.positive { color: #ffffff; }
-.balance-amount.negative { color: #ffdcd4; }
+.balance-amount.negative { color: var(--sunny); }
 .balance-quote { color: rgba(255, 255, 255, 0.82); }
 .balance-hint { color: rgba(255, 255, 255, 0.7); }
 .balance-breakdown { border-top: 1px solid rgba(255, 255, 255, 0.35); }
 .balance-breakdown .currency-line { color: rgba(255, 255, 255, 0.9); }
-.balance-breakdown .currency-line.positive { color: #d9ffe6; }
-.balance-breakdown .currency-line.negative { color: #ffd9d0; }
+.balance-breakdown .currency-line.positive { color: #ffffff; }
+.balance-breakdown .currency-line.negative { color: var(--sunny); }
 
 /* --- On This Day polaroid: joins the sticker family --- */
 .otd-polaroid { border: 2px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }

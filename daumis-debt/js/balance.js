@@ -1363,6 +1363,20 @@ const STATIC_QUOTES = {
     ["Sell the guitar you don't play.", "Your debt has more life goals than you do.", "This amount of money could start a small cult. Just saying."],
     ["You don't have a relationship. You have a subprime loan with cuddling.", "Your debt is old enough to have opinions.", "Consider faking your own death. Financially speaking."]
   ],
+  // Reactions to a big CHANGE in the balance (not the level) — shown once
+  // when the balance moves a lot since the user last looked.
+  swingUp: [
+    "Whoa. Big swing your way. Someone's been busy settling up.",
+    "The tide just turned hard in your favor. Gloat responsibly.",
+    "Cha-ching. That's the sound of leverage shifting.",
+    "Someone paid up BIG. Today is a good day to suggest sushi."
+  ],
+  swingDown: [
+    "Oof. That's a big one. Deep breaths — it's only money. Your money.",
+    "Your balance just cannonballed into the deep end.",
+    "Whatever that was, it better have been legendary.",
+    "That expense didn't tiptoe in. It kicked the door down."
+  ],
   theyOwe: [
     ["They owe you pocket change. Bring it up constantly anyway.", "Petty? No. Financially vigilant? Absolutely.", "It's the principle. The tiny, tiny principle."],
     ["Leave this app open on the toilet. They'll see it.", "That's a date night THEY'RE planning AND paying for.", "You're owed a massage. Don't let them use their elbows though."],
@@ -1380,8 +1394,14 @@ let _dailyQuotes = null;
 // yesterday's dynamic quotes if today's haven't been fetched yet.
 try {
   const raw = localStorage.getItem(QUOTES_KEY);
-  if (raw) _dailyQuotes = JSON.parse(raw);
-} catch (e) {}
+  if (raw) {
+    _dailyQuotes = JSON.parse(raw);
+    // Re-sanitize cached quotes too — covers batches cached before the
+    // taste filter existed (or filter updates since).
+    if (validateQuotes(_dailyQuotes)) sanitizeQuotes(_dailyQuotes);
+    else _dailyQuotes = null;
+  }
+} catch (e) { _dailyQuotes = null; }
 
 // Kick off a background fetch of today's quotes. No await — the first render
 // will use whatever's already in localStorage (or static); later renders pick
@@ -1394,6 +1414,7 @@ try {
     if (!res.ok) return;
     const data = await res.json();
     if (!validateQuotes(data)) return;
+    sanitizeQuotes(data);
     _dailyQuotes = data;
     try { localStorage.setItem(QUOTES_KEY, JSON.stringify(data)); } catch (e) {}
   } catch (e) {}
@@ -1401,6 +1422,22 @@ try {
 
 function todayUTC() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Taste filter for the daily (news-riff) taglines. The generator is asked
+// to stay light, but this is the hard backstop: any line touching war,
+// death, politics, tragedy, or discrimination gets replaced by the static
+// evergreen line for the same slot. Mutates the quotes object in place.
+const HEAVY_TOPICS = /\b(war|strikes?|bomb(ing)?|missile|troops?|military|dead|death|die[sd]?|kill(ed|ing)?|hostage|sanction(s|ed)?|racis[mt]|sexis[mt]|shooting|terror(ism|ist)?|funeral|cancer|pandemic|famine|invasion|nuclear|genocide|coup|riots?|massacre|assault|suicide|overdose|posthumous(ly)?|obituar(y|ies)|passed away|glacier|wildfire|earthquake|hurricane|typhoon|flood(s|ing)?|disaster|catastroph(e|ic)|collaps(e|ed|ing)|extinct(ion)?|trump|biden|putin|rubio|congress|senate|parliament|white house|kremlin|election|impeach|iran|israel|gaza|russia|ukraine|north korea)\b/i;
+
+function sanitizeQuotes(d) {
+  const clean = (line, fallbackPool, i) =>
+    HEAVY_TOPICS.test(line) ? fallbackPool[i % fallbackPool.length] : line;
+  d.settled = d.settled.map((q, i) => clean(q, STATIC_QUOTES.settled, i));
+  d.youOwe = d.youOwe.map((tier, t) => tier.map((q, i) => clean(q, STATIC_QUOTES.youOwe[t], i)));
+  d.theyOwe = d.theyOwe.map((tier, t) => tier.map((q, i) => clean(q, STATIC_QUOTES.theyOwe[t], i)));
+  if (Array.isArray(d.swingUp)) d.swingUp = d.swingUp.map((q, i) => clean(q, STATIC_QUOTES.swingUp, i));
+  if (Array.isArray(d.swingDown)) d.swingDown = d.swingDown.map((q, i) => clean(q, STATIC_QUOTES.swingDown, i));
 }
 
 function validateQuotes(d) {
@@ -1427,10 +1464,22 @@ function _quotesAreFresh(q) {
   return q.date === yest;
 }
 
-function getBalanceQuote(balance) {
+function getBalanceQuote(balance, swing) {
   const abs = Math.abs(balance);
   const day = Math.floor(Date.now() / 86400000);
   const quotes = _quotesAreFresh(_dailyQuotes) ? _dailyQuotes : STATIC_QUOTES;
+
+  // Big swing since last look? React to the CHANGE, not the level.
+  // swingUp = moved in your favor (they paid you / owe you more);
+  // swingDown = moved against you (a big expense just landed on you).
+  if (swing) {
+    const pool = (swing === 'up')
+      ? (quotes.swingUp || STATIC_QUOTES.swingUp)
+      : (quotes.swingDown || STATIC_QUOTES.swingDown);
+    if (Array.isArray(pool) && pool.length) {
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+  }
 
   if (abs < 1) return quotes.settled[day % quotes.settled.length];
 
@@ -1778,7 +1827,24 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
       // Append to end of balance card so it's always below everything
       balanceEl.appendChild(quoteEl);
     }
-    quoteEl.textContent = getBalanceQuote(consolidatedBalance);
+    // Detect a big swing since the last render (someone paid a lot, or a
+    // big expense landed) so the quote can react to the change itself.
+    // Compared in USD so the threshold means the same in every consolidation
+    // currency; only compared when the stored value used the same currency.
+    let swing = null;
+    try {
+      const SWING_KEY = 'daumis-debt-last-balance-v1';
+      const toUsd = consolCurrency === 'USD' ? 1 : consolToUsd;
+      const prev = JSON.parse(localStorage.getItem(SWING_KEY) || 'null');
+      if (prev && typeof prev.value === 'number' && prev.currency === consolCurrency) {
+        const deltaUsd = (consolidatedBalance - prev.value) * toUsd;
+        if (Math.abs(deltaUsd) >= 75) swing = deltaUsd > 0 ? 'up' : 'down';
+      }
+      localStorage.setItem(SWING_KEY, JSON.stringify({
+        value: consolidatedBalance, currency: consolCurrency, at: Date.now()
+      }));
+    } catch (_) {}
+    quoteEl.textContent = getBalanceQuote(consolidatedBalance, swing);
 
     // Apply mood theme
     applyMood(consolidatedBalance);
