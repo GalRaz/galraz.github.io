@@ -123,6 +123,14 @@ body {
   font-style: italic; line-height: 1.4;
 }
 
+/* Note explaining how much of the balance change was pure currency movement.
+   Deliberately quiet — it only appears when FX actually moved the total. */
+.balance-fx {
+  margin-top: 10px; font-size: 0.72rem; color: var(--text-muted);
+  line-height: 1.35; opacity: 0.85;
+}
+.balance-fx.hidden { display: none; }
+
 .balance-breakdown {
   margin-top: 16px; padding-top: 16px;
   border-top: 1px solid var(--surface-2);

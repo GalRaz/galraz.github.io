@@ -1291,6 +1291,58 @@ function saveBalanceSnapshot({ labelText, amountText, amountClass }) {
   } catch (e) {}
 }
 
+// ===== FX drift =====
+// The consolidated total is re-converted at live rates on every load, so it
+// moves even when nobody adds an expense. With large offsetting positions in
+// different currencies (owing yen while being owed dollars, say) a 2% currency
+// move can swing the net by 15%, which reads as a phantom charge. We snapshot
+// the position + the rates used, and on later loads report how much of the
+// change was purely currency movement.
+
+const FX_BASELINE_KEY = 'daumis-debt-fx-baseline';
+const FX_BASELINE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // roll the baseline daily
+const FX_MIN_AGE_MS = 60 * 60 * 1000;               // don't report within the hour
+
+function _readFxBaseline() {
+  try { return JSON.parse(localStorage.getItem(FX_BASELINE_KEY) || 'null'); }
+  catch (e) { return null; }
+}
+
+function _writeFxBaseline(balances, rates, consol) {
+  try {
+    localStorage.setItem(FX_BASELINE_KEY, JSON.stringify({
+      at: Date.now(), balances, rates, consol
+    }));
+  } catch (e) {}
+}
+
+/**
+ * Pure FX drift since the baseline:  Σ prevBalance[c] × (rateNow[c] − ratePrev[c])
+ *
+ * Using the PREVIOUS positions is what isolates currency movement — expenses
+ * added since the baseline aren't in those positions, so they don't count here.
+ * Returns the drift in the consolidation currency, or null if not computable.
+ */
+function _fxDriftSince(baseline, ratesNow) {
+  if (!baseline || !baseline.balances || !baseline.rates) return null;
+  let delta = 0, matched = 0;
+  for (const [cur, amt] of Object.entries(baseline.balances)) {
+    const rPrev = baseline.rates[cur];
+    const rNow = ratesNow[cur];
+    if (typeof rPrev !== 'number' || typeof rNow !== 'number') continue;
+    delta += amt * (rNow - rPrev);
+    matched++;
+  }
+  return matched ? delta : null;
+}
+
+function _fxSinceLabel(ts) {
+  const hours = (Date.now() - ts) / 3600000;
+  if (hours < 20) return 'since earlier today';
+  if (hours < 44) return 'since yesterday';
+  return `over the last ${Math.round(hours / 24)} days`;
+}
+
 const CURRENCY_SYMBOLS = {
   USD:'$', EUR:'€', GBP:'£', JPY:'¥', THB:'฿', BTN:'Nu ', TWD:'NT$', KRW:'₩',
   CNY:'¥', INR:'₹', AUD:'A$', CAD:'C$', CHF:'Fr', SGD:'S$', HKD:'HK$', NZD:'NZ$',
@@ -1872,6 +1924,47 @@ export async function loadDashboard(forceRefresh = false, opts = {}) {
       }));
     } catch (_) {}
     quoteEl.textContent = getBalanceQuote(consolidatedBalance, swing);
+
+    // How much of the change since the baseline was pure currency movement?
+    // Shown only when it's big enough to matter relative to the total, so it
+    // stays quiet on normal days and speaks up when FX actually moved things.
+    let fxEl = balanceEl.querySelector('.balance-fx');
+    if (!fxEl) {
+      fxEl = document.createElement('p');
+      fxEl.className = 'balance-fx';
+      balanceEl.insertBefore(fxEl, quoteEl);
+    }
+    const fxBaseline = _readFxBaseline();
+    let fxText = '';
+    if (fxBaseline && fxBaseline.consol === consolCurrency) {
+      const drift = _fxDriftSince(fxBaseline, rateCache);
+      const age = Date.now() - fxBaseline.at;
+      // Threshold on GROSS exposure, not the net. Drift scales with the gross
+      // positions, and the net can be a small difference between large legs
+      // (owing ¥1M while owed $5k) — so a net-based threshold would fire on
+      // every trivial wiggle. 0.25% of gross keeps it quiet until FX genuinely
+      // moved things. Gross is already in the consolidation currency, so this
+      // scales correctly whether the user totals in USD, JPY or anything else.
+      let grossExposure = 0;
+      for (const [cur, amt] of Object.entries(currencyBalances)) {
+        const r = rateCache[cur];
+        if (typeof r === 'number') grossExposure += Math.abs(amt * r);
+      }
+      const threshold = Math.max(1, grossExposure * 0.0025);
+      if (drift !== null && age >= FX_MIN_AGE_MS && Math.abs(drift) >= threshold) {
+        const sign = drift >= 0 ? '+' : '−';
+        fxText = `💱 ${sign}${symbol}${formatAmountByDigits(Math.abs(drift))} of this is exchange-rate movement ${_fxSinceLabel(fxBaseline.at)}`;
+      }
+    }
+    fxEl.textContent = fxText;
+    fxEl.classList.toggle('hidden', !fxText);
+
+    // Roll the baseline forward once a day (or if the consolidation currency
+    // changed) so the note always compares against a recent reference point.
+    if (!fxBaseline || fxBaseline.consol !== consolCurrency ||
+        (Date.now() - fxBaseline.at) > FX_BASELINE_MAX_AGE_MS) {
+      _writeFxBaseline(currencyBalances, rateCache, consolCurrency);
+    }
 
     // Apply mood theme — swing-aware so the emoji burst reacts to big jumps
     applyMood(consolidatedBalance, swing);
