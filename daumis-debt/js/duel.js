@@ -216,7 +216,7 @@ async function renderDuelHistory(container) {
         <div class="duel-score-player">
           <div class="duel-score-name">${partnerName}</div>
           <div class="duel-score-val${partnerWins > myWins ? ' winning' : ''}">${partnerWins}</div>
-          <div class="duel-score-note">${myBalance < 0 ? balanceNote.replace('-', '') + ' ahead' : ''}</div>
+          <div class="duel-score-note">${myBalance < 0 ? `+$${Math.abs(myBalance)} ahead` : ''}</div>
         </div>
       </div>
       <div class="duel-history-section">
