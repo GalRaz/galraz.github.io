@@ -413,7 +413,7 @@ function _renderActivityList(events, myUid) {
     const actorName = ev.actor === myUid ? 'You' : (ev.actor ? getUserName(ev.actor) : '—');
     const verb   = _eventVerb(ev.kind, item);
     const target = _eventTarget(item);
-    const { glyph, cls: iconKindCls } = _eventIcon(ev.kind, item);
+    const { glyph } = _eventIcon(ev.kind, item);
     const iconTypeCls = item?.type || '';
     const eventCls = ev.kind === 'edit' ? ' edit-event' : (ev.kind === 'delete' ? ' delete-event' : '');
     const { html: amtText, cls: amtCls } = amountFor(item);
