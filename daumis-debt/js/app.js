@@ -3,6 +3,10 @@ import { db } from './firebase-config.js';
 import { convertToUSD } from './exchange.js';
 import { categorize } from './balance.js';
 
+function _escape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
 /**
  * Save or update the current user's profile in the `users` collection.
  * Called on every login so partner lookups always have the latest email + name.
@@ -706,7 +710,7 @@ async function loadRecurringList() {
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:6px;cursor:pointer;';
       div.innerHTML = `
         <div>
-          <div style="font-size:0.9rem;font-weight:500">${item.description}</div>
+          <div style="font-size:0.9rem;font-weight:500">${_escape(item.description)}</div>
           <div style="font-size:0.75rem;color:var(--text-muted)">${sym}${item.amount.toLocaleString()} · ${freqLabel} · next: ${dateStr}</div>
         </div>
         <span style="color:var(--text-muted);font-size:1rem">›</span>`;
@@ -1803,8 +1807,8 @@ async function renderSettleUp() {
     // The hero headline — use "you" on the viewer's side so the sentence
     // reads naturally regardless of the viewer's display name.
     const label = iOweNet
-      ? `You owe ${partnerName}, net`
-      : `${partnerName} owes you, net`;
+      ? `You owe ${_escape(partnerName)}, net`
+      : `${_escape(partnerName)} owes you, net`;
 
     // Per-row meta: just direction. Percentages were removed because rows can
     // point in opposite directions ("you owe €100" + "they owe you $100"),
@@ -1855,7 +1859,7 @@ function renderSettleZero({ firstLoad = false, settledCount = 0 } = {}) {
   const partnerName = getUserName(getPartnerUid());
   const body = firstLoad
     ? `All settled. Nothing to pay.`
-    : `You don’t owe ${partnerName} a yen. ${partnerName} doesn’t owe you a yen.`;
+    : `You don’t owe ${_escape(partnerName)} a yen. ${_escape(partnerName)} doesn’t owe you a yen.`;
   const today = new Date();
   const stamp = `SETTLED ${today.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }).toUpperCase()} · ${today.getFullYear()}`;
   container.innerHTML = `
@@ -1892,8 +1896,8 @@ function onMarkPaidClick(currency) {
   if (row) row.classList.add('selected');
 
   const question = iOweThis
-    ? `Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usdAbs.toFixed(2)}) as paid to ${partnerName}?`
-    : `Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usdAbs.toFixed(2)}) as received from ${partnerName}?`;
+    ? `Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usdAbs.toFixed(2)}) as paid to ${_escape(partnerName)}?`
+    : `Mark <strong>${sym}${abs.toLocaleString()}</strong> (≈ ${consolSym}${usdAbs.toFixed(2)}) as received from ${_escape(partnerName)}?`;
 
   openSheet({
     title: 'Confirm',
@@ -1971,7 +1975,12 @@ async function confirmMarkPaid(currency, abs, usdAbs) {
       undoBtn.addEventListener('click', async () => {
         undone = true;
         clearTimeout(timer);
-        try { await db.collection('payments').doc(docRef.id).delete(); } catch (e) {}
+        try {
+          await db.collection('payments').doc(docRef.id).update({
+            deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            deletedBy: currentUser.uid
+          });
+        } catch (e) {}
         invalidateAllCaches();
         renderSettleUp();
       });
@@ -2305,34 +2314,11 @@ async function loadInsights(period) {
       ? expenses.filter(e => e.date >= thirtyDaysAgo)
       : expenses;
 
-    function categorizeLocal(desc) {
-      if (!desc) return { icon: '$', label: 'other' };
-      const d = desc.toLowerCase();
-      const cats = [
-        { keywords: ['grocery','groceries','supermarket','market','produce','trader joe','whole foods','lawson','conbini','7/11','7-11','jmart','vegg','fruit','egg','milk','bread','rice','olive oil','seaweed','detergent','snack'], icon: '🛒', label: 'groceries' },
-        { keywords: ['restaurant','dinner','lunch','breakfast','cafe','coffee','eat','sushi','pizza','burger','ramen','noodle','brunch','bistro','datshi','thai','korean','japanese','indian','chinese','mexican','italian','pastry','bakery','bar','pub','beer','wine','drink','cocktail','boba','bubble tea','tea','matcha','latte','cappuccino','capuccino','falafel','kebab','hummus','salad','momo','dosa','paneer','shabu','chipotle','mcdo','ice cream','cookie','chocolate','yogurt','smoothie','soho','munch','dimsum','wok'], icon: '🍽️', label: 'dining' },
-        { keywords: ['flight','flights','airline','airport','plane','boarding','eurowings','eva air','air'], icon: '✈️', label: 'flights' },
-        { keywords: ['hotel','hostel','airbnb','accommodation','stay','booking','resort','room upgrade'], icon: '🏨', label: 'lodging' },
-        { keywords: ['uber','lyft','taxi','cab','bus','train','metro','subway','transport','transit','grab','bolt','driver','sim card','data'], icon: '🚕', label: 'transport' },
-        { keywords: ['gas','fuel','petrol','parking','car','rental','toll','suv'], icon: '⛽', label: 'auto' },
-        { keywords: ['movie','cinema','ticket','concert','show','museum','park','tour','attraction','entertainment','game','entrance','festival','spa','massage','hot stone','spotify'], icon: '🎬', label: 'entertainment' },
-        { keywords: ['rent','electric','electricity','water','internet','wifi','utility','utilities','bill','phone','laundry','household','house stuff','machine','fitlab'], icon: '🏠', label: 'housing' },
-        { keywords: ['doctor','hospital','medicine','pharmacy','health','medical','dental','drugstore'], icon: '💊', label: 'health' },
-        { keywords: ['clothes','clothing','shoes','shirt','dress','shopping','mall','store','shop','uniqlo'], icon: '🛍️', label: 'shopping' },
-        { keywords: ['gift','present','birthday','anniversary','bday','tip'], icon: '🎁', label: 'gifts' },
-        { keywords: ['splitwise','balance','transfer','settle','cash','money exchange','pay off'], icon: '📊', label: 'balance' },
-      ];
-      for (const cat of cats) {
-        if (cat.keywords.some(kw => d.includes(kw))) return cat;
-      }
-      return { icon: '$', label: 'other' };
-    }
-
     // --- Category breakdown ---
     const catTotals = {};
     const catIcons = {};
     filtered.forEach(e => {
-      const cat = categorizeLocal(e.description);
+      const cat = categorize(e.description);
       if (!catTotals[cat.label]) { catTotals[cat.label] = 0; catIcons[cat.label] = cat.icon; }
       catTotals[cat.label] += (e.usdAmount || e.amount || 0);
     });
@@ -2383,7 +2369,7 @@ async function loadInsights(period) {
 
     const catCounts = {};
     filtered.forEach(e => {
-      const cat = categorizeLocal(e.description);
+      const cat = categorize(e.description);
       catCounts[cat.label] = (catCounts[cat.label] || 0) + 1;
     });
     const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
@@ -2471,7 +2457,7 @@ async function loadInsights(period) {
     if (topCat) html += `<div class="stat-row"><span class="stat-label">Top category</span><span class="stat-value">${catIcons[topCat[0]]} ${topCat[0]} (${topCat[1]}x)</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">Total expenses</span><span class="stat-value">${filtered.length}</span></div>`;
     const myName = getUserName(currentUser.uid);
-    html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">${myName} ${galWins} — ${daumWins} ${partnerName}</span></div>`;
+    html += `<div class="stat-row"><span class="stat-label">Duel record</span><span class="stat-value">${_escape(myName)} ${galWins} — ${daumWins} ${_escape(partnerName)}</span></div>`;
     html += `<div class="stat-row"><span class="stat-label">Avg daily spend</span><span class="stat-value">${fmtDec(avgDaily)}/day</span></div>`;
     html += '</div>';
 
