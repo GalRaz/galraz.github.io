@@ -4,7 +4,7 @@
 // Production hosts are completely unaffected.
 const IS_LOCAL_DEV = ['localhost', '127.0.0.1'].includes(self.location.hostname);
 
-const CACHE_NAME = 'daumis-debt-v53';
+const CACHE_NAME = 'daumis-debt-v54';
 const ASSETS = [
   '/daumis-debt/',
   '/daumis-debt/index.html',
@@ -16,6 +16,7 @@ const ASSETS = [
   '/daumis-debt/js/duel.js',
   '/daumis-debt/js/duel-logic.js',
   '/daumis-debt/js/recurring.js',
+  '/daumis-debt/js/push.js',
   '/daumis-debt/js/games/coin-flip.js',
   '/daumis-debt/js/games/wheel.js',
   '/daumis-debt/js/games/rps.js',
