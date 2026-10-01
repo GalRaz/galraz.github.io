@@ -543,7 +543,7 @@ function _rerenderList(myUid, totalBalance) {
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
-            <div class="entry-desc">${descText}${recurBadge}</div>
+            <div class="entry-desc">${_escape(descText)}${recurBadge}</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -1330,8 +1330,8 @@ export function categorize(description) {
     { keywords: ['hotel', 'hostel', 'airbnb', 'accommodation', 'stay', 'booking', 'resort', 'room upgrade'], icon: '🏨', label: 'lodging' },
     { keywords: ['uber', 'lyft', 'taxi', 'cab', 'bus', 'train', 'metro', 'subway', 'transport', 'transit', 'grab', 'bolt', 'driver', 'sim card', 'data'], icon: '🚕', label: 'transport' },
     { keywords: ['gas', 'fuel', 'petrol', 'parking', 'car', 'rental', 'toll', 'suv'], icon: '⛽', label: 'auto' },
-    { keywords: ['movie', 'cinema', 'ticket', 'concert', 'show', 'museum', 'park', 'tour', 'attraction', 'entertainment', 'game', 'entrance', 'festival', 'spa', 'massage', 'hot stone'], icon: '🎬', label: 'entertainment' },
-    { keywords: ['rent', 'electric', 'electricity', 'water', 'internet', 'wifi', 'utility', 'utilities', 'bill', 'phone', 'spotify', 'laundry', 'household', 'house stuff', 'machine', 'fitlab'], icon: '🏠', label: 'housing' },
+    { keywords: ['movie', 'cinema', 'ticket', 'concert', 'show', 'museum', 'park', 'tour', 'attraction', 'entertainment', 'game', 'entrance', 'festival', 'spa', 'massage', 'hot stone', 'spotify'], icon: '🎬', label: 'entertainment' },
+    { keywords: ['rent', 'electric', 'electricity', 'water', 'internet', 'wifi', 'utility', 'utilities', 'bill', 'phone', 'laundry', 'household', 'house stuff', 'machine', 'fitlab'], icon: '🏠', label: 'housing' },
     { keywords: ['doctor', 'hospital', 'medicine', 'pharmacy', 'health', 'medical', 'dental', 'drugstore'], icon: '💊', label: 'health' },
     { keywords: ['clothes', 'clothing', 'shoes', 'shirt', 'dress', 'shopping', 'mall', 'store', 'shop', 'uniqlo'], icon: '🛍️', label: 'shopping' },
     { keywords: ['gift', 'present', 'birthday', 'anniversary', 'bday', 'tip'], icon: '🎁', label: 'gifts' },
@@ -2173,7 +2173,7 @@ function renderOnThisDay(items) {
         <span class="otd-tag">On this day · ${timeLabel}</span>
         <button class="otd-dismiss" id="otd-dismiss">×</button>
       </div>
-      <div class="otd-desc">${memory.description}</div>
+      <div class="otd-desc">${_escape(memory.description)}</div>
       <div class="otd-details">
         <span class="otd-date">${dateStr}</span>
         <span class="otd-amount">${amount}</span>
