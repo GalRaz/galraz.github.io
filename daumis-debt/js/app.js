@@ -2539,6 +2539,45 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+/**
+ * Populate `userNames` from the `users` collection.
+ * @param {'cache'|'server'} source  'cache' falls back to the network when
+ *   the cache is empty or unavailable; 'server' leaves names untouched on failure.
+ * @returns {Promise<boolean>} true if any name changed.
+ */
+async function loadUserProfiles(source) {
+  try {
+    let usersSnap;
+    if (source === 'server') {
+      usersSnap = await db.collection('users').get({ source: 'server' });
+    } else {
+      usersSnap = await db.collection('users').get({ source: 'cache' })
+        .then(s => s.empty ? db.collection('users').get() : s)
+        .catch(() => db.collection('users').get());
+    }
+    let changed = false;
+    usersSnap.forEach((doc) => {
+      const data = doc.data();
+      let name;
+      if (data.displayName) {
+        name = data.displayName;
+      } else if (doc.id === currentUser.uid) {
+        name = currentUser.displayName || data.email || currentUser.email;
+      } else {
+        name = data.email || 'Partner';
+      }
+      if (userNames[doc.id] !== name) {
+        userNames[doc.id] = name;
+        changed = true;
+      }
+    });
+    return changed;
+  } catch (e) {
+    console.warn(`Could not load user profiles (${source}):`, e);
+    return false;
+  }
+}
+
 // --- App entry ---
 // Update the balance label with a load-progress stage — but only while it
 // still shows a loading state, never clobbering real data.
@@ -2571,24 +2610,8 @@ async function showApp() {
   // app open feel slow.
   hideSplash();
 
-  // Load user profiles (cache-first).
-  const userProfilesPromise = (async () => {
-    try {
-      const usersSnap = await db.collection('users').get({ source: 'cache' })
-        .then(s => s.empty ? db.collection('users').get() : s)
-        .catch(() => db.collection('users').get());
-      usersSnap.forEach((doc) => {
-        const data = doc.data();
-        if (data.displayName) {
-          userNames[doc.id] = data.displayName;
-        } else if (doc.id === currentUser.uid) {
-          userNames[doc.id] = currentUser.displayName || data.email || currentUser.email;
-        } else {
-          userNames[doc.id] = data.email || 'Partner';
-        }
-      });
-    } catch (e) { console.warn('Could not load user profiles:', e); }
-  })();
+  // Load user profiles (cache-first). Refreshed from the server below.
+  const userProfilesPromise = loadUserProfiles('cache');
 
   // Populate the dashboard cache-first BEFORE hiding the splash — otherwise
   // the user sees an empty shell on first load / when localStorage is stale.
@@ -2610,13 +2633,18 @@ async function showApp() {
   }
 
   // Background refresh so server data eventually reconciles with the cache.
-  // Skipped when we just fetched from the network above.
-  if (!cacheResult || !cacheResult.cacheEmpty) {
-    setTimeout(() => {
+  // User profiles are always re-read from the server: the cache-first read
+  // above never expires on its own, so a partner's nickname change would
+  // otherwise never show up on this device. The dashboard refresh is skipped
+  // when we just fetched it from the network above.
+  setTimeout(async () => {
+    const namesChanged = await loadUserProfiles('server');
+    if (namesChanged) updatePartnerNames();
+    if (namesChanged || !cacheResult || !cacheResult.cacheEmpty) {
       balanceMod.invalidateDataCache();
       balanceMod.loadDashboard(true);
-    }, 500);
-  }
+    }
+  }, 500);
 
   // Run backfill and recurring in background (don't block the UI)
   backfillPartnerUids().then(() => {
