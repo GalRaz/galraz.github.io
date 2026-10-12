@@ -62,9 +62,10 @@ export function getWeeklyGame(seed) {
   return picked;
 }
 
-/** Check if today is Wednesday or later in the week. */
+/** Check if today is Wednesday or later in the ISO week (Wed–Sun). */
 function isDuelDay() {
-  return new Date().getDay() >= 3; // 0=Sun, 3=Wed
+  const day = new Date().getDay();
+  return day === 0 || day >= 3; // 0=Sun, 3=Wed..6=Sat
 }
 
 /** Check if duels are enabled in shared settings. */
@@ -216,7 +217,7 @@ async function renderDuelHistory(container) {
         <div class="duel-score-player">
           <div class="duel-score-name">${partnerName}</div>
           <div class="duel-score-val${partnerWins > myWins ? ' winning' : ''}">${partnerWins}</div>
-          <div class="duel-score-note">${myBalance < 0 ? balanceNote.replace('-', '') + ' ahead' : ''}</div>
+          <div class="duel-score-note">${myBalance < 0 ? `+$${Math.abs(myBalance)} ahead` : ''}</div>
         </div>
       </div>
       <div class="duel-history-section">
