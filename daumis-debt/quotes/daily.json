@@ -1,74 +1,84 @@
 {
-  "date": "2026-10-12",
-  "generated_at": "2026-10-12T04:45:00Z",
-  "theme_notes": "Today's touchstones: the Nobel Economics Prize announced this morning; France heading for a Le Pen vs. Melenchon presidential runoff; Pakistan declaring a state of emergency as Imran Khan supporters march; Trump pressuring Ukraine to elect a new leader while the Pentagon quietly raises its Iran war troop count; and continued Houthi strikes.",
+  "date": "2026-10-13",
+  "generated_at": "2026-10-13T06:00:00Z",
+  "theme_notes": "Character.AI filed for bankruptcy and sold to Disney for $20M; Samsung and SK Hynix shed 6%+ on AI market fears; Netflix announced 5% staff cuts. News-flavored lines appear roughly every third entry; the rest are evergreen.",
   "settled": [
-    "The Nobel Economics Prize was announced today. The winner did not study your budget.",
-    "Le Pen and Melenchon both think they're owed something. Your balance, however, is zero.",
-    "Trump declared a ceasefire on energy. Your tab has also gone mysteriously quiet."
+    "You two solved the unsolvable. Try not to mess it up by going out tonight.",
+    "Character.AI went bankrupt with a billion dollars. You zeroed out with determination.",
+    "Balanced. This is what adults apparently look like. Strange but true."
   ],
   "youOwe": [
     [
-      "Under 50 bucks. The Nobel committee announced bigger prizes this morning.",
-      "Less than a protest permit in Khyber Pakhtunkhwa. Still owed.",
-      "Not enough to cover a Houthi drone's fuel. You're in the same ballpark, ethically."
+      "Under fifty. The debt is small. The audacity is not.",
+      "Less than a parking ticket. Somehow more humiliating.",
+      "Disney paid $20M for Character.AI. You owe less than rounding error. Still."
     ],
     [
-      "That's enough to fill a barrel of Trump's sanctioned Russian diesel.",
-      "France is heading for a Le Pen vs. Melenchon runoff. So is your debt.",
-      "Pakistan declared an emergency. Your partner is drafting one too."
+      "Triple digits. It officially graduated from rounding error to actual debt.",
+      "You're not broke. You're structurally opposed to settling up.",
+      "Netflix is cutting staff over budget issues. Same vibe, different scale."
     ],
     [
-      "Imran Khan's supporters marched for less. Adjust your scale accordingly.",
-      "This covers one Houthi airport closure, economically speaking.",
-      "Trump pressured Ukraine to elect a new president. You can't elect to pay $300."
+      "Three hundred means this was definitely a choice.",
+      "The sweet spot where they're silently noting it but too polite to say.",
+      "Samsung dropped 6% today. Your partner's patience dropped more."
     ],
     [
-      "France's political spectrum can't agree on anything. They agree on this debt.",
-      "The Nobel Economics committee can model where this ends. Spoiler: badly.",
-      "Pakistan declared emergency over less organized chaos than your payment history."
+      "This is the tier where 'I'll get you back' stops being a vibe.",
+      "Somewhere between embarrassing and a conversation you keep postponing.",
+      "Character.AI raised $2.7B and still imploded. You're on a more intimate scale."
     ],
     [
-      "The Pentagon quietly raised the body count in Iran. Your partner quietly raised yours.",
-      "This funds one-third of a credible French presidential campaign. Choose wisely.",
-      "Trump negotiated with Russia for less political goodwill than you're spending here."
+      "At some point a tab becomes a lifestyle. You've crossed that line.",
+      "They still like you. They're keeping receipts.",
+      "Disney paid $20M for a bankrupt AI chatbot. You owe four figures to a human. Somehow worse."
     ],
     [
-      "Le Pen, Melenchon, and your partner all want something from you. One has a legal claim.",
-      "At this debt, the Houthis would consider you an international incident.",
-      "The Nobel should go to whoever loaned you this. That's who solved the hard problem."
+      "This debt has developed its own credit history.",
+      "Not a balance. A biography.",
+      "Character.AI's entire bankruptcy sale was $20M. You're closing in. As a liability."
     ]
   ],
   "theyOwe": [
     [
-      "Under $50. The Nobel economists call this 'rounding error territory.'",
-      "France spends more per exit poll. Collect it.",
-      "They owe less than a barrel of Trump's diesel deal. Still owed."
+      "They owe you under $50. The psychological weight alone is worth more.",
+      "The smallest debts are the ones nobody forgets. Science.",
+      "Samsung lost more value today in one hour. This is still yours to collect."
     ],
     [
-      "Enough that you notice. Not enough that they do. Classic power imbalance.",
-      "Le Pen's polling lead is thinner than this. Start by asking.",
-      "Imran Khan marched hundreds of miles for his cause. You could send a text."
+      "You're owed just enough to make a point. Use it wisely.",
+      "The tier where people say 'don't worry about it' and mean the opposite.",
+      "Netflix cut entire teams to fix their numbers. Yours need fixing too."
     ],
     [
-      "Pakistan declared an emergency over less. The flares are now lit.",
-      "That's more than the Houthis spend on press releases. And they're prolific.",
-      "Nobel-caliber money. The economics of this friendship are not working out."
+      "The official asking price of living rent-free in your head.",
+      "This debt has a personality now. It's not great.",
+      "Character.AI raised billions and still went broke. Remind them of that."
     ],
     [
-      "Trump pressured a whole country to swap presidents. You're just asking for $700.",
-      "France is heading to a runoff. So is this friendship if you don't collect.",
-      "The Pentagon quietly raised the tally. Raise your expectations of repayment."
+      "Big enough to matter. Small enough they hope you've forgotten.",
+      "This has moved from 'a thing' to 'a situation.'",
+      "Character.AI had real revenue and still collapsed. Your partner has your money and an excuse."
     ],
     [
-      "This is a Houthi-level grievance. Proportional response is now on the table.",
-      "The Nobel economics winner has a model for this. It does not predict voluntary repayment.",
-      "France is in political crisis. Your relationship has early warning signs."
+      "This stopped being personal around $1000. Now it's structural.",
+      "You've been more patient than any bank would be. They know it.",
+      "Disney paid $20M for a failed AI. Your partner owes thousands. One of you is collecting."
     ],
     [
-      "They owe you more than Russia's diesel deal cost diplomatically. Propose sanctions.",
-      "Le Pen and Melenchon together don't owe France this much. You have leverage.",
-      "At this level, you don't ask for it. You form a coalition."
+      "Five figures means this has entered consequence territory.",
+      "You didn't lend money. You financed someone's whole narrative.",
+      "Character.AI went from billions raised to $20M sold. Your partner is somewhere on that arc."
     ]
+  ],
+  "swingUp": [
+    "Cha-ching. Someone found their conscience.",
+    "The balance just moved dramatically in your direction. Savor it.",
+    "Character.AI never saw a swing like this. You have."
+  ],
+  "swingDown": [
+    "Whatever just happened, it better have been worth it.",
+    "Your tab just took a serious turn. Own it.",
+    "Netflix is restructuring. So, apparently, is your budget."
   ]
 }
