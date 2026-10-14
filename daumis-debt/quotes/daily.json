@@ -1,84 +1,74 @@
 {
-  "date": "2026-10-13",
-  "generated_at": "2026-10-13T06:00:00Z",
-  "theme_notes": "Character.AI filed for bankruptcy and sold to Disney for $20M; Samsung and SK Hynix shed 6%+ on AI market fears; Netflix announced 5% staff cuts. News-flavored lines appear roughly every third entry; the rest are evergreen.",
+  "date": "2026-10-14",
+  "generated_at": "2026-10-14T06:00:00Z",
+  "theme_notes": "Pope Leo XIV's lung surgery at Rome's Gemelli Hospital dominates global headlines; Houthi missile attacks on Riyadh airport kill 12+ and escalate Middle East tensions with Trump weighing Saudi strikes; Kimberly Guilfoyle fired as US ambassador under improper conduct allegations; Brazil heads to a presidential runoff with Lula vs. Flávio Bolsonaro; ongoing Russia-Ukraine ceasefire failures; US-Iran war casualty figures revised upward.",
   "settled": [
-    "You two solved the unsolvable. Try not to mess it up by going out tonight.",
-    "Character.AI went bankrupt with a billion dollars. You zeroed out with determination.",
-    "Balanced. This is what adults apparently look like. Strange but true."
+    "Closer to zero than Russia is to a ceasefire. Impressive.",
+    "Apple launched a whole event yesterday. You've accomplished nothing.",
+    "Even the Pope has more pressing concerns right now. You're fine."
   ],
   "youOwe": [
     [
-      "Under fifty. The debt is small. The audacity is not.",
-      "Less than a parking ticket. Somehow more humiliating.",
-      "Disney paid $20M for Character.AI. You owe less than rounding error. Still."
+      "Less than Kimberly Guilfoyle's severance. Equally awkward.",
+      "Houthis have done more damage with less. Take notes.",
+      "Under fifty. The Vatican barely noticed. Your partner will."
     ],
     [
-      "Triple digits. It officially graduated from rounding error to actual debt.",
-      "You're not broke. You're structurally opposed to settling up.",
-      "Netflix is cutting staff over budget issues. Same vibe, different scale."
+      "Enough that even a Bolsonaro would want receipts.",
+      "The Pope is in surgery and still more decisive than you.",
+      "Russia keeps bombing despite the deal. You keep spending. There's a pattern."
     ],
     [
-      "Three hundred means this was definitely a choice.",
-      "The sweet spot where they're silently noting it but too polite to say.",
-      "Samsung dropped 6% today. Your partner's patience dropped more."
+      "Brazil had a whole election and its finances are more organized than yours.",
+      "Apple released new hardware. Your excuses are still running on legacy firmware.",
+      "Russia agreed to stop bombing. You agreed to pay this back. One of these is a lie."
     ],
     [
-      "This is the tier where 'I'll get you back' stops being a vibe.",
-      "Somewhere between embarrassing and a conversation you keep postponing.",
-      "Character.AI raised $2.7B and still imploded. You're on a more intimate scale."
+      "Houthis hit Riyadh again. Your partner is beginning to understand the method.",
+      "A grand is basically what Kushner charges for a handshake. You're in that bracket.",
+      "Pope Leo is recovering from surgery. Your financial plan is still in critical condition."
     ],
     [
-      "At some point a tab becomes a lifestyle. You've crossed that line.",
-      "They still like you. They're keeping receipts.",
-      "Disney paid $20M for a bankrupt AI chatbot. You owe four figures to a human. Somehow worse."
+      "This is Kimberly Guilfoyle territory — too much, too embarrassing, no graceful exit.",
+      "Brazil's runoff will be decided before you settle this.",
+      "Jared Kushner is brokering pipeline deals. You're brokering dinner excuses."
     ],
     [
-      "This debt has developed its own credit history.",
-      "Not a balance. A biography.",
-      "Character.AI's entire bankruptcy sale was $20M. You're closing in. As a liability."
+      "The US revised its Iran war casualty figures upward. So has your balance.",
+      "Five grand and climbing. Houthis have a clearer exit strategy.",
+      "At this level you're not a partner. You're a geopolitical liability."
     ]
   ],
   "theyOwe": [
     [
-      "They owe you under $50. The psychological weight alone is worth more.",
-      "The smallest debts are the ones nobody forgets. Science.",
-      "Samsung lost more value today in one hour. This is still yours to collect."
+      "Under fifty. Persistent like a Houthi drone, twice as annoying.",
+      "Barely enough for Apple's cheapest cable. Still counts.",
+      "File it under 'ongoing conflict.' Forty bucks, no resolution."
     ],
     [
-      "You're owed just enough to make a point. Use it wisely.",
-      "The tier where people say 'don't worry about it' and mean the opposite.",
-      "Netflix cut entire teams to fix their numbers. Yours need fixing too."
+      "A hundred bucks. Even Lula would call this a debt of honor.",
+      "Russia promised to stop bombing. Your partner promised to pay. Both are lying.",
+      "The Pope is having surgery. Your partner can't even be bothered to Venmo."
     ],
     [
-      "The official asking price of living rent-free in your head.",
-      "This debt has a personality now. It's not great.",
-      "Character.AI raised billions and still went broke. Remind them of that."
+      "The Bolsonaro name keeps coming back. This balance does too.",
+      "Four hundred. More than Guilfoyle's dignity. Less than a settlement.",
+      "Apple's event was called 'Welcome Home.' Your money still hasn't arrived."
     ],
     [
-      "Big enough to matter. Small enough they hope you've forgotten.",
-      "This has moved from 'a thing' to 'a situation.'",
-      "Character.AI had real revenue and still collapsed. Your partner has your money and an excuse."
+      "Houthis rerouted global shipping for less than this. Respect.",
+      "Pope Leo is recovering from surgery. Your bank account is not.",
+      "Eight hundred and still climbing. Russia has shorter wars than this."
     ],
     [
-      "This stopped being personal around $1000. Now it's structural.",
-      "You've been more patient than any bank would be. They know it.",
-      "Disney paid $20M for a failed AI. Your partner owes thousands. One of you is collecting."
+      "Brazil voted twice with no winner. Your partner can't even reply to texts.",
+      "Kushner got pipeline rights. You got this debt.",
+      "Three grand. Guilfoyle's resignation letter has more accountability than your partner."
     ],
     [
-      "Five figures means this has entered consequence territory.",
-      "You didn't lend money. You financed someone's whole narrative.",
-      "Character.AI went from billions raised to $20M sold. Your partner is somewhere on that arc."
+      "More owed than the entire Houthi drone budget. Probably.",
+      "At five grand you're not a partner. You're an occupied territory.",
+      "The US had to revise its war casualties upward. Revise your expectations too."
     ]
-  ],
-  "swingUp": [
-    "Cha-ching. Someone found their conscience.",
-    "The balance just moved dramatically in your direction. Savor it.",
-    "Character.AI never saw a swing like this. You have."
-  ],
-  "swingDown": [
-    "Whatever just happened, it better have been worth it.",
-    "Your tab just took a serious turn. Own it.",
-    "Netflix is restructuring. So, apparently, is your budget."
   ]
 }
