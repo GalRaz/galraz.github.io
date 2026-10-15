@@ -543,7 +543,7 @@ function _rerenderList(myUid, totalBalance) {
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
-            <div class="entry-desc">${descText}${recurBadge}</div>
+            <div class="entry-desc">${_escape(descText)}${recurBadge}</div>
             <div class="entry-meta">${metaLine}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -578,7 +578,7 @@ function _rerenderList(myUid, totalBalance) {
         contentHTML = `
           <div class="entry-icon duel">⚔</div>
           <div class="entry-info">
-            <div class="entry-desc">${item.game || 'Duel'}</div>
+            <div class="entry-desc">${_escape(item.game || 'Duel')}</div>
             <div class="entry-meta">${duelMeta}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
@@ -2266,7 +2266,7 @@ function renderOnThisDay(items) {
         <span class="otd-tag">On this day · ${timeLabel}</span>
         <button class="otd-dismiss" id="otd-dismiss">×</button>
       </div>
-      <div class="otd-desc">${memory.description}</div>
+      <div class="otd-desc">${_escape(memory.description)}</div>
       <div class="otd-details">
         <span class="otd-date">${dateStr}</span>
         <span class="otd-amount">${amount}</span>
