@@ -1480,7 +1480,7 @@ function todayUTC() {
 // to stay light, but this is the hard backstop: any line touching war,
 // death, politics, tragedy, or discrimination gets replaced by the static
 // evergreen line for the same slot. Mutates the quotes object in place.
-const HEAVY_TOPICS = /\b(war|strikes?|bomb(ing)?|missile|troops?|military|dead|death|die[sd]?|kill(ed|ing)?|hostage|sanction(s|ed)?|racis[mt]|sexis[mt]|shooting|terror(ism|ist)?|funeral|cancer|pandemic|famine|invasion|nuclear|genocide|coup|riots?|massacre|assault|suicide|overdose|posthumous(ly)?|obituar(y|ies)|passed away|glacier|wildfire|earthquake|hurricane|typhoon|flood(s|ing)?|disaster|catastroph(e|ic)|collaps(e|ed|ing)|extinct(ion)?|trump|biden|putin|rubio|congress|senate|parliament|white house|kremlin|election|impeach|iran|israel|gaza|russia|ukraine|north korea)\b/i;
+const HEAVY_TOPICS = /\b(war|strikes?|bomb(ing)?|missile|troops?|military|dead|death|die[sd]?|kill(ed|ing)?|hostage|sanction(s|ed)?|racis[mt]|sexis[mt]|shooting|terror(ism|ist)?|funeral|cancer|pandemic|famine|invasion|nuclear|genocide|coup|riots?|massacre|assault|suicide|overdose|posthumous(ly)?|obituar(y|ies)|passed away|glacier|wildfire|earthquake|hurricane|typhoon|flood(s|ing)?|disaster|catastroph(e|ic)|collaps(e|ed|ing)|extinct(ion)?|trump|biden|putin|rubio|zelensky|congress|senate|parliament|white house|kremlin|election|impeach|iran|israel|gaza|russia|ukraine|north korea|houthis?|ceasefire|koch|midterm|bankrupt(cy)?|chapter\s*11)\b/i;
 
 function sanitizeQuotes(d) {
   const clean = (line, fallbackPool, i) =>
