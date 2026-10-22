@@ -85,7 +85,7 @@ export async function play(container, { year, week, seed }) {
     const remainder = ((targetFinal - startAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const totalAngle = spins * 2 * Math.PI + remainder;
 
-    function animate(now) {
+    async function animate(now) {
       const elapsed = now - start;
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
@@ -113,7 +113,7 @@ export async function play(container, { year, week, seed }) {
           resultEl.innerHTML = `<div class="duel-result">$0 — no change!</div>`;
         }
 
-        recordDuelResult({
+        await recordDuelResult({
           game: 'wheel',
           result: { value: resultSlice.value },
           balanceAdjust: Math.abs(resultSlice.value),
