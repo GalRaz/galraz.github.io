@@ -25,6 +25,8 @@ Current roles
 
 * **Advisor**, [Gaudiy, Inc.](https://gaudiy.com), Tokyo, Japan (2026&ndash;present)
 
+* **Advisor**, Shiba AI (2026&ndash;present)
+
 * **Researcher**, [Henkaku Center](https://www.henkaku.center/en), Chiba Institute of Technology, Japan (2024&ndash;present)
   * Leading research collaborations between Chiba Institute of Technology and Bhutan's sovereign wealth fund and government technology agencies
   * Integrating AI tooling into Chiba Tech's curricula with industry partners
