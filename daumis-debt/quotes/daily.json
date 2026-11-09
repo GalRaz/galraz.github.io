@@ -1,74 +1,86 @@
 {
-  "date": "2026-11-08",
-  "generated_at": "2026-11-08T10:00:00Z",
-  "theme_notes": "Democrats swept the 2026 midterms (biggest wave since 2008), Russell Brand convicted of rape awaiting sentencing, Houthi missiles hit Riyadh and Aramco, Stephen Miller named Trump's chief of staff after Susie Wiles fired, Netanyahu ousted as rival Eisenkot tapped to form Israel's government.",
+  "date": "2026-11-09",
+  "generated_at": "2026-11-09T10:00:00Z",
+  "theme_notes": "Evergreen couple humor, autumn vibes, pop culture (movies, pizza, space exploration, cats on the internet), no news-heavy references.",
   "settled": [
-    "Democrats swept the House and Senate. Your balance swept itself to zero. Good job.",
-    "Russell Brand got a verdict faster than your Venmo request got a response.",
-    "Settled. Like Netanyahu's political career. Messily, but done."
+    "Perfectly balanced. Like a cat on a fence. Majestic.",
+    "Zero owed. The fridge is full and nobody's mad. Peak existence.",
+    "All square. You two are disgustingly functional right now."
   ],
   "youOwe": [
     [
-      "Democrats flipped 40 seats. You can't flip $40.",
-      "Smaller than a midterm yard sign. You still ran this deficit.",
-      "Even Brand's hypothetical bail was bigger than this."
+      "Less than a fancy latte. But the principle matters, apparently.",
+      "A rounding error with feelings.",
+      "Pocket-lint money. Still counts."
     ],
     [
-      "Vance blamed the Iran war for losing the House. You blamed brunch. Same scale.",
-      "About the cost of one GOP post-mortem consolation cocktail. Very sad vibes.",
-      "A Houthi warning shot costs more. You're the warning."
+      "That's a nice dinner you owe. With dessert.",
+      "About the price of a really good pizza. You know what to do.",
+      "A respectable amount of oops."
     ],
     [
-      "Stephen Miller is now chief of staff. This debt is now your problem. Both things happened.",
-      "Democrats took the Senate on a wave. Your tab rides a sad little ripple.",
-      "That's real money. Not 'Aramco tower hit by a missile' money, but real."
+      "Getting into 'we need to talk' territory.",
+      "That could buy a weekend getaway. For one person. Not you.",
+      "Your partner just did the mental math and sighed."
     ],
     [
-      "Enough to fund a minor Houthi logistics order. Different priorities.",
-      "Susie Wiles got fired after one term. Consider this your performance review.",
-      "The GOP is in disarray figuring out what went wrong. So are your finances."
+      "A vet bill for a medium-drama cat. That's where you are.",
+      "This is an actual grown-up amount of money to owe someone you sleep next to.",
+      "You could furnish a small room with this debt. Cozy."
     ],
     [
-      "Trump just lost the House and Senate. You just lost this partnership's goodwill.",
-      "An Aramco tower took a missile and stayed standing. Your partner's patience won't.",
-      "Russell Brand is going to prison. Your financial reputation is heading somewhere similar."
+      "That's a used car. A small, sad used car, but still.",
+      "Your debt has its own area code now.",
+      "Somewhere, an accountant just felt a chill."
     ],
     [
-      "Democrats flipped the House AND Senate. You've flipped nothing but excuses for months.",
-      "Stephen Miller runs the White House now. Something runs you too. It's not reason.",
-      "Israel formed a new government in a week. You can't form a payment in three months."
+      "This is 'sell a kidney on the black market' levels. Metaphorically.",
+      "Congratulations, your tab has a comma in it.",
+      "At this point the debt is less a number and more a lifestyle."
     ]
   ],
   "theyOwe": [
     [
-      "Less than what the RNC spent trying to understand Tuesday. Both unsatisfying.",
-      "A Houthi missile costs more. This barely grazed you.",
-      "Brand's sentencing is tomorrow. Your partner's accountability is TBD."
+      "Barely a blip. But you earned that blip.",
+      "A coffee's worth of leverage. Use it wisely.",
+      "Tiny victory. Still a victory."
     ],
     [
-      "Vance said the quiet part loud. Your partner just said nothing.",
-      "Republicans lost 40 House seats and your partner can't locate $80. Comparable.",
-      "Aramco shrugged off a missile. You cannot shrug off this amount."
+      "Enough to fund a proper date night. On them.",
+      "Your partner owes you a really good meal and eye contact.",
+      "A modest but morally satisfying surplus."
     ],
     [
-      "Democrats took the House AND Senate. What exactly did your partner win?",
-      "Netanyahu got ousted from power. Your partner got a free $300 lunch apparently.",
-      "Brand is going to prison. This money is going... somewhere unspecified."
+      "That's real money. You could buy a houseplant empire.",
+      "They owe you enough for a spa day. Hint loudly.",
+      "You're officially the responsible one this month. Screenshot it."
     ],
     [
-      "An Aramco tower took a Houthi missile and kept standing. So can you. Barely.",
-      "Trump fired his chief of staff. Fire back with a payment request.",
-      "The Israeli government collapsed faster than your partner's memory of this debt."
+      "Your partner's debt could adopt a rescue dog. Just saying.",
+      "This is 'remember when you said you'd pay me back' money.",
+      "A four-figure IOU between partners. Bold move on their part."
     ],
     [
-      "Trump's approval is underwater. So is your financial security.",
-      "Democratic wave: biggest since 2008. This debt: biggest since you met them.",
-      "Houthi drones cost less per day. That's a war-economy number worth sitting with."
+      "They owe you a vacation. Not a weekend — a vacation.",
+      "That's more than some people's rent. Casually bring it up at dinner.",
+      "Your generosity has entered legendary status."
     ],
     [
-      "Democrats flipped the House, the Senate, and the narrative. Your partner won't flip you a dollar.",
-      "Brand got a 'sentence of some length.' Your partner deserves one too.",
-      "Israel formed a whole new government in days. You just need one bank transfer."
+      "At this point you're basically a bank. Start charging interest.",
+      "They owe you a comma. A big, fat, undeniable comma.",
+      "If this were a movie, the music would be very dramatic right now."
     ]
+  ],
+  "swingUp": [
+    "Whoa. The balance just did a backflip in your favor.",
+    "Cha-ching. That's the sound of leverage shifting.",
+    "The tide turned. You're on the good side of the ledger now.",
+    "Big energy shift. The spreadsheet gods smile upon you."
+  ],
+  "swingDown": [
+    "Whatever that was, it better have been legendary.",
+    "Your balance just took the express elevator down.",
+    "That was a plot twist nobody asked for.",
+    "Well. That escalated financially."
   ]
 }
