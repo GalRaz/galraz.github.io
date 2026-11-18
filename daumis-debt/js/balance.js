@@ -538,13 +538,13 @@ function _rerenderList(myUid, totalBalance) {
           displayAmt = `${sign}${fmtConsol(item, impact)}`;
         }
         const recurring = isRecurringCharge(item);
-        const descText = stripRecurringSuffix(item.description) || 'Expense';
+        const descText = _escape(stripRecurringSuffix(item.description) || 'Expense');
         const recurBadge = recurring ? ' <span class="recur-badge" title="Recurring">\u{1F501}</span>' : '';
         contentHTML = `
           <div class="entry-icon expense">${categorize(item.description).icon}</div>
           <div class="entry-info">
             <div class="entry-desc">${descText}${recurBadge}</div>
-            <div class="entry-meta">${metaLine}</div>
+            <div class="entry-meta">${_escape(metaLine)}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       } else if (item.type === 'payment') {
@@ -561,7 +561,7 @@ function _rerenderList(myUid, totalBalance) {
           <div class="entry-icon payment">↗</div>
           <div class="entry-info">
             <div class="entry-desc">Settle up</div>
-            <div class="entry-meta">${metaLine}</div>
+            <div class="entry-meta">${_escape(metaLine)}</div>
           </div>
           <div class="entry-amount ${isCredit ? 'credit' : 'debit'}">${displayAmt}</div>`;
       } else if (item.type === 'duel') {
